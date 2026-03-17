@@ -1,0 +1,145 @@
+<div class="page-container fade-in">
+    <div class="page-header">
+        <div class="header-title-section">
+            <i-lucide [img]="SproutIcon" class="page-icon"></i-lucide>
+            <div>
+                <h1>Growing Opportunities</h1>
+                <p class="subtitle">Explore diversification options and support programs for Riverland growers</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="opportunities-grid">
+        <!-- Opportunity Card 1 -->
+        <div class="opportunity-card hover-lift" (click)="openOpportunity(opportunities[0])">
+            <div class="card-content">
+                <h3 class="card-title">Olives: A Lower-Water Option for Riverland</h3>
+                <p class="card-description">
+                    Olive cultivation offers Riverland growers a drought-tolerant alternative that thrives in the
+                    region's warm Mediterranean climate. With water requirements 30-40% lower than wine grapes, olives
+                    present an attractive option for growers...
+                </p>
+                <div class="card-tags">
+                    <span class="tag">olives</span>
+                    <span class="tag">diversification</span>
+                    <span class="tag">water-efficiency</span>
+                </div>
+            </div>
+            <i-lucide [img]="ChevronRightIcon" class="card-arrow"></i-lucide>
+        </div>
+
+        <!-- Opportunity Card 2 -->
+        <div class="opportunity-card hover-lift" (click)="openOpportunity(opportunities[1])">
+            <div class="card-content">
+                <h3 class="card-title">Government Funding to Support Diversification</h3>
+                <p class="card-description">
+                    The South Australian Government and Central Cooperative Winery (CCW) have announced funding
+                    initiatives to help Riverland grape growers transition to more from low-value red grape varieties.
+                    Grants of up to $50,000 are available for...
+                </p>
+                <div class="card-tags">
+                    <span class="tag">funding</span>
+                    <span class="tag">government-support</span>
+                    <span class="tag">grants</span>
+                </div>
+            </div>
+            <i-lucide [img]="ChevronRightIcon" class="card-arrow"></i-lucide>
+        </div>
+
+        <!-- Opportunity Card 3 -->
+        <div class="opportunity-card hover-lift" (click)="openOpportunity(opportunities[2])">
+            <div class="card-content">
+                <h3 class="card-title">Alternative Varieties & Premium Markets</h3>
+                <p class="card-description">
+                    Mediterranean grape varieties like Nero d'Avola, Fiano, and Vermentino are gaining traction in the
+                    Riverland, offering growers access to premium markets with being better adapted to warming
+                    conditions. These varieties typically...
+                </p>
+                <div class="card-tags">
+                    <span class="tag">premium-varieties</span>
+                    <span class="tag">alternative-grapes</span>
+                    <span class="tag">organic</span>
+                </div>
+            </div>
+            <i-lucide [img]="ChevronRightIcon" class="card-arrow"></i-lucide>
+        </div>
+
+        <!-- Opportunity Card 4 -->
+        <div class="opportunity-card hover-lift" (click)="openOpportunity(opportunities[3])">
+            <div class="card-content">
+                <h3 class="card-title">Almonds & Precision Irrigation for Drought Resilience</h3>
+                <p class="card-description">
+                    SARDI and the SA Drought Hub have been researching precision irrigation techniques that match water
+                    application to actual canopy requirements. For almond growers, this approach has shown 15-20% water
+                    savings without yield...
+                </p>
+                <div class="card-tags">
+                    <span class="tag">almonds</span>
+                    <span class="tag">precision-irrigation</span>
+                    <span class="tag">drought-resilience</span>
+                </div>
+            </div>
+            <i-lucide [img]="ChevronRightIcon" class="card-arrow"></i-lucide>
+        </div>
+
+        <!-- Opportunity Card 5 -->
+        <div class="opportunity-card hover-lift" (click)="openOpportunity(opportunities[4])">
+            <div class="card-content">
+                <h3 class="card-title">Multi-Crop Strategies Amid Oversupply</h3>
+                <p class="card-description">
+                    Several successful Riverland growers have diversified their operations to include multiple crop
+                    types, reducing their exposure to single commodity price fluctuations. Examples include combining
+                    citrus with wine grapes, or adding oil...
+                </p>
+                <div class="card-tags">
+                    <span class="tag">multi-crop</span>
+                    <span class="tag">diversification</span>
+                    <span class="tag">risk-management</span>
+                </div>
+            </div>
+            <i-lucide [img]="ChevronRightIcon" class="card-arrow"></i-lucide>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Overlay -->
+<div class="modal-overlay" *ngIf="selectedOpportunity" (click)="closeOpportunity()">
+    <div class="modal-container" (click)="$event.stopPropagation()">
+        <button class="modal-close" (click)="closeOpportunity()">
+            <i-lucide [img]="XIcon"></i-lucide>
+        </button>
+
+        <div class="modal-content">
+            <h2 class="modal-title">{{ selectedOpportunity.title }}</h2>
+
+            <p class="modal-description">{{ selectedOpportunity.fullDescription }}</p>
+
+            <div class="modal-section">
+                <h3>Key Points</h3>
+                <ul class="key-points-list">
+                    <li *ngFor="let point of selectedOpportunity.keyPoints">{{ point }}</li>
+                </ul>
+            </div>
+
+            <div class="modal-tags">
+                <span class="tag" *ngFor="let tag of selectedOpportunity.tags">{{ tag }}</span>
+            </div>
+
+            <div class="modal-footer">
+                <h4>Source</h4>
+                <a [href]="selectedOpportunity.sourceUrl" target="_blank" class="source-link">
+                    {{ selectedOpportunity.source }}
+                    <i-lucide [img]="ExternalLinkIcon" class="external-icon"></i-lucide>
+                </a>
+            </div>
+
+            <div class="modal-disclaimer">
+                <h5>Note:</h5>
+                <p>This information is provided for educational purposes only. Always verify details with official
+                    sources and consult with qualified advisors before making business decisions.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+

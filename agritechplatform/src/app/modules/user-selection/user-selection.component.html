@@ -1,0 +1,33 @@
+<div class="user-selection-container">
+    <!-- Header Section -->
+    <div class="header-section">
+        <div class="logo-container">
+            <i-lucide [img]="LeafIcon" size="36" class="logo-icon" style="color: #2e7d32;"></i-lucide>
+            <div class="logo-text">
+                <h1>Promasecure</h1>
+                <p>AgriTech Platform</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Welcome Section -->
+    <div class="welcome-section">
+        <h2>Welcome Back</h2>
+        <p class="subtitle">Select your profile to continue</p>
+
+        <!-- User Grid -->
+        <div class="user-grid">
+            <div *ngFor="let user of users; let i = index" class="user-card" (click)="selectUser(user)"
+                [style.--bg-color]="getAvatarColor(i)">
+                <div class="user-avatar" [style.background]="getAvatarColor(i)">
+                    {{ getInitials(user.userName) }}
+                </div>
+                <div class="user-info">
+                    <h3>{{ user.userName }}</h3>
+                    <p class="farm-name">{{ user.farmName }}</p>
+                    <p class="location">{{ user.farmLocation }} • {{ user.primaryCropName }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,238 @@
+<div class="page-container fade-in">
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <p>Loading irrigation data...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error && !isLoading" class="error-banner">
+    <i-lucide [img]="AlertIcon" class="error-icon"></i-lucide>
+    <span>{{ error }}</span>
+    <button class="retry-btn" (click)="refreshData()">Retry</button>
+  </div>
+
+  <!-- Main Content -->
+  <div class="content-wrapper">
+    <div class="dashboard-grid">
+      <!-- Left Column: Controls & Map -->
+      <div class="left-column">
+        <div class="card header-card shadow-sm">
+          <div class="header-content">
+            <div class="title-group">
+              <div class="icon-box primary">
+                <i-lucide [img]="DropletIcon" class="page-icon"></i-lucide>
+              </div>
+              <div>
+                <h1>Water & Irrigation</h1>
+                <p class="subtitle">Real-time hydration monitoring</p>
+              </div>
+            </div>
+
+            <div class="block-selector">
+              <span class="label">SELECT BLOCK</span>
+              <select [(ngModel)]="selectedBlockLan" (ngModelChange)="onBlockChange($event)" class="block-dropdown">
+                <option *ngFor="let block of blocks" [value]="block.lan">
+                  {{ block.name }}
+                </option>
+              </select>
+            </div>
+
+            <div class="location-picker">
+              <div class="coords-input">
+                <div class="field">
+                  <span class="label">LAT</span>
+                  <input type="number" [(ngModel)]="latitude" step="0.001">
+                </div>
+                <div class="field">
+                  <span class="label">LON</span>
+                  <input type="number" [(ngModel)]="longitude" step="0.001">
+                </div>
+              </div>
+              <button class="action-btn primary" (click)="updateLocationOnMap()" [disabled]="isLoading">
+                <i-lucide [img]="SearchIcon" *ngIf="!isLoading"></i-lucide>
+                <div class="spinner-sm" *ngIf="isLoading"></div>
+                <span>Update</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="map-wrapper card shadow-md">
+          <div id="map"></div>
+          <div class="map-overlay" *ngIf="error">
+            <div class="error-msg">
+              <i-lucide [img]="AlertIcon"></i-lucide>
+              {{ error }}
+            </div>
+          </div>
+        </div>
+
+        <ng-container *ngIf="irrigationStatus">
+          <div class="analysis-card card shadow-sm">
+            <div class="card-title">
+              <i-lucide [img]="ActivityIcon"></i-lucide>
+              <h3>Soil Moisture Profile</h3>
+            </div>
+            <div class="soil-profile">
+              <div *ngFor="let reading of irrigationStatus.soilReadings" class="depth-item">
+                <div class="depth-info">
+                  <span class="depth-val">{{ reading.depth }}cm</span>
+                  <span class="depth-status" [ngClass]="reading.status">{{ reading.status }}</span>
+                </div>
+                <div class="progress-track">
+                  <div class="progress-fill" [style.width.%]="reading.moisture" [ngClass]="reading.status"></div>
+                </div>
+                <span class="moisture-pct">{{ reading.moisture }}%</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="soil-info-card card shadow-sm" *ngIf="irrigationStatus.soilData">
+            <div class="card-title">
+              <i-lucide [img]="LayersIcon"></i-lucide>
+              <h3>Soil Composition ({{ irrigationStatus.soilData.Region }})</h3>
+            </div>
+            <div class="soil-details">
+              <div class="soil-detail-item">
+                <span class="label">Primary Soil</span>
+                <span class="value">{{ irrigationStatus.soilData.Primary_Soil_Classification }} ({{
+                  irrigationStatus.soilData.Primary_Soil_Value }}%)</span>
+              </div>
+              <div class="soil-detail-item">
+                <span class="label">Secondary Soil</span>
+                <span class="value">{{ irrigationStatus.soilData.Secondary_Soil_Classification }} ({{
+                  irrigationStatus.soilData.Secondary_Soil_Value }}%)</span>
+              </div>
+              <div class="soil-detail-item">
+                <span class="label">Tertiary Soil</span>
+                <span class="value">{{ irrigationStatus.soilData.Tertiary_Soil_Classification }} ({{
+                  irrigationStatus.soilData.Tertiary_Soil_Value }}%)</span>
+              </div>
+              <div class="soil-detail-item">
+                <span class="label">Weighted Soil Factor</span>
+                <span class="value" [ngClass]="getWaterHoldingClass(irrigationStatus.soilFactor || 1)">
+                  {{ irrigationStatus.soilFactor | number:'1.2-2' }}
+                  ({{ getWaterHoldingLabel(irrigationStatus.soilFactor || 1) }})
+                </span>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+      </div>
+
+      <!-- Right Column: Metrics & Data -->
+      <div class="right-column">
+        <ng-container *ngIf="irrigationStatus">
+          <!-- Status Overview -->
+          <div class="status-summary card shadow-sm" [ngClass]="getStatusBgColor(irrigationStatus.status)">
+            <div class="summary-header">
+              <div class="status-indicator-large" [ngClass]="irrigationStatus.status"></div>
+              <div>
+                <span class="tag">Field Status</span>
+                <h2>{{ irrigationStatus.status | titlecase }}</h2>
+              </div>
+            </div>
+            <p class="recommendation-msg">{{ irrigationStatus.irrigationMessage }}</p>
+          </div>
+
+          <!-- Calculation Logic Explanation (DYNAMIC) -->
+          <div class="logic-card card shadow-sm" *ngIf="irrigationStatus">
+            <div class="card-title">
+              <i-lucide [img]="ActivityIcon"></i-lucide>
+              <h3>Irrigation Calculation Formula</h3>
+            </div>
+            <div class="formula-container">
+              <div class="formula-box">
+                <code>ETc = ET₀ ({{ irrigationStatus.et0Today | number:'1.1-1' }}) × Kc ({{ irrigationStatus.kcValue | number:'1.2-2' }}) = {{ (irrigationStatus.et0Today * irrigationStatus.kcValue) | number:'1.1-1' }}mm</code>
+                <code>Deficit = ETc - Rain ({{ irrigationStatus.rainToday | number:'1.1-1' }}mm) = {{ irrigationStatus.netIrrigation | number:'1.1-1' }}mm</code>
+                <code>Adjusted = Deficit / SoilFactor ({{ irrigationStatus.soilFactor | number:'1.2-2' }}) = {{ (irrigationStatus.irrigationNeeded / 0.01) | number:'1.1-1' }}mm</code>
+                <div class="formula-result">
+                  <span class="final-label">Final ML/ha:</span>
+                  <span class="final-value">{{ irrigationStatus.irrigationNeeded | number:'1.3-3' }} ML/ha</span>
+                </div>
+              </div>
+              <div class="formula-legend">
+                <p>• <strong>ETc:</strong> Crop water loss today</p>
+                <p>• <strong>Kc:</strong> Vineyard crop coefficient ({{ irrigationStatus.kcValue | number:'1.2-2' }})
+                </p>
+                <p>• <strong>Soil Factor:</strong> Adjustment for {{
+                  irrigationStatus.soilData?.Primary_Soil_Classification || 'soil' }} drainage</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Metrics -->
+          <div class="metrics-row">
+            <div class="mini-card shadow-sm">
+              <div class="mini-icon blue"><i-lucide [img]="WavesIcon"></i-lucide></div>
+              <div class="mini-data">
+                <span class="val">{{ irrigationStatus.currentHydration | number:'1.1-1' }}%</span>
+                <span class="lab">Hydration</span>
+              </div>
+            </div>
+            <div class="mini-card shadow-sm">
+              <div class="mini-icon orange"><i-lucide [img]="DropletIcon"></i-lucide></div>
+              <div class="mini-data">
+                <span class="val">{{ irrigationStatus.irrigationNeeded | number:'1.3-3' }}</span>
+                <span class="lab">ML/ha Needed</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Soil Analysis -->
+          <!-- Forecast/Weather -->
+          <div class="weather-card card shadow-sm">
+            <div class="weather-item">
+              <span class="label">Daily ET₀</span>
+              <span class="value">{{ irrigationStatus.et0Today | number:'1.1-1' }}mm</span>
+            </div>
+            <div class="divider"></div>
+            <div class="weather-item">
+              <span class="label">Rainfall</span>
+              <div class="rain-data">
+                <span class="value">{{ irrigationStatus.rainToday | number:'1.1-1' }}mm</span>
+                <span class="source-tag" *ngIf="irrigationStatus.bomStation">
+                  Source: BoM Station {{ irrigationStatus.bomStation.station_id }} ({{
+                  irrigationStatus.bomStation.distance_km }}km)
+                </span>
+                <span class="source-tag" *ngIf="!irrigationStatus.bomStation">
+                  Source: OpenMeteo (Satellite)
+                </span>
+              </div>
+            </div>
+            <div class="divider"></div>
+            <!-- <div class="weather-item">
+              <span class="label">Confidence</span>
+              <span class="value">{{ irrigationStatus.confidence * 100 | number:'1.0-0' }}%</span>
+            </div> -->
+          </div>
+
+          <!-- BoM Station Info (NEW) -->
+          <div class="station-card card shadow-sm" *ngIf="irrigationStatus.bomStation">
+            <div class="card-title">
+              <i-lucide [img]="MapPinIcon"></i-lucide>
+              <h3>Nearest BoM Station</h3>
+            </div>
+            <div class="station-details">
+              <div class="station-info">
+                <span class="name">{{ irrigationStatus.bomStation.name }}</span>
+                <span class="id">ID: {{ irrigationStatus.bomStation.station_id }}</span>
+              </div>
+              <div class="distance-tag">
+                <i-lucide [img]="SearchIcon" class="dist-icon"></i-lucide>
+                <span>{{ irrigationStatus.bomStation.distance_km }} km away</span>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+
+        <!-- Placeholder when loading or no status -->
+        <div *ngIf="!irrigationStatus && !isLoading" class="empty-state card shadow-sm">
+          <i-lucide [img]="MapPinIcon"></i-lucide>
+          <p>Select a location on the map to see irrigation details</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

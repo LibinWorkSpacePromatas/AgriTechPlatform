@@ -1,0 +1,310 @@
+/* Alternative Crop Modal Styles */
+.alt-crop-modal-content {
+    padding: 0.25rem;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.alt-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.suitability-badge-large {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    text-align: center;
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+    flex: 1;
+    min-width: 120px;
+}
+
+.suitability-badge-large.good {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+}
+
+.suitability-badge-large.fair {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    box-shadow: 0 2px 6px rgba(245, 158, 11, 0.3);
+}
+
+.score-number {
+    font-size: 1.5rem;
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 0.25rem;
+}
+
+.score-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    opacity: 0.9;
+}
+
+.ph-compatibility-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 0.75rem;
+}
+
+.ph-compatibility-badge.compatible {
+    background: rgba(16, 185, 129, 0.1);
+    color: #059669;
+    border: 2px solid rgba(16, 185, 129, 0.3);
+}
+
+.ph-compatibility-badge.incompatible {
+    background: rgba(245, 158, 11, 0.1);
+    color: #d97706;
+    border: 2px solid rgba(245, 158, 11, 0.3);
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.metric-card {
+    background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 0.75rem;
+    display: flex;
+    gap: 0.75rem;
+    transition: all 0.3s ease;
+}
+
+.metric-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    border-color: #d1d5db;
+}
+
+.metric-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.metric-icon.water {
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    color: #2563eb;
+}
+
+.metric-icon.profit {
+    background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+    color: #059669;
+}
+
+.metric-info {
+    flex: 1;
+}
+
+.metric-label {
+    font-size: 0.65rem;
+    color: #6b7280;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.metric-value {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #1f2937;
+    margin-bottom: 0.25rem;
+}
+
+.metric-comparison {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.7rem;
+}
+
+.comparison-label {
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.metric-comparison .better {
+    color: #059669;
+    font-weight: 700;
+}
+
+.metric-comparison .worse {
+    color: #d97706;
+    font-weight: 700;
+}
+
+.metric-comparison .total-profit {
+    color: #059669;
+    font-weight: 800;
+}
+
+.reasons-section,
+.conditions-match-section {
+    margin-bottom: 1rem;
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: #1f2937;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.reasons-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.reason-item-detailed {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding: 0.65rem 0.85rem;
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+    border: 1px solid #6ee7b7;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    color: #065f46;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.reason-item-detailed:hover {
+    transform: translateX(4px);
+    box-shadow: 0 4px 8px rgba(16, 185, 129, 0.15);
+}
+
+.reason-check {
+    width: 18px;
+    height: 18px;
+    background: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: #10b981;
+}
+
+.conditions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.65rem;
+}
+
+.condition-item {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 0.65rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.condition-label {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.65rem;
+    color: #6b7280;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.condition-value {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #1f2937;
+}
+
+.condition-status {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 0.25rem 0.45rem;
+    border-radius: 4px;
+    width: fit-content;
+}
+
+.condition-status.good {
+    background: rgba(16, 185, 129, 0.1);
+    color: #059669;
+}
+
+.condition-status.warning {
+    background: rgba(245, 158, 11, 0.1);
+    color: #d97706;
+}
+
+.alt-modal-actions {
+    display: flex;
+    gap: 0.65rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 2px solid #e5e7eb;
+}
+
+.alt-modal-actions .btn {
+    flex: 1;
+    padding: 0.5rem 0.85rem;
+    font-size: 0.8rem;
+}
+
+@media (max-width: 768px) {
+    .alt-modal-header {
+        flex-direction: column;
+    }
+
+    .suitability-badge-large {
+        width: 100%;
+    }
+
+    .metrics-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .conditions-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .alt-modal-actions {
+        flex-direction: column;
+    }
+
+    .alt-modal-actions .btn {
+        width: 100%;
+    }
+}

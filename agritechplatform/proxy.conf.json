@@ -1,0 +1,11 @@
+{
+  "/api/ollama": {
+    "target": "https://ollama.com",
+    "secure": true,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/api/ollama": ""
+    },
+    "logLevel": "debug"
+  }
+}

@@ -1,0 +1,103 @@
+<div class="page-container fade-in">
+  <div class="page-header">
+    <div class="header-title-section">
+      <i-lucide [img]="BotIcon" class="page-icon"></i-lucide>
+      <div>
+        <h1>Grower GPT</h1>
+        <p class="subtitle">Personalized AI agronomist for block-level biological insights</p>
+        <!-- Error State -->
+      <div *ngIf="chatHistory.length > 0 && (chatHistory[chatHistory.length-1].content.includes('error connecting') || chatHistory[chatHistory.length-1].content.includes('Rate Limited') || chatHistory[chatHistory.length-1].content.includes('handling too many requests'))" class="error-container">
+        <div class="error-message">
+          <lucide-angular [img]="BotIcon" class="error-icon"></lucide-angular>
+          <p>Connection failed. Please check your network or try again.</p>
+          <button (click)="retryLastMessage()" class="retry-button">Retry Connection</button>
+        </div>
+      </div>
+    </div>
+    </div>
+  </div>
+  
+  <div class="gpt-layout">
+    <div class="chat-main">
+      <div class="chat-container" #chatContainer>
+        <div class="chat-header-info">
+          <div class="ai-status">
+            <span class="status-dot"></span>
+            AI Agronomist Online
+          </div>
+          <h3>Block Analysis: {{ blockService.getSelectedBlock().name }}</h3>
+        </div>
+
+        <!-- Recommended Questions as Quick Chips -->
+        <div class="recommended-chips" *ngIf="chatHistory.length <= 1">
+          <div class="chips-label">Quick Actions:</div>
+          <button *ngFor="let q of recommendedQuestions" (click)="sendMessage(q)" class="chip">
+            {{ q }}
+          </button>
+        </div>
+
+        <div class="messages-viewport">
+          <div *ngFor="let msg of chatHistory" class="message" [ngClass]="msg.role + '-msg'">
+            <div class="avatar-circle" *ngIf="msg.role === 'assistant'">
+              <i-lucide [img]="BotIcon" class="avatar-icon"></i-lucide>
+            </div>
+            <div class="message-bubble">
+              <div [innerHTML]="renderMarkdown(msg.content)"></div>
+            </div>
+          </div>
+          
+          <div *ngIf="isLoading" class="message assistant-msg">
+            <div class="avatar-circle">
+              <i-lucide [img]="BotIcon" class="avatar-icon"></i-lucide>
+            </div>
+            <div class="message-bubble typing">
+              <span></span><span></span><span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="chat-input-wrapper">
+        <form (submit)="sendMessage()" class="chat-input-box">
+          <input 
+            type="text" 
+            [(ngModel)]="userMessage" 
+            name="userMessage"
+            [disabled]="isLoading"
+            placeholder="Type your agronomic question..." 
+          />
+          <button type="submit" class="send-btn" [disabled]="!userMessage.trim() || isLoading">
+            <i-lucide [img]="SendIcon" class="send-icon"></i-lucide>
+          </button>
+        </form>
+      </div>
+    </div>
+    
+    <div class="insights-sidebar">
+      <div class="sidebar-header">
+        <i-lucide [img]="SparklesIcon" class="badge-icon"></i-lucide>
+        <span>Live Insights</span>
+      </div>
+      <div class="insight-list">
+        <div class="insight-item">
+          <div class="insight-icon warn">
+            <i-lucide [img]="MessageIcon" class="icon-sm"></i-lucide>
+          </div>
+          <div class="insight-content">
+            <h4>Water Stress Peak</h4>
+            <p>Block C likely to hit critical stress levels by Thursday.</p>
+          </div>
+        </div>
+        <div class="insight-item">
+          <div class="insight-icon info">
+            <i-lucide [img]="SparklesIcon" class="icon-sm"></i-lucide>
+          </div>
+          <div class="insight-content">
+            <h4>Harvest Window</h4>
+            <p>Shiraz blocks trending 3 days earlier. Window: March 12-15.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

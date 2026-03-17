@@ -1,0 +1,693 @@
+<div class="page-container fade-in">
+    <!-- Header -->
+    <div class="header-section">
+        <div class="header-title-row">
+            <i-lucide [img]="TrendingUp" class="header-icon"></i-lucide>
+            <h1>Profit & Risk Analysis</h1>
+        </div>
+        <p class="subtitle">2024-2026 Riverland SA crop economics for {{ selectedBlock()?.name }} • {{
+            selectedBlock()?.location }}</p>
+    </div>
+
+    <!-- Crisis Alert -->
+    <div class="crisis-alert">
+        <div class="alert-icon-wrapper">
+            <i-lucide [img]="AlertTriangle" class="alert-icon"></i-lucide>
+        </div>
+        <div class="alert-content">
+            <h3 class="alert-title">
+                <i-lucide [img]="AlertTriangle" class="alert-title-icon"></i-lucide>
+                2024 Wine Grape Crisis Data
+            </h3>
+            <p class="alert-message">
+                <strong>WGCSA 2024 Crush Report:</strong> Wine grapes averaging $249/t vs $8,000/ha costs = <span
+                    class="text-red">-$1,775/ha annual LOSSES</span>. Alternatives show <span class="text-green">+295%
+                    to +1,218% Revenue/ML advantage</span>.
+            </p>
+            <p class="alert-footer">
+                Sources: WGCSA 2024 Crush Report, CCW Olives, Hort Innovation Almonds, Citrus Australia. <strong>NOT
+                    financial advice</strong> — consult your accountant or co-op advisor.
+            </p>
+        </div>
+    </div>
+
+    <!-- Controls Row -->
+    <div class="controls-row">
+        <div class="scenario-toggle">
+            <button class="toggle-btn" [class.active]="selectedScenario() === 'alternative'"
+                (click)="selectedScenario.set('alternative')">
+                <i-lucide [img]="BarChart2" class="toggle-icon"></i-lucide>
+                Alternative Crop Scenario
+            </button>
+            <button class="toggle-btn" [class.active]="selectedScenario() === 'global'"
+                (click)="selectedScenario.set('global')">
+                <i-lucide [img]="Globe" class="toggle-icon"></i-lucide>
+                Global Market Quadrant
+            </button>
+        </div>
+    </div>
+
+    <!-- Global Market Quadrant View -->
+    <div *ngIf="selectedScenario() === 'global'" class="quadrant-view">
+        <div class="quadrant-card card">
+            <div class="quadrant-header">
+                <div class="header-with-icon">
+                    <i-lucide [img]="Globe" class="icon-gray"></i-lucide>
+                    <h3>Global Market Quadrant</h3>
+                </div>
+            </div>
+            <p class="quadrant-subtitle">Positioning crops by Global Supply vs Demand Constraints • Click bubbles for
+                WGCSA 2024 details</p>
+
+            <div class="quadrant-container">
+                <!-- Quadrant Chart Area -->
+                <div class="quadrant-chart">
+                    <!-- Quadrant Labels -->
+                    <div class="quadrant-label quadrant-1">
+                        <div class="quadrant-badge badge-success">QUADRANT 1: TAKE RISKS ✓</div>
+                        <div class="quadrant-desc">Strong Demand + Weak Supply</div>
+                    </div>
+                    <div class="quadrant-label quadrant-2">
+                        <div class="quadrant-badge badge-danger">QUADRANT 2: REDUCE/EXIT ⚠️</div>
+                        <div class="quadrant-desc">Weak Demand + Strong Supply</div>
+                    </div>
+
+                    <!-- Y-axis label -->
+                    <div class="y-axis-label">DEMAND STRENGTH ↑</div>
+
+                    <!-- Grid lines -->
+                    <div class="quadrant-grid">
+                        <div class="grid-line vertical"></div>
+                        <div class="grid-line horizontal"></div>
+                    </div>
+
+                    <!-- Crop Bubbles -->
+                    <div *ngFor="let crop of quadrantCrops" class="crop-bubble" [style.left.%]="crop.quadrantX"
+                        [style.top.%]="crop.quadrantY" [style.width.px]="crop.bubbleSize"
+                        [style.height.px]="crop.bubbleSize" [style.background-color]="crop.color"
+                        [style.z-index]="crop.zIndex || 1" (mouseenter)="hoveredCrop.set(crop)"
+                        (mouseleave)="hoveredCrop.set(null)" (click)="selectedQuadrantCrop.set(crop)">
+                        <div class="bubble-content">
+                            <span class="bubble-icon">{{ crop.icon }}</span>
+                            <span class="bubble-label">{{ crop.name }}</span>
+                        </div>
+
+                        <!-- Tooltip -->
+                        <div class="crop-tooltip" *ngIf="hoveredCrop() === crop">
+                            <div class="tooltip-crop-name">{{ crop.name }}</div>
+                            <div class="tooltip-revenue">Revenue/ML: ${{ crop.revenuePerML | number:'1.0-0' }}</div>
+                            <div class="tooltip-comparison" [class.positive]="crop.percentageVsWine > 0">
+                                {{ crop.percentageVsWine > 0 ? '+' : '' }}{{ crop.percentageVsWine }}% vs wine grapes
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- X-axis label -->
+                    <div class="x-axis-label">
+                        GLOBAL SUPPLY CONSTRAINTS →
+                        <span class="x-axis-note">Strong → Weak</span>
+                    </div>
+
+                    <!-- Annotation Box -->
+                    <div class="annotation-box">
+                        391kt, Shiraz $200/t<br>(WGCSA 2024)
+                    </div>
+                </div>
+
+                <!-- Legend -->
+                <div class="quadrant-legend">
+                    <div class="legend-item interactable" *ngFor="let crop of quadrantCrops"
+                        (click)="selectedQuadrantCrop.set(crop)" (mouseenter)="hoveredCrop.set(crop)"
+                        (mouseleave)="hoveredCrop.set(null)">
+                        <span class="legend-dot" [style.background-color]="crop.color"></span>
+                        <span>{{ crop.name }}</span>
+                        <span class="legend-value">${{ crop.revenuePerML | number:'1.0-0' }}/ML</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Crop Detail Modal -->
+        <div class="crop-detail-modal" *ngIf="selectedQuadrantCrop()" (click)="selectedQuadrantCrop.set(null)">
+            <div class="modal-content" (click)="$event.stopPropagation()">
+                <!-- Header -->
+                <div class="modal-header" [style.background-color]="selectedQuadrantCrop()!.color + '15'">
+                    <div class="modal-header-left">
+                        <div class="modal-crop-icon">{{ selectedQuadrantCrop()!.icon }}</div>
+                        <div>
+                            <h2 class="modal-crop-name">{{ selectedQuadrantCrop()!.name }}</h2>
+
+                            <div class="modal-quadrant-badge"
+                                [class.critical]="selectedQuadrantCrop()!.quadrant.includes('REDUCE') || selectedQuadrantCrop()!.riskLevel === 'CRITICAL'">
+                                {{ selectedQuadrantCrop()!.quadrant }}</div>
+                            <div class="modal-badges"
+                                *ngIf="selectedQuadrantCrop()!.badges && selectedQuadrantCrop()!.badges.length > 0">
+                                <span class="modal-badge-pill" *ngFor="let badge of selectedQuadrantCrop()!.badges">{{
+                                    badge }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="modal-close" (click)="selectedQuadrantCrop.set(null)">✕</button>
+                </div>
+
+                <!-- Quadrant Banner -->
+                <div class="modal-quadrant-banner"
+                    [class.opportunity]="selectedQuadrantCrop()!.quadrant.includes('OPPORTUNITY')"
+                    [class.critical]="selectedQuadrantCrop()!.quadrant.includes('REDUCE') || selectedQuadrantCrop()!.riskLevel === 'CRITICAL'">
+                    <span class="banner-icon">✓</span>
+                    <span class="banner-text">{{ selectedQuadrantCrop()!.quadrant.toUpperCase() }}</span>
+                </div>
+
+                <!-- Revenue Metrics -->
+                <div class="modal-metrics-row">
+                    <div class="modal-metric-box">
+                        <div class="metric-label">Revenue/ML</div>
+                        <div class="metric-value">${{ selectedQuadrantCrop()!.revenuePerML | number:'1.0-0' }}</div>
+                    </div>
+                    <div class="modal-metric-box">
+                        <div class="metric-label">vs Wine Grapes</div>
+
+                        <div class="metric-value positive"
+                            [class.critical]="selectedQuadrantCrop()!.quadrant.includes('REDUCE') || selectedQuadrantCrop()!.riskLevel === 'CRITICAL'">
+                            +{{ selectedQuadrantCrop()!.percentageVsWine }}%</div>
+                    </div>
+                </div>
+
+                <!-- Official Metrics -->
+                <div class="modal-section">
+                    <h3 class="section-title">📊 OFFICIAL 2024 METRICS</h3>
+                    <ul class="metrics-list">
+                        <li *ngFor="let metric of selectedQuadrantCrop()!.metrics">
+                            <span class="check-icon"
+                                [class.critical]="selectedQuadrantCrop()!.quadrant.includes('REDUCE') || selectedQuadrantCrop()!.riskLevel === 'CRITICAL'">✓</span>
+                            <span>{{ metric }}</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Strategic Action -->
+                <div class="modal-strategic-action"
+                    [class.critical]="selectedQuadrantCrop()!.quadrant.includes('REDUCE') || selectedQuadrantCrop()!.riskLevel === 'CRITICAL'">
+                    <h3 class="action-title">🎯 STRATEGIC ACTION</h3>
+                    <div class="action-recommendation">{{ selectedQuadrantCrop()!.strategicAction }}</div>
+                </div>
+
+                <!-- Source -->
+                <div class="modal-source">
+                    <span class="source-icon">📊</span>
+                    <span>SOURCE: {{ selectedQuadrantCrop()!.source }}</span>
+                    <a *ngIf="selectedQuadrantCrop()!.hasFactsheet" href="#" class="factsheet-link">
+                        🔗 View Official Factsheet
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alternative Crop Scenario View (existing content) -->
+    <div *ngIf="selectedScenario() === 'alternative'" class="scenario-container">
+        <!-- Water Allocation Slider -->
+        <div class="allocation-card card">
+            <div class="allocation-header">
+                <div class="allocation-title">
+                    <i-lucide [img]="Droplets" class="icon-blue"></i-lucide>
+                    <span>Water Allocation</span>
+                </div>
+                <span class="allocation-value">{{ waterAllocation() }}%</span>
+                <div class="bankruptcy-toggle">
+                    <i-lucide [img]="AlertTriangle" class="icon-gray"></i-lucide>
+                    <div class="bankruptcy-label">
+                        <span>Show Bankruptcy Impact</span>
+                        <button class="bankruptcy-help-icon" type="button">
+                            <i-lucide [img]="HelpCircle" [size]="10" class="icon-help"></i-lucide>
+                            <div class="bankruptcy-tooltip">
+                                Adds a crisis haircut to wine grape revenue only, so you can see worst‑case risk
+                                compared with alternative crops.
+                            </div>
+                        </button>
+                    </div>
+                    <button class="switch" [class.checked]="showBankruptcyImpact()"
+                        (click)="showBankruptcyImpact.set(!showBankruptcyImpact())">
+                        <span class="slider"></span>
+                    </button>
+                </div>
+            </div>
+
+            <input type="range" min="50" max="100" step="5" [value]="waterAllocation()"
+                (input)="onAllocationChange($event)" [style.background]="getSliderBackground()" class="range-slider">
+            <div class="slider-labels">
+                <span>50% (Severe Cut)</span>
+                <span>100% (Full)</span>
+            </div>
+        </div>
+
+        <!-- Key Insight -->
+        <div class="key-insight-panel">
+            <div class="insight-content">
+                <i-lucide [img]="Lightbulb" class="insight-icon"></i-lucide>
+                <div>
+                    <h4 class="insight-title">Key Insight</h4>
+                    <p class="insight-text">
+                        Wine grapes: -$1,775/ha annual losses with 35% price volatility
+                    </p>
+                    <p class="insight-warning">
+                        <i-lucide [img]="AlertTriangle" class="icon-sm"></i-lucide>
+                        Showing impact at {{ waterAllocation() }}% water allocation — grapes suffer most from water cuts
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Grid -->
+        <div class="charts-grid">
+
+            <!-- Revenue per ML Water Chart -->
+            <div class="chart-card card">
+                <div class="chart-header">
+                    <i-lucide [img]="BarChart2" class="icon-blue"></i-lucide>
+                    <h3>Revenue per ML Water</h3>
+                </div>
+                <p class="chart-subtitle">Click bars to select crop • Hover for details</p>
+
+                <div class="revenue-chart-container">
+                    <div *ngFor="let crop of cropMetricsFixedOrder()" class="revenue-row"
+                        (mouseenter)="hoveredRevenueCrop.set(crop.name)" (mouseleave)="hoveredRevenueCrop.set(null)">
+                        <span class="crop-label">{{ crop.name }}</span>
+                        <div class="bar-track">
+                            <div class="bar-fill" [style.width.%]="(getDisplayRevenue(crop) / 10000) * 100"
+                                [style.background-color]="crop.color">
+                            </div>
+                            <span class="bar-value"
+                                [class.text-red-strong]="crop.riskLevel === 'CRITICAL' && showBankruptcyImpact()">
+                                ${{ getDisplayRevenue(crop) | number:'1.0-0' }}
+                            </span>
+
+                            <!-- Revenue Tooltip - Wine Grapes (CRITICAL) -->
+                            <div class="revenue-tooltip"
+                                *ngIf="hoveredRevenueCrop() === crop.name && crop.riskLevel === 'CRITICAL'">
+                                <div class="tooltip-crop-name">
+                                    {{ crop.name }} <span class="crisis-badge">CRISIS</span>
+                                </div>
+                                <div class="tooltip-row">
+                                    <span class="tooltip-label">Revenue/ML:</span>
+                                    <span class="tooltip-value" [class.text-red-strong]="showBankruptcyImpact()">${{
+                                        crop.revenuePerML | number:'1.0-0' }}</span>
+                                </div>
+                                <div class="tooltip-row" *ngIf="showBankruptcyImpact()">
+                                    <span class="tooltip-label">Risk-adjusted:</span>
+                                    <span class="tooltip-value text-red-strong">${{
+                                        getBankruptcyAdjustedRevenue(crop.name)
+                                        | number:'1.0-0' }}</span>
+                                </div>
+                            </div>
+
+                            <!-- Revenue Tooltip - Other Crops -->
+                            <div class="revenue-tooltip"
+                                *ngIf="hoveredRevenueCrop() === crop.name && crop.riskLevel !== 'CRITICAL'">
+                                <div class="tooltip-crop-name">
+                                    {{ crop.name }}
+                                </div>
+                                <div class="tooltip-row">
+                                    <span class="tooltip-label">Revenue/ML:</span>
+                                    <span class="tooltip-value">${{ crop.revenuePerML | number:'1.0-0' }}</span>
+                                </div>
+                                <div class="tooltip-row">
+                                    <span class="tooltip-label">vs Wine Grapes:</span>
+                                    <span class="tooltip-value text-green-strong">+{{
+                                        getPercentageVsWineGrapes(crop.name) |
+                                        number:'1.0-0' }}%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- X Axis -->
+                    <div class="chart-axis-x">
+                        <span>$0k</span>
+                        <span>$2.5k</span>
+                        <span>$5k</span>
+                        <span>$7.5k</span>
+                        <span>$10k</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Net Margin per Hectare Chart -->
+            <div class="chart-card card">
+                <div class="chart-header">
+                    <i-lucide [img]="DollarSign" class="icon-green"></i-lucide>
+                    <h3>Net Margin per Hectare</h3>
+                </div>
+                <p class="chart-subtitle">Revenue minus input costs • Zero line shown</p>
+
+                <div class="margin-chart-container">
+                    <!-- Y Axis -->
+                    <div class="y-axis">
+                        <span>$80k</span>
+                        <span>$60k</span>
+                        <span>$40k</span>
+                        <span>$20k</span>
+                        <span>$0k</span>
+                        <span>-$10k</span>
+                    </div>
+
+                    <!-- Chart Area -->
+                    <div class="margin-bars-area">
+                        <div class="zero-line" [style.bottom.%]="getZeroLinePosition()"></div>
+
+                        <div class="bars-wrapper">
+                            <div *ngFor="let crop of cropMetrics(); let i = index" class="bar-column"
+                                [style.left.%]="i * 20">
+
+                                <!-- Positive Bar -->
+                                <div *ngIf="crop.netMarginPerHa >= 0" class="bar-positive group"
+                                    [style.bottom.%]="getZeroLinePosition()"
+                                    [style.height.%]="getBarHeightPercentage(crop.netMarginPerHa)">
+                                    <div class="custom-tooltip">
+                                        <div class="tooltip-header">{{crop.name}}</div>
+                                        <div class="tooltip-row">
+                                            <span>Revenue:</span>
+                                            <span class="text-green">+${{crop.revenuePerHa | number:'1.0-0'}}</span>
+                                        </div>
+                                        <div class="tooltip-row">
+                                            <span>Costs:</span>
+                                            <span class="text-red">-${{crop.totalCostsPerHa | number:'1.0-0'}}</span>
+                                        </div>
+                                        <div class="tooltip-row final">
+                                            <span>Net Margin:</span>
+                                            <span class="text-green">+${{crop.netMarginPerHa | number:'1.0-0'}}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Negative Bar -->
+                                <div *ngIf="crop.netMarginPerHa < 0" class="bar-negative group"
+                                    [style.top.%]="100 - getZeroLinePosition()"
+                                    [style.height.%]="getBarHeightPercentage(crop.netMarginPerHa)">
+                                    <div class="custom-tooltip">
+                                        <div class="tooltip-header">{{crop.name}}</div>
+                                        <div class="tooltip-row">
+                                            <span>Revenue:</span>
+                                            <span class="text-green">+${{crop.revenuePerHa | number:'1.0-0'}}</span>
+                                        </div>
+                                        <div class="tooltip-row">
+                                            <span>Costs:</span>
+                                            <span class="text-red">-${{crop.totalCostsPerHa | number:'1.0-0'}}</span>
+                                        </div>
+                                        <div class="tooltip-row final">
+                                            <span>Net Margin:</span>
+                                            <span class="text-red">-${{ Math.abs(crop.netMarginPerHa) |
+                                                number:'1.0-0'}}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <span class="x-label">{{ crop.name }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Risk-Adjusted Revenue Chart -->
+        <div class="chart-card card">
+            <div class="chart-header">
+                <i-lucide [img]="AlertTriangle" class="icon-orange"></i-lucide>
+                <h3>Risk-Adjusted Revenue/ML</h3>
+            </div>
+            <p class="chart-subtitle">Revenue adjusted for price volatility risk vs wine grapes baseline</p>
+
+            <div style="text-align: center; font-size: 0.75rem; color: var(--gray-500); margin-bottom: 0.5rem;">
+                Difference vs Wine Grapes baseline [${{WINE_GRAPE_BASELINE}}/ML risk-adjusted]
+            </div>
+
+            <div class="revenue-chart-container">
+                <div *ngFor="let crop of riskAdjustedMetrics()" class="revenue-row">
+                    <span class="crop-label">{{ crop.name }}</span>
+                    <div class="bar-track">
+                        <div class="bar-fill" [style.width.%]="(crop.riskAdjustedRevenuePerML / 10000) * 100"
+                            [style.background-color]="crop.color">
+                            <!-- Tooltip -->
+                            <div class="custom-tooltip risk-tooltip">
+                                <div class="tooltip-title">{{crop.name}}</div>
+                                <div class="tooltip-subtitle">Risk-Adjusted Revenue/ML</div>
+                                <div class="tooltip-value-large">
+                                    +${{crop.riskAdjustedRevenuePerML | number:'1.0-0'}}/ML
+                                </div>
+                                <div class="tooltip-comparison">
+                                    +{{ (((crop.riskAdjustedRevenuePerML / (waterAllocation() / 100)) -
+                                    WINE_GRAPE_BASELINE)
+                                    / WINE_GRAPE_BASELINE) * 100 | number:'1.0-0' }}%
+                                    <span class="comparison-text">vs Wine Grapes ($493.44512195121956/ML)</span>
+                                </div>
+                            </div>
+                        </div>
+                        <span class="bar-value diff-label">
+                            +{{ (((crop.riskAdjustedRevenuePerML / (waterAllocation() / 100)) - WINE_GRAPE_BASELINE) /
+                            WINE_GRAPE_BASELINE) * 100 | number:'1.0-0' }}%
+                        </span>
+                    </div>
+                </div>
+                <!-- X Axis -->
+                <div class="chart-axis-x">
+                    <span>$0</span>
+                    <span>+$2,000</span>
+                    <span>+$4,000</span>
+                    <span>+$6,000</span>
+                    <span>+$8,000</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comparison Matrix -->
+        <div class="matrix-card card">
+            <div class="card-header">
+                <div class="header-with-icon">
+                    <i-lucide [img]="TrendingUp" class="icon-gray"></i-lucide>
+                    <h3>Crop Comparison Matrix</h3>
+                </div>
+            </div>
+            <p class="card-subtitle-text">Complete comparison at {{ waterAllocation() }}% water allocation • Click rows
+                to
+                select</p>
+
+            <div class="table-container">
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th class="text-left" style="width: 25%;">Crop</th>
+                            <th class="text-right">Rev/ML</th>
+                            <th class="text-right">Net Margin/ha</th>
+                            <th class="text-right">Capital</th>
+                            <th class="text-left">Years to Profit</th>
+                            <th class="text-center">Risk Level</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let crop of cropMetrics()" class="hover-row"
+                            [class.highlight-red-row]="crop.riskLevel === 'CRITICAL'"
+                            [class.selected-row]="selectedCropName() === crop.name" (click)="selectCrop(crop.name)">
+                            <td class="cell-crop">
+                                <span class="dot" [style.background-color]="crop.color"></span>
+                                <span class="crop-name" [class.text-red-strong]="crop.riskLevel === 'CRITICAL'">{{
+                                    crop.name
+                                    }}</span>
+                                <!-- Badges -->
+                                <ng-container *ngFor="let badge of crop.badges">
+                                    <span *ngIf="badge.type === 'crisis'" class="badge-crisis">{{badge.text}}</span>
+                                    <span *ngIf="badge.type === 'verified'" class="badge-verified">{{badge.text}}
+                                        ✔</span>
+                                </ng-container>
+                            </td>
+                            <td class="text-right font-medium">
+                                +${{ crop.revenuePerML | number:'1.0-0' }}
+                                <span class="text-green-small" *ngIf="crop.name !== 'Wine Grapes'">
+                                    (+{{ (((crop.revenuePerML - wineGrapeMetrics()!.revenuePerML) /
+                                    wineGrapeMetrics()!.revenuePerML) * 100) | number:'1.0-0' }}%)
+                                </span>
+                            </td>
+                            <td class="text-right font-medium"
+                                [class.text-red-strong]="crop.riskLevel === 'CRITICAL' || crop.netMarginPerHa < 0"
+                                [class.text-green-strong]="crop.netMarginPerHa >= 0 && crop.riskLevel !== 'CRITICAL'">
+                                {{ crop.netMarginPerHa < 0 ? '-$' + (Math.abs(crop.netMarginPerHa) | number:'1.0-0')
+                                    : '+$' + (crop.netMarginPerHa | number:'1.0-0') }} </td>
+                            <td class="text-right label-gray">
+                                {{ crop.capitalCost ? '+$' + (crop.capitalCost | number:'1.0-0') : '—' }}
+                            </td>
+                            <td class="text-left" [class.text-red-soft]="crop.riskLevel === 'CRITICAL'">
+                                {{ crop.yearsStr }}
+                            </td>
+                            <td class="text-center">
+                                <span class="risk-badge" [class.risk-critical]="crop.riskLevel === 'CRITICAL'"
+                                    [class.risk-medium]="crop.riskLevel === 'MEDIUM'"
+                                    [class.risk-low]="crop.riskLevel === 'LOW'">
+                                    <ng-container *ngIf="crop.riskLevel === 'CRITICAL'"><i-lucide [img]="AlertTriangle"
+                                            size="10"></i-lucide></ng-container>
+                                    {{ crop.riskLevel }}
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Cost Structure Section -->
+        <div class="cost-structure-card card" *ngIf="selectedCropMetrics() as metrics">
+            <div class="card-header">
+                <div class="header-with-icon">
+                    <i-lucide [img]="PieChart" class="icon-orange"></i-lucide>
+                    <h3>Cost Structure: {{ metrics.name }}</h3>
+                </div>
+                <i-lucide *ngIf="false" [img]="ArrowUpRight" class="text-gray-400"></i-lucide>
+                <!-- Placeholder for collapse if needed -->
+            </div>
+            <p class="card-subtitle-text">Breakdown of costs vs revenue for selected crop</p>
+
+            <div class="cost-content">
+                <!-- Left: Donut Chart -->
+                <div class="chart-section">
+                    <!-- CRITICAL CHART (Wine Grapes): 2-segment -->
+                    <div class="donut-container" *ngIf="metrics.isCritical">
+                        <svg viewBox="0 0 36 36" class="circular-chart">
+                            <path class="circle-bg hover-segment"
+                                [attr.stroke-dasharray]="metrics.revenuePercentage + ', 100'"
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                style="stroke: #22c55e;" (mouseenter)="hoveredSegment.set('revenue')"
+                                (mouseleave)="hoveredSegment.set(null)" />
+                            <path class="circle hover-segment"
+                                [attr.stroke-dasharray]="metrics.costPercentage + ', 100'"
+                                [attr.stroke-dashoffset]="-metrics.revenuePercentage"
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                style="stroke: #ef4444;" (mouseenter)="hoveredSegment.set('costs')"
+                                (mouseleave)="hoveredSegment.set(null)" />
+                            <text x="18" y="15.5" class="percentage-text-costs">{{ metrics.costPercentage |
+                                number:'1.0-0'
+                                }}%</text>
+                            <text x="18" y="24.5" class="percentage-text-rev">{{ metrics.revenuePercentage |
+                                number:'1.0-0'
+                                }}%</text>
+                        </svg>
+                        <div class="donut-tooltip" *ngIf="hoveredSegment()">
+                            <div class="tooltip-header">{{ getHoveredLabel() }}</div>
+                            <div class="tooltip-amount">${{ getHoveredValue(metrics) | number:'1.0-0' }}</div>
+                            <div class="tooltip-pct">{{ getHoveredPercentage(metrics) | number:'1.0-0' }}% of total
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- NON-CRITICAL CHART (Others): 3-segment -->
+                    <div class="donut-container" *ngIf="!metrics.isCritical">
+                        <svg viewBox="0 0 36 36" class="circular-chart">
+                            <path class="circle-bg hover-segment" [attr.stroke-dasharray]="metrics.inputPct + ', 100'"
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                style="stroke: #F59E0B;" (mouseenter)="hoveredSegment.set('input')"
+                                (mouseleave)="hoveredSegment.set(null)" />
+                            <path class="circle hover-segment" [attr.stroke-dasharray]="metrics.capitalPct + ', 100'"
+                                [attr.stroke-dashoffset]="-metrics.inputPct"
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                style="stroke: #a16207;" (mouseenter)="hoveredSegment.set('capital')"
+                                (mouseleave)="hoveredSegment.set(null)" />
+                            <path class="circle hover-segment" [attr.stroke-dasharray]="metrics.marginPct + ', 100'"
+                                [attr.stroke-dashoffset]="-(metrics.inputPct + metrics.capitalPct)"
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                style="stroke: #22c55e;" (mouseenter)="hoveredSegment.set('margin')"
+                                (mouseleave)="hoveredSegment.set(null)" />
+                            <text x="18" y="14" class="percentage-text-costs" style="fill:white;">{{ metrics.inputPct |
+                                number:'1.0-0' }}%</text>
+                            <text x="26" y="24" class="percentage-text-rev" style="fill:white; font-size: 0.2rem;">{{
+                                metrics.marginPct | number:'1.0-0' }}%</text>
+                            <text x="10" y="24" class="percentage-text-rev" style="fill:white; font-size: 0.2rem;">{{
+                                metrics.capitalPct | number:'1.0-0' }}%</text>
+                        </svg>
+                        <div class="donut-tooltip" *ngIf="hoveredSegment()">
+                            <div class="tooltip-header">{{ getHoveredLabel() }}</div>
+                            <div class="tooltip-amount">${{ getHoveredValue(metrics) | number:'1.0-0' }}</div>
+                            <div class="tooltip-pct">{{ getHoveredPercentage(metrics) | number:'1.0-0' }}% of total
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chart-legend" *ngIf="metrics.isCritical">
+                        <div class="legend-item"><span class="legend-box box-red"></span> Input Costs</div>
+                        <div class="legend-item"><span class="legend-box box-green"></span> Revenue</div>
+                    </div>
+                    <div class="chart-legend" *ngIf="!metrics.isCritical">
+                        <div class="legend-item"><span class="legend-box box-yellow"></span> Input Costs</div>
+                        <div class="legend-item"><span class="legend-box box-brown"></span> Capital Investment</div>
+                        <div class="legend-item"><span class="legend-box box-green"></span> Net Margin</div>
+                    </div>
+                    <!-- Margin Text -->
+                    <div class="margin-text" [class.text-red-strong]="metrics.margin < 0"
+                        [class.text-green-strong]="metrics.margin >= 0">
+                        {{ metrics.margin < 0 ? 'Costs exceed revenue by $' + (Math.abs(metrics.margin) |
+                            number:'1.0-0') : 'Revenue exceeds costs by $' + (metrics.margin | number:'1.0-0') }} </div>
+                    </div>
+
+                    <!-- Right: Metrics Grid -->
+                    <div class="metrics-grid">
+                        <!-- Revenue Card -->
+                        <div class="metric-block bg-gray">
+                            <div class="metric-label">Revenue/ha</div>
+                            <div class="metric-value text-green-strong">${{ metrics.revenue | number:'1.0-0' }}
+                            </div>
+                        </div>
+
+                        <!-- Costs Card -->
+                        <div class="metric-block bg-gray">
+                            <div class="metric-label">Input Costs/ha</div>
+                            <div class="metric-value text-orange-strong">${{ metrics.costs | number:'1.0-0' }}
+                            </div>
+                        </div>
+
+                        <!-- Capital Card -->
+                        <div class="metric-block bg-gray">
+                            <div class="metric-label">Capital Investment</div>
+                            <div class="metric-value text-black">${{ metrics.capital | number:'1.0-0' }}</div>
+                        </div>
+
+                        <!-- Net Margin Card -->
+                        <div class="metric-block" [class.bg-red-light]="metrics.margin < 0"
+                            [class.bg-green-light]="metrics.margin >= 0">
+                            <div class="metric-label">Net Margin/ha</div>
+                            <div class="metric-value" [class.text-red-strong]="metrics.margin < 0"
+                                [class.text-green-strong]="metrics.margin >= 0">
+                                {{ metrics.margin < 0 ? '-$' + (Math.abs(metrics.margin) | number:'1.0-0') : '+$' +
+                                    (metrics.margin | number:'1.0-0') }} </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+
+            <!-- Support & Resources Section (visible in both views) -->
+            <div class="support-resources-section">
+                <!-- Official Data Banner -->
+                <div class="official-data-banner" *ngIf="selectedScenario() === 'global'">
+                    <span class="data-icon">📊</span>
+                    <span class="data-text">
+                        OFFICIAL DATA: WGCSA 2024 Crush Report (391kT, Shiraz $200/t), Wine Australia 262M L excess,
+                        CCW/PIRSA
+                        Olives Program.
+                        <span class="demo-note">Demo prototype - consult advisors.</span>
+                    </span>
+                </div>
+
+                <!-- Support & Resources -->
+                <div class="support-resources-card">
+                    <h3 class="support-title">Support & Resources</h3>
+                    <ul class="support-list">
+                        <li>
+                            <span class="bullet">•</span>
+                            <span>Discuss your numbers with your accountant or co-op</span>
+                        </li>
+                        <li>
+                            <span class="bullet">•</span>
+                            <span>Check available programs supporting diversification and water resilience</span>
+                        </li>
+                        <li>
+                            <span class="bullet">•</span>
+                            <span>Contact Rural Financial Counselling Service for free confidential support</span>
+                        </li>
+                    </ul>
