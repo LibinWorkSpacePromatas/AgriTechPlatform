@@ -1,10 +1,7 @@
 from fastapi import FastAPI
-from app.api import routes
 
-app = FastAPI(title="Backend API")
+from app.api.routes import router
 
-app.include_router(routes.router)
+app = FastAPI()
 
-@app.get("/")
-def read_root():
-    return {"message": "Welcome to the API"}
+app.include_router(router)
