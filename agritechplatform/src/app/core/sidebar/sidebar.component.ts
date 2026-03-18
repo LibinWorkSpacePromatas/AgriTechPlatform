@@ -1,7 +1,7 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
-import { NAVIGATION_ITEMS, MOCK_BLOCKS, MOCK_USER } from '../../shared/constants';
+import { NAVIGATION_ITEMS, MOCK_USER } from '../../shared/constants';
 import { BlockSelectorComponent } from '../../shared/components/block-selector.component';
 import { Block } from '../../shared/models';
 import { BlockService } from '../../shared/services/block.service';
@@ -261,7 +261,7 @@ export class SidebarComponent {
   @Output() closeSidebar = new EventEmitter<void>();
 
   navigationItems = NAVIGATION_ITEMS;
-  blocks = MOCK_BLOCKS;
+  blocks: Block[] = [];
   selectedBlock: Block | null = null;
   userProfile: any = MOCK_USER;
 
@@ -271,76 +271,22 @@ export class SidebarComponent {
     private router: Router
   ) {
     this.authService.activeUser$.subscribe(user => {
-      if (user) {
-        this.userProfile = user;
-        // Map user user blocks to sidebar blocks with custom naming
-        this.blocks = user.blocks.map((block, index) => {
-          // Create numeric label (1, 2, 3...)
-          const blockNumber = index + 1;
-
-          // Get real vineyard location based on coordinates
-          let vineyardLocation = user.farmLocation;
-          if (block.latitude && block.longitude) {
-            // Map coordinates to real vineyard locations
-            if (block.latitude === -34.171 && block.longitude === 140.738) {
-              vineyardLocation = 'Angove\'s Winery, Renmark';
-            } else if (block.latitude === -34.2 && block.longitude === 140.745) {
-              vineyardLocation = 'Mallee Estate, Renmark Ave';
-            } else if (block.latitude === -34.524 && block.longitude === 138.963) {
-              vineyardLocation = 'Château Tanunda, Tanunda';
-            } else if (block.latitude === -34.536 && block.longitude === 138.985) {
-              vineyardLocation = 'Yalumba, Angaston';
-            } else if (block.latitude === -35.219 && block.longitude === 138.547) {
-              vineyardLocation = 'd\'Arenberg, McLaren Vale';
-            } else if (block.latitude === -35.225 && block.longitude === 138.553) {
-              vineyardLocation = 'Willunga area, McLaren Vale';
-            } else if (block.latitude === -34.178 && block.longitude === 139.987) {
-              vineyardLocation = 'Waikerie area, Riverland';
-            } else if (block.latitude === -34.185 && block.longitude === 139.995) {
-              vineyardLocation = 'Near Waikerie, Riverland';
-            } else if (block.latitude === -34.536 && block.longitude === 138.985) {
-              vineyardLocation = 'Penfolds, Nuriootpa';
-            } else if (block.latitude === -34.542 && block.longitude === 138.993) {
-              vineyardLocation = 'Wolf Blass, Nuriootpa';
-            }
-          }
-
-          return {
-            id: block.lanslu,
-            name: `BLOCK ${blockNumber} - ${block.crop || user.primaryCropName}`,
-            location: vineyardLocation,
-            coordinates: '', // Placeholder
-            size: block.area,
-            sizeUnit: 'ha',
-            grapeVariety: block.crop || user.primaryCropName,
-            crop: block.crop || user.primaryCropName,
-            soilType: block.primarySoilClass,
-            soilDescription: block.description,
-            // Use actual coordinates from user data instead of generated ones
-            lat: block.latitude || -34.53,
-            lon: block.longitude || 138.96,
-            lan: block.lanslu
-          } as Block;
-        });
-
-        // Auto-select first block if available
-        if (this.blocks.length > 0 && !this.selectedBlock) {
-          this.blockService.setSelectedBlock(this.blocks[0]);
-        }
-      }
+      this.userProfile = user || MOCK_USER;
     });
 
-    this.blockService.selectedBlock$.subscribe(block => {
+    this.blockService.blocks$.subscribe(blocks => {
+      this.blocks = blocks;
+    });
+
+    this.blockService.block$.subscribe(block => {
       this.selectedBlock = block;
     });
   }
 
-  // Icon references
   LeafIcon = Leaf;
   LogOutIcon = LogOut;
   XIcon = X;
 
-  // Icon map for navigation
   private iconMap: Record<string, any> = {
     'layout-dashboard': LayoutDashboard,
     'droplet': Droplet,
@@ -354,7 +300,7 @@ export class SidebarComponent {
   }
 
   onBlockSelected(block: Block): void {
-    this.blockService.setSelectedBlock(block);
+    this.blockService.setBlock(block);
   }
 
   getUserInitials(): string {

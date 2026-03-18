@@ -7,6 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.api import auth, scan
 from app.db.session import SessionLocal
 from app.db.models import Block, User
+from app.services.dashboard_insights import build_block_insights
 
 router = APIRouter()
 router.include_router(auth.router, prefix="/auth", tags=["auth"])
@@ -75,3 +76,25 @@ def get_blocks(user_id: UUID, db: Session = Depends(get_db)):
         ]
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=500, detail=f"Database error while fetching blocks: {exc}") from exc
+
+
+@router.get("/block/{block_identifier}/insights")
+def get_block_insights(block_identifier: str, db: Session = Depends(get_db)):
+    try:
+        block = db.query(Block).filter(Block.lanslu == block_identifier).first()
+
+        if block is None:
+            try:
+                block_uuid = UUID(block_identifier)
+            except ValueError:
+                block_uuid = None
+
+            if block_uuid is not None:
+                block = db.query(Block).filter(Block.id == block_uuid).first()
+
+        if block is None:
+            raise HTTPException(status_code=404, detail=f"Block {block_identifier} was not found.")
+
+        return build_block_insights(block)
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail=f"Database error while fetching block insights: {exc}") from exc

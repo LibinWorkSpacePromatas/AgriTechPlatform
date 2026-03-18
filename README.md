@@ -121,7 +121,7 @@ The frontend routes are defined in [`agritechplatform/src/app/app.routes.ts`](c:
 - climate outlook note
 
 **How it is displayed**
-
+<!-- o -->
 - Sensors render as cards with current value, status, and icon.
 - Hovering/clicking a sensor opens a chart using `LineChartComponent`.
 - Weather displays current readings plus a chart toggle for 24h vs 7-day views.

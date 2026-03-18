@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { User } from '../models/user.model';
 import { UserDataService } from './user-data.service';
+import { BlockService } from '../../shared/services/block.service';
 
 @Injectable({
     providedIn: 'root'
@@ -11,10 +12,17 @@ export class AuthService {
     private activeUserSubject: BehaviorSubject<User | null>;
     public activeUser$: Observable<User | null>;
 
-    constructor(private userDataService: UserDataService) {
+    constructor(
+        private userDataService: UserDataService,
+        private blockService: BlockService
+    ) {
         const storedUser = this.getStoredUser();
         this.activeUserSubject = new BehaviorSubject<User | null>(storedUser);
         this.activeUser$ = this.activeUserSubject.asObservable();
+
+        if (storedUser) {
+            this.blockService.initializeForUser(storedUser);
+        }
     }
 
     login(userId: string): boolean {
@@ -23,6 +31,7 @@ export class AuthService {
         if (user) {
             this.activeUserSubject.next(user);
             this.storeUser(user);
+            this.blockService.initializeForUser(user);
             return true;
         }
 
@@ -31,6 +40,7 @@ export class AuthService {
 
     logout(): void {
         this.activeUserSubject.next(null);
+        this.blockService.clearBlocks();
         localStorage.removeItem(this.STORAGE_KEY);
     }
 

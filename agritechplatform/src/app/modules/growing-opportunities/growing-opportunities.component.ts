@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule, Sprout, ChevronRight, X, ExternalLink } from 'lucide-angular';
 import { UserDataService } from '../../core/services/user-data.service';
+import { AuthService } from '../../core/services/auth.service';
 import { User } from '../../core/models/user.model';
 
 interface Opportunity {
@@ -114,10 +115,13 @@ export class GrowingOpportunitiesComponent implements OnInit {
         }
     ];
 
-    constructor(private userDataService: UserDataService) {}
+    constructor(
+        private userDataService: UserDataService,
+        private authService: AuthService
+    ) {}
 
     ngOnInit() {
-        this.user = this.userDataService.getUserById('U001');
+        this.user = this.authService.getCurrentUser() || this.userDataService.getUsers()[0];
     }
 
     openOpportunity(opportunity: Opportunity): void {

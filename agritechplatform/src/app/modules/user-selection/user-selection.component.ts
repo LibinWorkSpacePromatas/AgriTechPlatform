@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { LucideAngularModule, Leaf } from 'lucide-angular';
+import { take } from 'rxjs';
 import { User } from '../../core/models/user.model';
 import { UserDataService } from '../../core/services/user-data.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -15,6 +16,8 @@ import { AuthService } from '../../core/services/auth.service';
 })
 export class UserSelectionComponent implements OnInit {
     users: User[] = [];
+    isLoading = false;
+    errorMessage: string | null = null;
     LeafIcon = Leaf;
 
     constructor(
@@ -25,6 +28,11 @@ export class UserSelectionComponent implements OnInit {
 
     ngOnInit(): void {
         this.users = this.userDataService.getUsers();
+        this.userDataService.loading$.subscribe(isLoading => this.isLoading = isLoading);
+        this.userDataService.error$.subscribe(error => this.errorMessage = error);
+        this.userDataService.loadUsers().pipe(take(1)).subscribe(users => {
+            this.users = users;
+        });
     }
 
     selectUser(user: User): void {

@@ -31,7 +31,7 @@
         </div>
         <div class="location-info">
             <div class="location-name">{{ currentBlock?.location?.name }}</div>
-            <div class="coords">{{ currentBlock?.location?.lat }}°S, {{ currentBlock?.location?.lon }}°E</div>
+            <div class="coords">{{ currentBlock?.location?.lat }}&deg;S, {{ currentBlock?.location?.lon }}&deg;E</div>
         </div>
     </div>
 
@@ -51,7 +51,7 @@
         <!-- SENSORS SECTION -->
         <div class="section-label">
             <i-lucide [img]="SproutIcon" size="16"></i-lucide>
-            IoT Sensor Readings <span class="click-hint">(Click for history)</span>
+            Block Insight Signals <span class="click-hint">(Click for history)</span>
         </div>
 
         <div class="sensors-grid">
@@ -84,7 +84,7 @@
                         <div class="header-actions">
                             <span class="popup-current-value">{{ sensor.value }}{{ sensor.unit }}</span>
                             <button class="btn-close-popup" (click)="closePopup($event)">
-                                <span class="close-icon">×</span>
+                                <span class="close-icon">&times;</span>
                             </button>
                         </div>
                     </div>
@@ -137,7 +137,7 @@
             <div class="weather-header">
                 <div class="live-indicator">
                     <span class="pulse-dot"></span>
-                    <h3>Live Weather <span class="location">— {{ currentBlock?.location?.name || 'Loading...' }}</span>
+                    <h3>Live Weather <span class="location">&mdash; {{ currentBlock?.location?.name || 'Loading...' }}</span>
                     </h3>
                     <span class="weather-desc" *ngIf="weatherData">{{
                         weatherService.getWeatherDescription(weatherData.current.weatherCode) }}</span>
@@ -153,7 +153,7 @@
                     <div class="stat-icon temperature">
                         <i-lucide [img]="ThermometerIcon" size="20"></i-lucide>
                     </div>
-                    <div class="stat-value">{{ weatherData.current.temperature }}°C</div>
+                    <div class="stat-value">{{ weatherData.current.temperature }}&deg;C</div>
                     <div class="stat-label">Temperature</div>
                 </div>
 
@@ -161,7 +161,7 @@
                     <div class="stat-icon normal">
                         <i-lucide [img]="ThermometerIcon" size="20"></i-lucide>
                     </div>
-                    <div class="stat-value">{{ weatherData.current.temperature - 0.9 | number:'1.1-1' }}°C</div>
+                    <div class="stat-value">{{ weatherData.current.temperature - 0.9 | number:'1.1-1' }}&deg;C</div>
                     <!-- Mock "Feels Like" -->
                     <div class="stat-label">Feels Like</div>
                 </div>
@@ -217,7 +217,7 @@
 
             <!-- Climate Outlook -->
             <div class="climate-alert">
-                <strong>Climate Outlook:</strong> By 2100, Riverland grape growing season may be +2.8°C warmer with
+                <strong>Climate Outlook:</strong> By 2100, Riverland grape growing season may be +2.8&deg;C warmer with
                 -14mm
                 rainfall, increasing variability.
             </div>
@@ -237,12 +237,12 @@
                 <span class="brand">PromaSecure</span> |
                 <span class="block-ref">{{ currentBlock?.name }}</span> |
                 <span class="page-title">CROP ADVISOR</span> |
-                <span class="date">{{ advisorData.lastUpdated }}</span>
+                <span class="date">Last updated: {{ advisorData.lastUpdated }}</span>
                 <div class="sub-text">
-                    Calculated from live sensor readings •
+                    Powered by backend block insights -
                     <span class="refresh-indicator">
-                        <i-lucide [img]="RefreshCwIcon" size="12" class="refresh-spinner"></i-lucide>
-                        Live updating
+                        <i-lucide [img]="RefreshCwIcon" size="12" [class.refresh-spinner]="isInsightsLoading"></i-lucide>
+                        {{ isInsightsLoading ? 'Loading latest block insights' : (isUsingFallbackData ? 'Fallback insights active' : 'Backend synced') }}
                     </span>
                 </div>
             </div>
@@ -264,7 +264,7 @@
         <div class="advisor-section card-box">
             <div class="section-title">
                 <i-lucide [img]="SproutIcon" size="20" class="icon-green"></i-lucide>
-                YOUR SENSORS SHOW RIGHT NOW
+                CURRENT BLOCK INSIGHTS
             </div>
 
             <div class="advisor-grid">
@@ -399,7 +399,7 @@
                     <!-- No factors = no loss -->
                     <div class="pl-no-loss" *ngIf="yieldImpact.factors.length === 0">
                         <i-lucide [img]="CheckCircleIcon" size="13" class="icon-green-sm"></i-lucide>
-                        <span>No active loss factors — all sensors optimal</span>
+                        <span>No active loss factors &mdash; all sensors optimal</span>
                     </div>
 
                     <!-- Loss Factors breakdown -->
@@ -455,7 +455,7 @@
                     </div>
                     <div class="alt-reasons">
                         <div *ngFor="let reason of alt.reasons.slice(0, 2)" class="reason-item">
-                            <span class="check-mark-small">✓</span>
+                            <span class="check-mark-small">&#10003;</span>
                             <span>{{ reason }}</span>
                         </div>
                     </div>
@@ -478,11 +478,11 @@
                         <div class="card-main-text">
                             CURRENT ({{ decisionData.current.crop }})
                             <span class="sub-financial">
-                                {{ formatCurrency(decisionData.current.lossPerHa) }}/ha × {{ decisionData.totalArea }}
+                                {{ formatCurrency(decisionData.current.lossPerHa) }}/ha &times; {{ decisionData.totalArea }}
                             </span>
                         </div>
                         <div class="card-detail warning-text">
-                            <span class="x-mark">✕</span> {{ decisionData.current.yieldLossDetails }}
+                            <span class="x-mark">&#10005;</span> {{ decisionData.current.yieldLossDetails }}
                         </div>
                     </div>
                     <div class="card-right financial-negative">
@@ -498,18 +498,18 @@
                         <div class="card-main-text">
                             {{ decisionData.switch.area }}ha {{ decisionData.switch.crop | uppercase }} SWITCH
                             <span class="sub-financial">
-                                {{ formatCurrency(decisionData.switch.profitPerHa) }}/ha × {{ decisionData.switch.area
+                                {{ formatCurrency(decisionData.switch.profitPerHa) }}/ha &times; {{ decisionData.switch.area
                                 }}
                             </span>
                         </div>
                         <div class="card-detail success-text">
-                            <span class="check-mark">✔</span> Fits {{ decisionData.switch.allocationMatch }}% allocation
+                            <span class="check-mark">&#10003;</span> Fits {{ decisionData.switch.allocationMatch }}% allocation
                             perfectly
                         </div>
                         <div class="card-detail success-text">
-                            <span class="check-mark">✔</span>
-                            <span class="ph-val">{{ sensors[4].value }} pH</span> = PIRSA validated
-                            <span class="check-mark small">✔</span>
+                            <span class="check-mark">&#10003;</span>
+                            <span class="ph-val">{{ decisionData.switch.validationText }}</span>
+                            <span class="check-mark small">&#10003;</span>
                         </div>
                     </div>
                     <div class="card-right financial-positive">
@@ -525,11 +525,11 @@
                         <div class="card-main-text">
                             KEEP {{ decisionData.keep.area }}ha {{ decisionData.keep.crop | uppercase }}
                             <span class="sub-financial">
-                                {{ formatCurrency(decisionData.keep.profitPerHa) }}/ha × {{ decisionData.keep.area }}
+                                {{ formatCurrency(decisionData.keep.profitPerHa) }}/ha &times; {{ decisionData.keep.area }}
                             </span>
                         </div>
                         <div class="card-detail success-text">
-                            <span class="check-mark">✔</span> Uses your existing skills
+                            <span class="check-mark">&#10003;</span> Uses your existing skills
                         </div>
                     </div>
                     <div class="card-right financial-positive">
@@ -554,7 +554,7 @@
                     <i-lucide [img]="FileTextIcon" size="14"></i-lucide> ASSISTANCE GRANT GUIDE
                 </button>
                 <button class="btn btn-text" (click)="downloadPdf()">
-                    <i-lucide [img]="DownloadIcon" size="14"></i-lucide> {{ decisionData.totalArea }}ha FULL PLAN → PDF
+                    <i-lucide [img]="DownloadIcon" size="14"></i-lucide> {{ decisionData.totalArea }}ha FULL PLAN &rarr; PDF
                 </button>
                 <button class="btn btn-text">
                     <i-lucide [img]="SaveIcon" size="14"></i-lucide> SAVE INSIGHTS
@@ -566,7 +566,7 @@
         </div>
 
         <div class="disclaimer-footer">
-            Data Sources: Live IoT sensors, PIRSA 2025 Factsheet, WGCSA 2024 Crush Report. Demo prototype - consult
+            Data Sources: Backend block insights, selected block metadata, and live weather observations. Consult
             professional advisors before making decisions.
         </div>
     </div>
@@ -639,7 +639,7 @@
     <div class="grant-modal-content">
         <div class="grant-header">
             <div class="grant-icon-wrapper">
-                <span>🎯</span>
+                <span>&#127919;</span>
             </div>
             <h3>SA GRAPE GROWER FUNDING</h3>
         </div>
@@ -703,9 +703,8 @@
 <div class="prototype-notice">
     <div class="notice-icon">i</div>
     <div class="notice-text">
-        <strong>Prototype Notice</strong><br>
-        This dashboard displays demo sensor data for demonstration purposes. Real IoT integration would connect to
-        physical sensors in your vineyard.
+        <strong>{{ isUsingFallbackData ? 'Fallback Notice' : 'Data Status' }}</strong><br>
+        {{ isUsingFallbackData ? (dashboardWarningMessage || 'Backend insights are temporarily unavailable, so fallback dashboard data is being shown.') : ('This dashboard is using backend-driven block intelligence and live weather data for the selected block.') }}
     </div>
 </div>
 
@@ -722,10 +721,10 @@
                 <div class="score-label">SUITABILITY MATCH</div>
             </div>
             <div class="ph-compatibility-badge"
-                [ngClass]="selectedAlternativeCrop.phCompatible ? 'compatible' : 'incompatible'">
-                <i-lucide [img]="selectedAlternativeCrop.phCompatible ? CheckCircleIcon : AlertTriangleIcon"
+                [ngClass]="selectedAlternativeCrop.compatible ? 'compatible' : 'incompatible'">
+                <i-lucide [img]="selectedAlternativeCrop.compatible ? CheckCircleIcon : AlertTriangleIcon"
                     size="16"></i-lucide>
-                <span>{{ selectedAlternativeCrop.phCompatible ? 'pH Compatible' : 'pH Adjustment Needed' }}</span>
+                <span>{{ selectedAlternativeCrop.compatible ? 'Block Compatible' : 'Adjustment Needed' }}</span>
             </div>
         </div>
 
@@ -741,8 +740,8 @@
                     <div class="metric-comparison" *ngIf="currentBlock">
                         <span class="comparison-label">vs Current:</span>
                         <span [ngClass]="selectedAlternativeCrop.waterRequirement < 6.5 ? 'better' : 'worse'">
-                            {{ selectedAlternativeCrop.waterRequirement < 6.5 ? '↓ More Efficient' : '↑ More Water' }}
-                                </span>
+                            {{ selectedAlternativeCrop.waterRequirement < 6.5 ? 'Lower water demand' : 'Higher water demand' }}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -789,53 +788,52 @@
                 <div class="condition-item" *ngIf="sensors.length > 0">
                     <div class="condition-label">
                         <i-lucide [img]="DropletsIcon" size="14"></i-lucide>
-                        Soil Moisture
+                        Water Status
                     </div>
                     <div class="condition-value">
-                        {{ getSensorValue('Soil Moisture') }}%
+                        {{ getSensorValue('Water Status') }}%
                     </div>
-                    <div class="condition-status good">
-                        <i-lucide [img]="CheckCircleIcon" size="12"></i-lucide>
-                        Optimal
+                    <div class="condition-status" [ngClass]="selectedAlternativeCrop.moistureCompatible ? 'good' : 'warning'">
+                        <i-lucide [img]="selectedAlternativeCrop.moistureCompatible ? CheckCircleIcon : AlertTriangleIcon" size="12"></i-lucide>
+                        {{ selectedAlternativeCrop.moistureCompatible ? 'Aligned' : 'Needs Review' }}
                     </div>
                 </div>
 
                 <div class="condition-item">
                     <div class="condition-label">
                         <i-lucide [img]="SproutIcon" size="14"></i-lucide>
-                        Soil pH
+                        Nutrient Status
                     </div>
                     <div class="condition-value">
-                        {{ getSensorValue('pH Level') }}
+                        {{ getSensorValue('Nutrient Status') }}%
                     </div>
-                    <div class="condition-status" [ngClass]="selectedAlternativeCrop.phCompatible ? 'good' : 'warning'">
-                        <i-lucide [img]="selectedAlternativeCrop.phCompatible ? CheckCircleIcon : AlertTriangleIcon"
+                    <div class="condition-status" [ngClass]="selectedAlternativeCrop.compatible ? 'good' : 'warning'">
+                        <i-lucide [img]="selectedAlternativeCrop.compatible ? CheckCircleIcon : AlertTriangleIcon"
                             size="12"></i-lucide>
-                        {{ selectedAlternativeCrop.phCompatible ? 'Compatible' : 'Needs Adjustment' }}
+                        {{ selectedAlternativeCrop.compatible ? 'Compatible' : 'Needs Adjustment' }}
                     </div>
                 </div>
 
                 <div class="condition-item">
                     <div class="condition-label">
                         <i-lucide [img]="ThermometerIcon" size="14"></i-lucide>
-                        Temperature
+                        Crop Health
                     </div>
                     <div class="condition-value">
-                        {{ getSensorValue('Air Temperature') }}°C
+                        {{ getSensorValue('Crop Health') }}%
                     </div>
                     <div class="condition-status good">
                         <i-lucide [img]="CheckCircleIcon" size="12"></i-lucide>
                         Suitable
                     </div>
                 </div>
-
                 <div class="condition-item">
                     <div class="condition-label">
                         <i-lucide [img]="WindIcon" size="14"></i-lucide>
-                        Humidity
+                        Canopy Density
                     </div>
                     <div class="condition-value">
-                        {{ getSensorValue('Humidity') }}%
+                        {{ getSensorValue('Canopy Density') }}%
                     </div>
                     <div class="condition-status good">
                         <i-lucide [img]="CheckCircleIcon" size="12"></i-lucide>
@@ -895,8 +893,8 @@
 
         <div
             style="margin-top: 2rem; padding: 1rem; background-color: #f8fafc; border-radius: 0.5rem; font-size: 0.9rem; color: #64748b;">
-            <p><strong>Note:</strong> This index is an approximation based on soil pH, moisture levels, and temperature.
-                For precise nutrient management (NPK), please install dedicated soil nutrient sensors.</p>
+            <p><strong>Note:</strong> This nutrient view is sourced from backend NDRE, NDWI, and LAI intelligence.
+                Reconnect the backend insights service if you need a fresher composite.</p>
         </div>
     </div>
 </app-modal>

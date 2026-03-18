@@ -7,6 +7,7 @@ import { GrowerGptService } from '../../services/grower-gpt/grower-gpt.service';
 import { BlockService } from '../../shared/services/block.service';
 import { UserDataService } from '../../core/services/user-data.service';
 import { WaterIrrigationService, IrrigationStatus } from '../../services/water-irrigation/water-irrigation.service';
+import { AuthService } from '../../core/services/auth.service';
 import { take } from 'rxjs';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { marked } from 'marked';
@@ -42,6 +43,7 @@ export class GrowerGptComponent implements OnInit, AfterViewChecked {
     public growerGptService: GrowerGptService,
     public blockService: BlockService,
     private userDataService: UserDataService,
+    private authService: AuthService,
     private irrigationService: WaterIrrigationService,
     private sanitizer: DomSanitizer
   ) { }
@@ -124,7 +126,7 @@ export class GrowerGptComponent implements OnInit, AfterViewChecked {
     this.isLoading = true;
 
     try {
-      const selectedUser = this.userDataService.getUserById('U001');
+      const selectedUser = this.authService.getCurrentUser() || this.userDataService.getUsers()[0];
       const currentBlock = this.blockService.getSelectedBlock();
 
       // STEP 1 — Detect Block Automatically

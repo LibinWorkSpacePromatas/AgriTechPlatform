@@ -11,10 +11,12 @@ if (!fs.existsSync(environmentsDir)) {
 
 // Get API Key from Environment Variable or use placeholder
 const apiKey = process.env.OPENROUTER_API_KEY || 'OPENROUTER_API_KEY_PLACEHOLDER';
+const apiBaseUrl = process.env.API_BASE_URL || 'http://localhost:8000';
 
 // Define the content for environment.prod.ts
 const envProdContent = `export const environment = {
   production: true,
+  apiBaseUrl: '${apiBaseUrl}',
   weatherApi: {
     baseUrl: 'https://api.open-meteo.com/v1/forecast',
     timeout: 10000,
@@ -43,6 +45,7 @@ const envProdContent = `export const environment = {
 // Define the content for environment.ts (Dev)
 const envDevContent = `export const environment = {
   production: false,
+  apiBaseUrl: '${apiBaseUrl}',
   weatherApi: {
     baseUrl: 'https://api.open-meteo.com/v1/forecast',
     timeout: 10000,

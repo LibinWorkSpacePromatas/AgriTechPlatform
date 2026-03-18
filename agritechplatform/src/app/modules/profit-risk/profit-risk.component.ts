@@ -22,6 +22,7 @@ import {
   Globe 
 } from 'lucide-angular';
 import { UserDataService } from '../../core/services/user-data.service';
+import { AuthService } from '../../core/services/auth.service';
 import { User } from '../../core/models/user.model';
 
 export interface Crop {
@@ -176,10 +177,13 @@ export class ProfitRiskComponent implements OnInit {
       }
   ];
 
-  constructor(private userDataService: UserDataService) {}
+  constructor(
+    private userDataService: UserDataService,
+    private authService: AuthService
+  ) {}
 
   ngOnInit() {
-    this.user = this.userDataService.getUserById('U001');
+    this.user = this.authService.getCurrentUser() || this.userDataService.getUsers()[0];
   }
 
   // Computed Values
