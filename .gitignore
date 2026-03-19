@@ -1,1 +1,16 @@
+# Angular environment files
 agritechplatform/src/environments/*.ts
+
+# Local environment files
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# Python cache artifacts
+__pycache__/
+*.py[cod]
+**/__pycache__/
+**/*.pyc

@@ -10,3 +10,5 @@ python-jose
 bcrypt
 python-multipart
 geoalchemy2
+earthengine-api
+apscheduler
