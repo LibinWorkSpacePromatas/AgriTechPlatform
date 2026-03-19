@@ -15,8 +15,20 @@
         <h2>Welcome Back</h2>
         <p class="subtitle">Select your profile to continue</p>
 
+        <!-- Loading State -->
+        <div *ngIf="isLoading" class="loading-state">
+            <div class="spinner"></div>
+            <p>Fetching your profiles...</p>
+        </div>
+
+        <!-- Error State -->
+        <div *ngIf="errorMessage && !isLoading" class="error-container">
+            <p class="error-text">{{ errorMessage }}</p>
+            <button (click)="ngOnInit()" class="retry-button">Retry Connection</button>
+        </div>
+
         <!-- User Grid -->
-        <div class="user-grid">
+        <div *ngIf="!isLoading && users.length > 0" class="user-grid">
             <div *ngFor="let user of users; let i = index" class="user-card" (click)="selectUser(user)"
                 [style.--bg-color]="getAvatarColor(i)">
                 <div class="user-avatar" [style.background]="getAvatarColor(i)">
@@ -28,6 +40,11 @@
                     <p class="location">{{ user.farmLocation }} • {{ user.primaryCropName }}</p>
                 </div>
             </div>
+        </div>
+
+        <!-- Empty State -->
+        <div *ngIf="!isLoading && users.length === 0 && !errorMessage" class="empty-state">
+            <p>No user profiles found in the database.</p>
         </div>
     </div>
 </div>

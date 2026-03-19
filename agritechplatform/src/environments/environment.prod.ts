@@ -21,6 +21,6 @@ export const environment = {
   },
   ollama: {
     host: 'https://openrouter.ai/api/v1',
-    apiKey: 'OPENROUTER_API_KEY_PLACEHOLDER'
+    apiKey: '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'
   }
 };
