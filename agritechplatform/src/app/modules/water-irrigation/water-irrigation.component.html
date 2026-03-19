@@ -1,21 +1,17 @@
 <div class="page-container fade-in">
-  <!-- Loading State -->
   <div *ngIf="isLoading" class="loading-overlay">
     <div class="loading-spinner"></div>
     <p>Loading irrigation data...</p>
   </div>
 
-  <!-- Error State -->
   <div *ngIf="error && !isLoading" class="error-banner">
     <i-lucide [img]="AlertIcon" class="error-icon"></i-lucide>
     <span>{{ error }}</span>
     <button class="retry-btn" (click)="refreshData()">Retry</button>
   </div>
 
-  <!-- Main Content -->
   <div class="content-wrapper">
     <div class="dashboard-grid">
-      <!-- Left Column: Controls & Map -->
       <div class="left-column">
         <div class="card header-card shadow-sm">
           <div class="header-content">
@@ -72,7 +68,10 @@
           <div class="analysis-card card shadow-sm">
             <div class="card-title">
               <i-lucide [img]="ActivityIcon"></i-lucide>
-              <h3>Soil Moisture Profile</h3>
+              <div class="title-stack">
+                <h3>Soil Moisture Profile</h3>
+                <span class="sub-tag">{{ irrigationStatus.sourceLabel }}</span>
+              </div>
             </div>
             <div class="soil-profile">
               <div *ngFor="let reading of irrigationStatus.soilReadings" class="depth-item">
@@ -121,10 +120,22 @@
         </ng-container>
       </div>
 
-      <!-- Right Column: Metrics & Data -->
       <div class="right-column">
         <ng-container *ngIf="irrigationStatus">
-          <!-- Status Overview -->
+          <div class="insight-banner card shadow-sm"
+            [ngClass]="getInsightTone(irrigationStatus.insightsStatus)"
+            *ngIf="irrigationStatus.insightsWarning || irrigationStatus.isUsingFallbackMoisture || irrigationStatus.insightsStatus !== 'fresh'">
+            <div class="banner-top">
+              <span class="status-pill" [ngClass]="getInsightTone(irrigationStatus.insightsStatus)">
+                {{ getInsightStatusLabel(irrigationStatus.insightsStatus) }}
+              </span>
+              <span class="status-pill neutral">
+                {{ irrigationStatus.isUsingFallbackMoisture ? 'Legacy fallback active' : irrigationStatus.sourceLabel }}
+              </span>
+            </div>
+            <p>{{ irrigationStatus.insightsWarning }}</p>
+          </div>
+
           <div class="status-summary card shadow-sm" [ngClass]="getStatusBgColor(irrigationStatus.status)">
             <div class="summary-header">
               <div class="status-indicator-large" [ngClass]="irrigationStatus.status"></div>
@@ -133,58 +144,67 @@
                 <h2>{{ irrigationStatus.status | titlecase }}</h2>
               </div>
             </div>
+            <div class="summary-meta">
+              <span class="summary-chip">{{ irrigationStatus.ndwiLabel }}</span>
+              <span class="summary-chip">{{ getRecommendationLabel(irrigationStatus.recommendationLevel) }}</span>
+              <span class="summary-chip" *ngIf="irrigationStatus.ndwi !== null">
+                NDWI {{ irrigationStatus.ndwi | number:'1.2-2' }}
+              </span>
+            </div>
             <p class="recommendation-msg">{{ irrigationStatus.irrigationMessage }}</p>
           </div>
 
-          <!-- Calculation Logic Explanation (DYNAMIC) -->
-          <div class="logic-card card shadow-sm" *ngIf="irrigationStatus">
+          <div class="logic-card card shadow-sm">
             <div class="card-title">
               <i-lucide [img]="ActivityIcon"></i-lucide>
               <h3>Irrigation Calculation Formula</h3>
             </div>
             <div class="formula-container">
               <div class="formula-box">
-                <code>ETc = ET₀ ({{ irrigationStatus.et0Today | number:'1.1-1' }}) × Kc ({{ irrigationStatus.kcValue | number:'1.2-2' }}) = {{ (irrigationStatus.et0Today * irrigationStatus.kcValue) | number:'1.1-1' }}mm</code>
-                <code>Deficit = ETc - Rain ({{ irrigationStatus.rainToday | number:'1.1-1' }}mm) = {{ irrigationStatus.netIrrigation | number:'1.1-1' }}mm</code>
-                <code>Adjusted = Deficit / SoilFactor ({{ irrigationStatus.soilFactor | number:'1.2-2' }}) = {{ (irrigationStatus.irrigationNeeded / 0.01) | number:'1.1-1' }}mm</code>
+                <code *ngIf="irrigationStatus.ndwi !== null">
+                  NDWI {{ irrigationStatus.ndwi | number:'1.2-2' }} = {{ irrigationStatus.ndwiLabel }} -> {{ irrigationStatus.ndwiDrivenNeed | number:'1.1-1' }}mm base need
+                </code>
+                <code *ngIf="irrigationStatus.ndwi === null">
+                  NDWI unavailable -> fallback hydration model remains active
+                </code>
+                <code>ET0 x Kc = {{ irrigationStatus.et0Today | number:'1.1-1' }} x {{ irrigationStatus.kcValue | number:'1.2-2' }} = {{ (irrigationStatus.et0Today * irrigationStatus.kcValue) | number:'1.1-1' }}mm</code>
+                <code>Weather adjustment = Deficit {{ irrigationStatus.netIrrigation | number:'1.1-1' }}mm / SoilFactor {{ irrigationStatus.soilFactor | number:'1.2-2' }} = {{ irrigationStatus.weatherAdjustedNeed | number:'1.1-1' }}mm</code>
+                <code>Hybrid irrigation = NDWI (70%) + ET0 adjustment (30%) = {{ irrigationStatus.hybridIrrigationMm | number:'1.1-1' }}mm</code>
                 <div class="formula-result">
                   <span class="final-label">Final ML/ha:</span>
                   <span class="final-value">{{ irrigationStatus.irrigationNeeded | number:'1.3-3' }} ML/ha</span>
                 </div>
               </div>
               <div class="formula-legend">
-                <p>• <strong>ETc:</strong> Crop water loss today</p>
-                <p>• <strong>Kc:</strong> Vineyard crop coefficient ({{ irrigationStatus.kcValue | number:'1.2-2' }})
-                </p>
+                <p>• <strong>NDWI:</strong> Satellite-derived moisture ground truth for the selected block</p>
+                <p>• <strong>ET0:</strong> Weather-driven adjustment to short-term water demand</p>
+                <p>• <strong>Kc:</strong> Vineyard crop coefficient ({{ irrigationStatus.kcValue | number:'1.2-2' }})</p>
                 <p>• <strong>Soil Factor:</strong> Adjustment for {{
                   irrigationStatus.soilData?.Primary_Soil_Classification || 'soil' }} drainage</p>
               </div>
             </div>
           </div>
 
-          <!-- Quick Metrics -->
           <div class="metrics-row">
             <div class="mini-card shadow-sm">
               <div class="mini-icon blue"><i-lucide [img]="WavesIcon"></i-lucide></div>
               <div class="mini-data">
                 <span class="val">{{ irrigationStatus.currentHydration | number:'1.1-1' }}%</span>
-                <span class="lab">Hydration</span>
+                <span class="lab">{{ irrigationStatus.isUsingFallbackMoisture ? 'Fallback Hydration' : 'Satellite Hydration' }}</span>
               </div>
             </div>
             <div class="mini-card shadow-sm">
               <div class="mini-icon orange"><i-lucide [img]="DropletIcon"></i-lucide></div>
               <div class="mini-data">
                 <span class="val">{{ irrigationStatus.irrigationNeeded | number:'1.3-3' }}</span>
-                <span class="lab">ML/ha Needed</span>
+                <span class="lab">{{ getRecommendationLabel(irrigationStatus.recommendationLevel) }}</span>
               </div>
             </div>
           </div>
 
-          <!-- Soil Analysis -->
-          <!-- Forecast/Weather -->
           <div class="weather-card card shadow-sm">
             <div class="weather-item">
-              <span class="label">Daily ET₀</span>
+              <span class="label">Daily ET0</span>
               <span class="value">{{ irrigationStatus.et0Today | number:'1.1-1' }}mm</span>
             </div>
             <div class="divider"></div>
@@ -197,18 +217,22 @@
                   irrigationStatus.bomStation.distance_km }}km)
                 </span>
                 <span class="source-tag" *ngIf="!irrigationStatus.bomStation">
-                  Source: OpenMeteo (Satellite)
+                  Source: OpenMeteo
                 </span>
               </div>
             </div>
             <div class="divider"></div>
-            <!-- <div class="weather-item">
-              <span class="label">Confidence</span>
-              <span class="value">{{ irrigationStatus.confidence * 100 | number:'1.0-0' }}%</span>
-            </div> -->
+            <div class="weather-item">
+              <span class="label">Insight State</span>
+              <div class="rain-data">
+                <span class="value">{{ getInsightStatusLabel(irrigationStatus.insightsStatus) }}</span>
+                <span class="source-tag" *ngIf="irrigationStatus.compositeDateLabel">
+                  Composite: {{ irrigationStatus.compositeDateLabel | date:'mediumDate' }}
+                </span>
+              </div>
+            </div>
           </div>
 
-          <!-- BoM Station Info (NEW) -->
           <div class="station-card card shadow-sm" *ngIf="irrigationStatus.bomStation">
             <div class="card-title">
               <i-lucide [img]="MapPinIcon"></i-lucide>
@@ -227,7 +251,6 @@
           </div>
         </ng-container>
 
-        <!-- Placeholder when loading or no status -->
         <div *ngIf="!irrigationStatus && !isLoading" class="empty-state card shadow-sm">
           <i-lucide [img]="MapPinIcon"></i-lucide>
           <p>Select a location on the map to see irrigation details</p>

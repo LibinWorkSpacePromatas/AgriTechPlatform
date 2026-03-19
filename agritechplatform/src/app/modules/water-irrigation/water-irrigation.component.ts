@@ -283,4 +283,37 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     if (factor < 0.9) return 'text-orange-600 font-bold';
     return 'text-blue-600 font-bold';
   }
+
+  getInsightTone(status: string): string {
+    switch (status) {
+      case 'stale':
+        return 'warning';
+      case 'updating':
+        return 'info';
+      default:
+        return 'success';
+    }
+  }
+
+  getInsightStatusLabel(status: string): string {
+    switch (status) {
+      case 'stale':
+        return 'Satellite stale';
+      case 'updating':
+        return 'Satellite updating';
+      default:
+        return 'Satellite fresh';
+    }
+  }
+
+  getRecommendationLabel(level: string): string {
+    switch (level) {
+      case 'high':
+        return 'High irrigation';
+      case 'low':
+        return 'Low irrigation';
+      default:
+        return 'Moderate irrigation';
+    }
+  }
 }

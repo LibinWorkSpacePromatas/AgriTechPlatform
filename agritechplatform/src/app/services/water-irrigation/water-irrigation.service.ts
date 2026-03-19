@@ -1,10 +1,19 @@
 import { Injectable } from '@angular/core';
-import { Observable, map, catchError, of, forkJoin } from 'rxjs';
-import { WeatherService, WeatherData, IrrigationRecommendation } from '../weather-service/weather.service';
-import { SoilService } from '../soil/soil.service';
+import { Observable, catchError, forkJoin, map, of } from 'rxjs';
 import { SoilData } from '../../model/soil.model';
-import { environment } from '../../../environments/environment';
+import {
+  BackendDataQuality,
+  BackendInsightStatus,
+  DashboardApiService,
+  DashboardInsightsResponse
+} from '../../core/services/dashboard-api.service';
 import { SensorService } from '../../core/services/sensor.service';
+import { SoilService } from '../soil/soil.service';
+import { WeatherData, WeatherService } from '../weather-service/weather.service';
+
+export type MoistureSource = 'satellite' | 'legacy-fallback';
+export type NdwiMoistureBand = 'high' | 'moderate' | 'dry' | 'unknown';
+export type IrrigationRecommendationLevel = 'low' | 'moderate' | 'high';
 
 export interface SoilDepthReading {
   depth: number;
@@ -19,11 +28,25 @@ export interface IrrigationStatus {
   et0Today: number;
   rainToday: number;
   netIrrigation: number;
-  kcValue: number; // Expose Kc for UI verification
+  weatherAdjustedNeed: number;
+  ndwiDrivenNeed: number;
+  hybridIrrigationMm: number;
+  kcValue: number;
   status: 'urgent' | 'monitor' | 'saturated';
+  recommendationLevel: IrrigationRecommendationLevel;
   soilReadings: SoilDepthReading[];
   nextIrrigationTime: Date;
   confidence: number;
+  ndwi: number | null;
+  ndwiLabel: string;
+  ndwiBand: NdwiMoistureBand;
+  moistureSource: MoistureSource;
+  sourceLabel: string;
+  isUsingFallbackMoisture: boolean;
+  insightsStatus: BackendInsightStatus;
+  insightsDataQuality: BackendDataQuality;
+  insightsWarning: string | null;
+  compositeDateLabel: string | null;
   soilData?: SoilData;
   soilFactor?: number;
   bomStation?: {
@@ -34,49 +57,32 @@ export interface IrrigationStatus {
   };
 }
 
+interface NdwiSignal {
+  band: NdwiMoistureBand;
+  label: string;
+  baseHydration: number;
+  ndwiDrivenNeed: number;
+  recommendationLevel: IrrigationRecommendationLevel;
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class WaterIrrigationService {
-  private readonly DEPTH_LEVELS = [30, 60, 90]; // cm
+  private readonly DEPTH_LEVELS = [30, 60, 90];
   private readonly OPTIMAL_RANGES = {
-    30: { min: 0.35, max: 0.65 },
-    60: { min: 0.30, max: 0.60 },
-    90: { min: 0.25, max: 0.55 }
+    30: { min: 35, max: 65 },
+    60: { min: 30, max: 60 },
+    90: { min: 25, max: 55 }
   };
-  private readonly KC_FACTOR = 0.85; // Crop coefficient for generic crops
 
   constructor(
     private weatherService: WeatherService,
     private soilService: SoilService,
-    private sensorService: SensorService
+    private sensorService: SensorService,
+    private dashboardApiService: DashboardApiService
   ) {}
 
-  /**
-   * Get seasonally-adjusted Kc value based on current month
-   * Uses FAO-56 grapevine coefficients for South Australian climate
-   */
-  private getKcByMonth(): number {
-    const month = new Date().getMonth(); // 0 = January
-    
-    const kcMap: { [key: number]: number } = {
-      8: 0.35,  // September - Budburst
-      9: 0.55,  // October - Early Growth
-      10: 0.70, // November - Canopy Development
-      11: 0.85, // December - Full Canopy
-      0: 0.90,  // January - Peak Water Use
-      1: 0.75,  // February - Ripening
-      2: 0.65,  // March - Late Season
-      3: 0.50   // April - Post Harvest
-    };
-    
-    return kcMap[month] || 0.70; // Default to development stage
-  }
-
-  /**
-   * Get crop-specific Kc value for mid-season (full canopy)
-   * Based on FAO-56 and viticulture research for South Australian varieties
-   */
   private getCropSpecificKc(cropName: string): number {
     const cropKcMap: { [key: string]: number } = {
       'Shiraz': 0.85,
@@ -88,17 +94,22 @@ export class WaterIrrigationService {
       'Semillon': 0.80,
       'Pinot Grigio': 0.78
     };
-    
-    return cropKcMap[cropName] || 0.85; // Default to Shiraz if unknown
+
+    return cropKcMap[cropName] || 0.85;
   }
 
-  getIrrigationStatus(lat?: number, lon?: number, lanslu: string = "BCPKFB", cropName?: string): Observable<IrrigationStatus> {
+  getIrrigationStatus(
+    lat?: number,
+    lon?: number,
+    lanslu: string = 'BCPKFB',
+    cropName?: string
+  ): Observable<IrrigationStatus> {
     const latitude = lat || -34.53;
     const longitude = lon || 138.96;
 
-    // STEP 1: Load soil data and weather
     return forkJoin({
       soilLoaded: this.soilService.loadSoilData(),
+      insights: this.dashboardApiService.getBlockInsights(lanslu),
       weather: this.weatherService.getWeather(latitude, longitude).pipe(
         map(data => {
           console.log('Weather Service: Data fetched for coordinates:', latitude, longitude);
@@ -106,23 +117,18 @@ export class WaterIrrigationService {
         })
       )
     }).pipe(
-      map(({ weather }) => {
-        // Get soil data by LANSLU (Master Logic)
+      map(({ weather, insights }) => {
         const soil = this.soilService.getSoilByLANSLU(lanslu);
-        
-        // Use weather service rain data as fallback since there's no backend BoM station
         const fallbackRain = this.calculateDailyRain(weather.rain);
-        
-        const status = this.calculateIrrigationStatus(weather, soil, fallbackRain, cropName);
-        
-        // Provide mock station info for UI display
+        const status = this.calculateIrrigationStatus(weather, insights, soil, fallbackRain, cropName);
+
         status.bomStation = {
           station_id: 24048,
-          name: "RENMARK AERO (Mocked)",
+          name: 'RENMARK AERO (Mocked)',
           distance_km: 12.4,
-          state_code: "SA"
+          state_code: 'SA'
         };
-        
+
         return status;
       }),
       catchError(err => {
@@ -132,100 +138,90 @@ export class WaterIrrigationService {
     );
   }
 
-  private calculateIrrigationStatus(weatherData: WeatherData, soil?: SoilData, bomRain?: number | null, cropName?: string): IrrigationStatus {
-    // Use real Open-Meteo multi-depth soil moisture
-    const moisture30 = (weatherData.soilMoistureDepths?.['0-1cm']?.[0] || 0) * 100;
-    const moisture60 = (weatherData.soilMoistureDepths?.['9-27cm']?.[0] || 0) * 100;
-    const moisture90 = (weatherData.soilMoistureDepths?.['27-81cm']?.[0] || 0) * 100;
-
-    // STEP 0: Get Hydration from SensorService (Single Source of Truth)
-    // This ensures Dashboard and Irrigation page show the exact same value.
-    const currentHydration = this.sensorService.getSoilMoisture();
-
-    // STEP 1: Calculate ETc (Crop Evapotranspiration)
-    // ETc = ET₀ × Kc (crop-specific for mid-season)
+  private calculateIrrigationStatus(
+    weatherData: WeatherData,
+    insights: DashboardInsightsResponse,
+    soil?: SoilData,
+    bomRain?: number | null,
+    cropName?: string
+  ): IrrigationStatus {
     const todayET0 = this.calculateDailyET0(weatherData.et0);
     const kc = this.getCropSpecificKc(cropName || 'Shiraz');
-    
-    // DEBUG: Verify formula update and Kc value
-    console.debug(`[IrrigationFormula] Crop: ${cropName || 'Shiraz'}, Kc: ${kc}, ET0: ${todayET0}`);
-    
     const todayETc = todayET0 * kc;
-
-    // STEP 2: Calculate Net Deficit using BoM Rainfall with Open-Meteo fallback
-    // Deficit = ETc - EffectiveRain
     const openMeteoRain = this.calculateDailyRain(weatherData.rain);
-    
-    // BoM fallback logic: If BoM is 0 or null, we check Open-Meteo
+
     let rainToUse = openMeteoRain;
     if (bomRain !== null && bomRain !== undefined && bomRain > 0) {
       rainToUse = bomRain;
     }
-    
-    const effectiveRain = rainToUse * 0.8; // Assuming 80% of rain is effective
-    const deficit = Math.max(0, todayETc - effectiveRain); // Clamp to prevent negative irrigation
-    
-    // STEP 3: Weighted Soil Factor Adjustment
+
+    const effectiveRain = rainToUse * 0.8;
+    const deficit = Math.max(0, todayETc - effectiveRain);
+
     let soilFactor = 1.0;
     if (soil) {
       soilFactor = this.soilService.calculateSoilFactor(soil);
     }
-    
-    // Adjusted_mm = Deficit / SoilFactor
-    const adjustedMM = deficit / soilFactor;
 
-    // STEP 4: Convert mm to ML/ha
-    // 1 mm over 1 hectare = 0.01 ML
-    const irrigationNeeded = Number((adjustedMM * 0.01).toFixed(3));
-
-    // STEP 5: Realistic Soil Moisture Logic (Scientific MVP Model)
-    // hydration = baselineMoisture + (rain * 0.8 * 2) - (etc / soilFactor) * 1.5
-    // let hydration = currentSoilMoisture * 100; // Start with baseline sensor data (0-100 scale)
-    
-    // // Rain recharge (Effective Rain * 2 multiplier for hydration impact)
-    // const recharge = (rainToUse * 0.8 * 2);
-    // hydration += recharge;
-    
-    // // ETc depletion (Soil-adjusted depletion rate)
-    // // Sandy soil (low soilFactor) depletes faster; Clay (high soilFactor) depletes slower
-    // const depletion = (todayETc / soilFactor) * 0.8;
-    // hydration -= depletion;
-    
-    // // Final Clamping (5-100%) with minimum realistic soil moisture floor = 5%
-    // const currentHydration = Math.max(5, Math.min(100, hydration));
-    const adjustedMoisture = currentHydration / 100;
-
-    // Generate soil readings for different depths
-    const soilReadings = this.generateSoilReadings(adjustedMoisture);
-    
-    // Determine status from soil moisture
-    let status: 'urgent' | 'monitor' | 'saturated';
-    if (currentHydration < 20) {
-      status = 'urgent';
-    } else if (currentHydration > 80) {
-      status = 'saturated';
-    } else {
-      status = 'monitor';
-    }
-
-    const irrigationMessage = this.generateIrrigationMessage(status, adjustedMoisture);
-    const nextIrrigationTime = this.calculateNextIrrigationTime(status, weatherData);
-    const confidence = this.calculateConfidence(weatherData);
+    const weatherAdjustedNeed = Number((deficit / soilFactor).toFixed(2));
+    const ndwi = insights.metrics.ndwi.raw;
+    const shouldUseSatellite = ndwi !== null;
+    const ndwiSignal = shouldUseSatellite ? this.interpretNdwi(ndwi) : this.getFallbackNdwiSignal();
+    const legacyHydration = this.sensorService.getSoilMoisture();
+    const et0Penalty = this.calculateEt0Penalty(todayET0, soilFactor);
+    const rainRecharge = Math.min(10, effectiveRain * 0.9);
+    const currentHydration = shouldUseSatellite
+      ? this.clamp(Math.round(ndwiSignal.baseHydration - et0Penalty + rainRecharge), 5, 95)
+      : legacyHydration;
+    const ndwiDrivenNeed = shouldUseSatellite ? ndwiSignal.ndwiDrivenNeed : weatherAdjustedNeed;
+    const hybridIrrigationMm = shouldUseSatellite
+      ? Number((ndwiDrivenNeed * 0.7 + weatherAdjustedNeed * 0.3).toFixed(2))
+      : weatherAdjustedNeed;
+    const irrigationNeeded = Number((hybridIrrigationMm * 0.01).toFixed(3));
+    const recommendationLevel = shouldUseSatellite
+      ? this.combineRecommendationLevel(ndwiSignal.recommendationLevel, weatherAdjustedNeed)
+      : this.mapLegacyHydrationToRecommendation(currentHydration);
+    const soilReadings = this.generateSoilReadings(currentHydration, soilFactor, recommendationLevel);
+    const status = this.mapRecommendationToStatus(recommendationLevel);
+    const irrigationMessage = this.generateIrrigationMessage(
+      recommendationLevel,
+      shouldUseSatellite ? ndwiSignal.label : 'Legacy moisture baseline',
+      todayET0,
+      insights
+    );
+    const nextIrrigationTime = this.calculateNextIrrigationTime(status);
+    const confidence = this.calculateConfidence(weatherData, shouldUseSatellite, insights);
 
     return {
       currentHydration,
       irrigationNeeded,
       irrigationMessage,
       et0Today: todayET0,
-      rainToday: rainToUse, // Use BoM rain in the status
-      netIrrigation: deficit,
+      rainToday: rainToUse,
+      netIrrigation: Number(deficit.toFixed(2)),
+      weatherAdjustedNeed,
+      ndwiDrivenNeed: Number(ndwiDrivenNeed.toFixed(2)),
+      hybridIrrigationMm,
       kcValue: kc,
       status,
+      recommendationLevel,
       soilReadings,
       nextIrrigationTime,
       confidence,
+      ndwi,
+      ndwiLabel: shouldUseSatellite ? ndwiSignal.label : 'Fallback moisture model',
+      ndwiBand: shouldUseSatellite ? ndwiSignal.band : 'unknown',
+      moistureSource: shouldUseSatellite ? 'satellite' : 'legacy-fallback',
+      sourceLabel: shouldUseSatellite ? 'Satellite NDWI + ET0 hybrid' : 'Legacy weather + sensor fallback',
+      isUsingFallbackMoisture: !shouldUseSatellite,
+      insightsStatus: insights.status,
+      insightsDataQuality: insights.dataQuality,
+      insightsWarning: shouldUseSatellite
+        ? insights.warning
+        : 'Satellite NDWI unavailable. Using legacy irrigation logic until insights recover.',
+      compositeDateLabel: insights.compositeDateTo,
       soilData: soil,
-      soilFactor: soilFactor
+      soilFactor
     };
   }
 
@@ -247,21 +243,103 @@ export class WaterIrrigationService {
     return sum;
   }
 
-  private generateSoilReadings(currentMoisture: number): SoilDepthReading[] {
-    // Simulate different moisture levels at various depths
-    // In a real app, this would come from multiple sensors
-    const baseMoisture = currentMoisture;
-    
+  private interpretNdwi(ndwi: number): NdwiSignal {
+    if (ndwi < 0) {
+      const severity = this.clamp(Math.abs(ndwi) / 0.3, 0, 1);
+      return {
+        band: 'dry',
+        label: 'Dry',
+        baseHydration: 40 - severity * 25,
+        ndwiDrivenNeed: 6 + severity * 3,
+        recommendationLevel: 'high'
+      };
+    }
+
+    if (ndwi <= 0.2) {
+      const ratio = this.clamp(ndwi / 0.2, 0, 1);
+      return {
+        band: 'moderate',
+        label: 'Moderate moisture',
+        baseHydration: 45 + ratio * 25,
+        ndwiDrivenNeed: 4.5 - ratio * 2.5,
+        recommendationLevel: 'moderate'
+      };
+    }
+
+    const ratio = this.clamp((ndwi - 0.2) / 0.3, 0, 1);
+    return {
+      band: 'high',
+      label: 'High moisture',
+      baseHydration: 72 + ratio * 18,
+      ndwiDrivenNeed: 1.8 - ratio,
+      recommendationLevel: 'low'
+    };
+  }
+
+  private getFallbackNdwiSignal(): NdwiSignal {
+    const hydration = this.sensorService.getSoilMoisture();
+    return {
+      band: 'unknown',
+      label: 'Fallback moisture model',
+      baseHydration: hydration,
+      ndwiDrivenNeed: 0,
+      recommendationLevel: this.mapLegacyHydrationToRecommendation(hydration)
+    };
+  }
+
+  private calculateEt0Penalty(todayET0: number, soilFactor: number): number {
+    const soilAdjustedEt0 = todayET0 / Math.max(soilFactor, 0.7);
+    return this.clamp(Number((soilAdjustedEt0 * 1.4).toFixed(1)), 0, 14);
+  }
+
+  private combineRecommendationLevel(
+    ndwiLevel: IrrigationRecommendationLevel,
+    weatherAdjustedNeed: number
+  ): IrrigationRecommendationLevel {
+    const ndwiScore = ndwiLevel === 'high' ? 1 : ndwiLevel === 'moderate' ? 0.55 : 0.15;
+    const et0Score = this.clamp(weatherAdjustedNeed / 8, 0, 1);
+    const hybridScore = ndwiScore * 0.7 + et0Score * 0.3;
+
+    if (hybridScore >= 0.67) {
+      return 'high';
+    }
+    if (hybridScore >= 0.34) {
+      return 'moderate';
+    }
+    return 'low';
+  }
+
+  private mapLegacyHydrationToRecommendation(hydration: number): IrrigationRecommendationLevel {
+    if (hydration < 20) {
+      return 'high';
+    }
+    if (hydration > 80) {
+      return 'low';
+    }
+    return 'moderate';
+  }
+
+  private generateSoilReadings(
+    currentHydration: number,
+    soilFactor: number,
+    recommendationLevel: IrrigationRecommendationLevel
+  ): SoilDepthReading[] {
+    const surfacePenalty = recommendationLevel === 'high' ? 8 : recommendationLevel === 'moderate' ? 4 : 1;
+    const deepRetention = (soilFactor - 1) * 10;
+
     return this.DEPTH_LEVELS.map(depth => {
-      // Deeper soil tends to retain moisture differently
-      const depthFactor = depth === 30 ? 1.1 : depth === 60 ? 0.9 : 0.7;
-      const moisture = Math.max(0, Math.min(1, baseMoisture * depthFactor + (Math.random() - 0.5) * 0.1));
+      const moisture = depth === 30
+        ? currentHydration - surfacePenalty + 4
+        : depth === 60
+          ? currentHydration
+          : currentHydration - 5 + deepRetention;
+      const clampedMoisture = Math.round(this.clamp(moisture, 5, 95));
       const optimal = this.OPTIMAL_RANGES[depth as keyof typeof this.OPTIMAL_RANGES];
-      
+
       let status: 'optimal' | 'low' | 'high';
-      if (moisture < optimal.min) {
+      if (clampedMoisture < optimal.min) {
         status = 'low';
-      } else if (moisture > optimal.max) {
+      } else if (clampedMoisture > optimal.max) {
         status = 'high';
       } else {
         status = 'optimal';
@@ -269,73 +347,96 @@ export class WaterIrrigationService {
 
       return {
         depth,
-        moisture: Math.round(moisture * 100),
+        moisture: clampedMoisture,
         status
       };
     });
   }
 
-  private determineIrrigationStatus(soilMoisture: number): 'urgent' | 'monitor' | 'saturated' {
-    if (soilMoisture < environment.irrigation.criticalMoistureThreshold) {
+  private mapRecommendationToStatus(level: IrrigationRecommendationLevel): 'urgent' | 'monitor' | 'saturated' {
+    if (level === 'high') {
       return 'urgent';
-    } else if (soilMoisture > environment.irrigation.optimalMoistureThreshold) {
+    }
+    if (level === 'low') {
       return 'saturated';
-    } else {
-      return 'monitor';
     }
+    return 'monitor';
   }
 
-  private generateIrrigationMessage(status: string, moisture: number): string {
-    switch (status) {
-      case 'urgent':
-        return 'URGENT IRRIGATION REQUIRED';
-      case 'saturated':
-        return 'Soil saturated. No irrigation needed.';
-      case 'monitor':
-        return 'Monitor conditions. Irrigation likely in 48h.';
+  private generateIrrigationMessage(
+    level: IrrigationRecommendationLevel,
+    ndwiLabel: string,
+    todayET0: number,
+    insights: DashboardInsightsResponse
+  ): string {
+    const freshnessSuffix = insights.status === 'stale'
+      ? ' Satellite data is stale, so confirm against field checks.'
+      : insights.status === 'updating'
+        ? ' Satellite refresh is still running; fallback behavior is active if NDWI is missing.'
+        : '';
+
+    switch (level) {
+      case 'high':
+        return `${ndwiLabel} conditions with ET0 at ${todayET0.toFixed(1)} mm/day indicate high irrigation need.${freshnessSuffix}`;
+      case 'low':
+        return `${ndwiLabel} conditions indicate low irrigation demand. Maintain observation rather than immediate watering.${freshnessSuffix}`;
       default:
-        return 'Monitoring soil conditions.';
+        return `${ndwiLabel} conditions suggest a moderate irrigation adjustment. Recheck after the next weather cycle.${freshnessSuffix}`;
     }
   }
 
-  private calculateNextIrrigationTime(status: string, weatherData: WeatherData): Date {
+  private calculateNextIrrigationTime(status: string): Date {
     const now = new Date();
-    
+
     if (status === 'urgent') {
-      // Urgent - schedule for next optimal time (early morning)
       const nextMorning = new Date(now);
       nextMorning.setHours(5, 0, 0, 0);
       if (nextMorning <= now) {
         nextMorning.setDate(nextMorning.getDate() + 1);
       }
       return nextMorning;
-    } else if (status === 'monitor') {
-      // Monitor - schedule for 48 hours from now
+    }
+
+    if (status === 'monitor') {
       const future = new Date(now);
       future.setHours(future.getHours() + 48);
       return future;
-    } else {
-      // Saturated - no immediate irrigation needed
-      const future = new Date(now);
-      future.setHours(future.getHours() + 72);
-      return future;
     }
+
+    const future = new Date(now);
+    future.setHours(future.getHours() + 72);
+    return future;
   }
 
-  private calculateConfidence(weatherData: WeatherData): number {
-    // Simple confidence calculation based on data completeness
-    const hasAllData = weatherData.soilMoisture.length > 0 && 
-                      weatherData.et0.length > 0 && 
-                      weatherData.rain.length > 0;
-    
-    if (!hasAllData) return 0;
-    
-    // Higher confidence if we have at least 24 hours of data
-    return weatherData.soilMoisture.length >= 24 ? 0.95 : 0.80;
+  private calculateConfidence(
+    weatherData: WeatherData,
+    usingSatellite: boolean,
+    insights: DashboardInsightsResponse
+  ): number {
+    const hasAllData = weatherData.soilMoisture.length > 0 &&
+      weatherData.et0.length > 0 &&
+      weatherData.rain.length > 0;
+
+    if (!hasAllData) {
+      return 0;
+    }
+
+    if (!usingSatellite) {
+      return 0.6;
+    }
+
+    if (insights.status === 'fresh' && insights.dataQuality === 'good') {
+      return weatherData.soilMoisture.length >= 24 ? 0.96 : 0.88;
+    }
+
+    if (insights.status === 'stale' || insights.dataQuality === 'degraded') {
+      return 0.75;
+    }
+
+    return 0.65;
   }
 
   private getFallbackStatus(): IrrigationStatus {
-    // Fallback status when API fails
     return {
       currentHydration: 64.2,
       irrigationNeeded: 0,
@@ -343,20 +444,38 @@ export class WaterIrrigationService {
       et0Today: 0,
       rainToday: 0,
       netIrrigation: 0,
+      weatherAdjustedNeed: 0,
+      ndwiDrivenNeed: 0,
+      hybridIrrigationMm: 0,
       kcValue: 0.85,
       status: 'monitor',
+      recommendationLevel: 'moderate',
       soilReadings: [
         { depth: 30, moisture: 75, status: 'optimal' },
         { depth: 60, moisture: 58, status: 'optimal' },
         { depth: 90, moisture: 42, status: 'low' }
       ],
       nextIrrigationTime: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      confidence: 0.5
+      confidence: 0.5,
+      ndwi: null,
+      ndwiLabel: 'Fallback moisture model',
+      ndwiBand: 'unknown',
+      moistureSource: 'legacy-fallback',
+      sourceLabel: 'Legacy weather + sensor fallback',
+      isUsingFallbackMoisture: true,
+      insightsStatus: 'updating',
+      insightsDataQuality: 'no_data',
+      insightsWarning: 'Satellite NDWI unavailable. Using cached irrigation fallback.',
+      compositeDateLabel: null
     };
   }
 
   refreshData(lat?: number, lon?: number): Observable<IrrigationStatus> {
     this.weatherService.clearCache();
     return this.getIrrigationStatus(lat, lon);
+  }
+
+  private clamp(value: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, value));
   }
 }
