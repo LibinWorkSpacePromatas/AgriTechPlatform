@@ -263,6 +263,12 @@ export class LineChartComponent implements OnChanges, AfterViewInit {
     const y = event.clientY - rect.top;
 
     // Find closest point by X
+    if (this.labels.length <= 1) {
+      this.hoverIndex = 0;
+      this.tooltipPos = { x: this.points[0].x, y };
+      return;
+    }
+
     const stepX = (this.width - 2 * this.padding) / (this.labels.length - 1);
     let index = Math.round((x - this.padding) / stepX);
     index = Math.max(0, Math.min(this.labels.length - 1, index));
@@ -289,11 +295,11 @@ export class LineChartComponent implements OnChanges, AfterViewInit {
     this.labelStep = Math.ceil(this.labels.length / maxLabels) || 1;
 
     const dataLen = this.series[0].data.length;
-    const stepX = (this.width - 2 * this.padding) / (dataLen - 1);
+    const stepX = dataLen > 1 ? (this.width - 2 * this.padding) / (dataLen - 1) : 0;
 
     this.points = Array.from({ length: dataLen }, (_, i) => ({
-      x: this.padding + i * stepX,
-      y: 0 // placeholder
+      x: dataLen === 1 ? this.width / 2 : this.padding + i * stepX,
+      y: 0
     }));
 
     const allData = this.series.flatMap(s => s.data);
@@ -313,19 +319,23 @@ export class LineChartComponent implements OnChanges, AfterViewInit {
 
     this.computedSeries = this.series.map(s => {
       const points = s.data.map((val, i) => ({
-        x: this.padding + i * stepX,
+        x: dataLen === 1 ? this.width / 2 : this.padding + i * stepX,
         y: this.getY(val)
       }));
 
       let linePath = `M ${points[0].x} ${points[0].y}`;
-      for (let i = 0; i < points.length - 1; i++) {
-        const p0 = points[i];
-        const p1 = points[i + 1];
-        const cp1x = p0.x + (p1.x - p0.x) / 3;
-        const cp1y = p0.y;
-        const cp2x = p1.x - (p1.x - p0.x) / 3;
-        const cp2y = p1.y;
-        linePath += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p1.x} ${p1.y}`;
+      if (points.length === 1) {
+        linePath = `M ${points[0].x} ${points[0].y} L ${points[0].x} ${points[0].y}`;
+      } else {
+        for (let i = 0; i < points.length - 1; i++) {
+          const p0 = points[i];
+          const p1 = points[i + 1];
+          const cp1x = p0.x + (p1.x - p0.x) / 3;
+          const cp1y = p0.y;
+          const cp2x = p1.x - (p1.x - p0.x) / 3;
+          const cp2y = p1.y;
+          linePath += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p1.x} ${p1.y}`;
+        }
       }
 
       const areaPath = `${linePath} L ${points[points.length - 1].x} ${this.height - this.padding} L ${points[0].x} ${this.height - this.padding} Z`;

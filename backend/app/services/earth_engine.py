@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass
 from datetime import date, timedelta
 from json import JSONDecodeError
@@ -105,6 +106,34 @@ class EarthEngineClient:
             logger.info("Earth Engine initialized for project %s.", self._settings.gee_project)
 
     def compute_block_insights(
+        self,
+        geometry_geojson: dict[str, Any],
+        *,
+        date_from: date,
+        date_to: date,
+        generate_tile_url: bool | None = None,
+    ) -> SatelliteComputation:
+        executor = ThreadPoolExecutor(max_workers=1)
+        future = executor.submit(
+            self._compute_block_insights_impl,
+            geometry_geojson,
+            date_from=date_from,
+            date_to=date_to,
+            generate_tile_url=generate_tile_url,
+        )
+        cancel_futures = False
+        try:
+            return future.result(timeout=self._settings.satellite_gee_timeout_seconds)
+        except FuturesTimeoutError as exc:
+            cancel_futures = True
+            future.cancel()
+            raise EarthEngineExecutionError(
+                f"Earth Engine computation timed out after {self._settings.satellite_gee_timeout_seconds} seconds."
+            ) from exc
+        finally:
+            executor.shutdown(wait=False, cancel_futures=cancel_futures)
+
+    def _compute_block_insights_impl(
         self,
         geometry_geojson: dict[str, Any],
         *,

@@ -28,7 +28,7 @@ import { Block as SharedBlock } from '../../shared/models';
 import { LineChartComponent, ChartSeries } from '../../shared/components/line-chart.component';
 import { ModalComponent } from '../../shared/components/modal.component';
 import {
-  BlockInsightsResponse,
+  DashboardInsightsResponse,
   DashboardActionItem,
   DashboardAlternativeCrop,
   DashboardApiService,
@@ -52,7 +52,7 @@ interface DashboardBlock extends Omit<SharedBlock, 'location'> {
 interface DashboardSensor {
   id: DashboardMetricKey;
   label: string;
-  value: number;
+  value: number | string;
   unit: string;
   status: 'Normal' | 'Low' | 'High';
   icon: any;
@@ -115,7 +115,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   dashboardWarningMessage: string | null = null;
 
   currentBlock: DashboardBlock | null = null;
-  latestInsights: BlockInsightsResponse | null = null;
+  latestInsights: DashboardInsightsResponse | null = null;
 
   sensors: DashboardSensor[] = [];
   advisorData = {
@@ -126,8 +126,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
       { label: 'CROP HEALTH', value: '--', status: 'PENDING', message: 'Waiting for backend insights', icon: Sprout, colorClass: 'good' },
       { label: 'WATER STATUS', value: '--', status: 'PENDING', message: 'Waiting for backend insights', icon: Droplets, colorClass: 'good' },
       { label: 'NUTRIENT STATUS', value: '--', status: 'PENDING', message: 'Waiting for backend insights', icon: Layers, colorClass: 'good' },
-      { label: 'CANOPY DENSITY', value: '--', status: 'PENDING', message: 'Waiting for backend insights', icon: Leaf, colorClass: 'good' },
-      { label: 'YIELD ESTIMATE', value: '--', status: 'PENDING', message: 'Waiting for backend insights', icon: Grape, colorClass: 'good' }
+      { label: 'VEGETATION STRENGTH', value: '--', status: 'PENDING', message: 'Waiting for backend insights', icon: Leaf, colorClass: 'good' },
+      { label: 'GROWTH DENSITY', value: '--', status: 'PENDING', message: 'Waiting for backend insights', icon: Grape, colorClass: 'good' }
     ],
     actions: [] as DashboardActionItem[]
   };
@@ -165,6 +165,58 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private blockService: BlockService,
     private dashboardApiService: DashboardApiService
   ) { }
+
+  get insightsStatusLabel(): string {
+    if (this.isInsightsLoading) {
+      return 'Loading latest block intelligence';
+    }
+
+    if (!this.latestInsights) {
+      return 'Waiting for backend intelligence';
+    }
+
+    if (this.latestInsights.status === 'updating') {
+      return 'Background refresh in progress';
+    }
+
+    if (this.latestInsights.status === 'stale') {
+      return 'Showing stale cache while refresh runs';
+    }
+
+    return this.latestInsights.source === 'gee' ? 'Freshly refreshed from GEE' : 'Fresh cache intelligence';
+  }
+
+  get insightsLatencyLabel(): string {
+    if (!this.latestInsights) {
+      return 'Data latency unavailable';
+    }
+
+    return `Data retrieved in ${this.latestInsights.latencyMs} ms`;
+  }
+
+  get dataStatusTitle(): string {
+    if (!this.latestInsights) {
+      return 'Data Status';
+    }
+
+    if (this.latestInsights.error || this.latestInsights.status !== 'fresh' || this.latestInsights.dataQuality !== 'good') {
+      return 'Warning';
+    }
+
+    return 'Data Status';
+  }
+
+  get dataStatusMessage(): string {
+    if (this.dashboardWarningMessage) {
+      return this.dashboardWarningMessage;
+    }
+
+    if (!this.latestInsights) {
+      return 'Satellite intelligence is loading for the selected block.';
+    }
+
+    return `This dashboard is using ${this.latestInsights.source.toUpperCase()}-backed block intelligence for the selected block.`;
+  }
 
   get currentSensorLabels(): string[] {
     const sensor = this.lockedSensor || this.hoveredSensor;
@@ -294,6 +346,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private loadBlockInsights(block: DashboardBlock): void {
     this.isInsightsLoading = true;
+    this.prepareInsightsLoadState();
     this.insightsRequest?.unsubscribe();
 
     this.insightsRequest = this.dashboardApiService.getBlockInsights(block.lan || block.id)
@@ -306,18 +359,29 @@ export class DashboardComponent implements OnInit, OnDestroy {
         error: error => {
           console.error('Dashboard insights request failed unexpectedly.', error);
           this.dashboardWarningMessage = 'Unable to load backend dashboard insights.';
+          this.isUsingFallbackData = true;
           this.isInsightsLoading = false;
         }
       });
   }
 
-  private applyInsights(block: DashboardBlock, insights: BlockInsightsResponse): void {
+  private prepareInsightsLoadState(): void {
+    this.latestInsights = null;
+    this.dashboardWarningMessage = null;
+    this.isUsingFallbackData = false;
+    this.sensors = [];
+    this.hoveredSensor = null;
+    this.lockedSensor = null;
+    this.selectedSensor = null;
+  }
+
+  private applyInsights(block: DashboardBlock, insights: DashboardInsightsResponse): void {
     const previousHoveredId = this.hoveredSensor?.id;
     const previousLockedId = this.lockedSensor?.id;
     const previousSelectedId = this.selectedSensor?.id;
 
     this.latestInsights = insights;
-    this.isUsingFallbackData = insights.source === 'fallback';
+    this.isUsingFallbackData = !!insights.error || insights.status !== 'fresh' || insights.dataQuality !== 'good';
     this.dashboardWarningMessage = insights.warning;
 
     this.sensors = this.mapMetricsToSensors(insights.metrics);
@@ -328,7 +392,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.advisorData = {
       riskScore: insights.advisor.riskScore,
       riskLevel: insights.advisor.riskLevel,
-      lastUpdated: this.formatInsightsTimestamp(insights.composite_date_to),
+      lastUpdated: this.formatInsightsTimestamp(insights.compositeDateTo || ''),
       sensorAnalysis: insights.advisor.sensorAnalysis.map(item => ({
         ...item,
         icon: this.getAnalysisIcon(item.label)
@@ -360,7 +424,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       },
       switch: {
         crop: decision.switch.crop,
-        area: decision.switch.area,
+        area: decision.switch.area || block.area,
         profitPerHa: decision.switch.profitPerHa,
         totalProfit: decision.switch.totalProfit,
         allocationMatch: decision.switch.allocationMatch,
@@ -369,7 +433,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       },
       keep: {
         crop: resolveCropName(decision.keep.crop, block.crop),
-        area: decision.keep.area,
+        area: decision.keep.area || block.area,
         profitPerHa: decision.keep.profitPerHa,
         totalProfit: decision.keep.totalProfit
       }
@@ -419,8 +483,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private getAnalysisIcon(label: string): any {
     if (label.includes('WATER')) return Droplets;
     if (label.includes('NUTRIENT')) return Layers;
-    if (label.includes('CANOPY')) return Leaf;
-    if (label.includes('YIELD')) return Grape;
+    if (label.includes('VEGETATION')) return Leaf;
+    if (label.includes('GROWTH')) return Grape;
     return Sprout;
   }
 
@@ -561,17 +625,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const doc = new jsPDF();
 
     const primaryGreen = '#2e7d32';
-    const lightGreen = '#e8f5e9';
-    const warningRed = '#dc2626';
-    const waterStatus = this.getSensorDisplay('ndwi');
-    const nutrientStatus = this.getSensorDisplay('ndre');
-    const allocationStatus = `${this.decisionData.switch.allocationMatch}%`;
+    const alertOrange = '#d97706';
     const riskText = `${this.advisorData.riskLevel.toUpperCase()} RISK - ${this.advisorData.riskScore}%`;
-    const projectedProfit = this.decisionData.switch.totalProfit + this.decisionData.keep.totalProfit;
-    const currentLossAbs = Math.abs(this.decisionData.current.totalLoss);
-    const improvement = currentLossAbs > 0
-      ? Math.round(((projectedProfit + currentLossAbs) / currentLossAbs) * 100)
-      : 0;
+    const dataStatus = this.latestInsights
+      ? `${this.latestInsights.status.toUpperCase()} / ${this.latestInsights.source.toUpperCase()} / ${this.latestInsights.dataQuality.toUpperCase()}`
+      : 'LOADING';
+    const metricRows = this.sensors.map(sensor => ([
+      sensor.label,
+      `${sensor.value}${sensor.unit}`,
+      sensor.summaryLabel,
+      sensor.message
+    ]));
+    const actionRows = this.advisorData.actions.map((action, index) => ([
+      `${index + 1}`,
+      action.label,
+      action.items[0] || 'Review latest intelligence.',
+      action.severity.toUpperCase()
+    ]));
 
     doc.setFillColor(primaryGreen);
     doc.rect(0, 0, 210, 40, 'F');
@@ -579,10 +649,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
-    doc.text('PromaSecure Block Intelligence Plan', 105, 15, { align: 'center' });
+    doc.text('PromaSecure Satellite Intelligence Report', 105, 15, { align: 'center' });
 
     doc.setFontSize(14);
-    doc.text(`${this.currentBlock?.name || 'Block'} - ${this.currentBlock?.crop || 'Crop'} - ${this.decisionData.totalArea}ha Plan`, 105, 25, { align: 'center' });
+    doc.text(`${this.currentBlock?.name || 'Block'} - ${this.currentBlock?.crop || 'Crop'}`, 105, 25, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
@@ -594,18 +664,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(primaryGreen);
-    doc.text('BLOCK INSIGHT SUMMARY', 14, yPos);
+    doc.text('BLOCK INTELLIGENCE SUMMARY', 14, yPos);
     yPos += 5;
 
     // @ts-ignore
     doc.autoTable({
       startY: yPos,
-      head: [['Water Status', 'Nutrient Status', 'Allocation']],
-      body: [[waterStatus, nutrientStatus, allocationStatus]],
+      head: [['Data Status', 'Latency', 'Risk Score']],
+      body: [[dataStatus, this.insightsLatencyLabel, riskText]],
       foot: [[
-        this.getSensorSummary('ndwi'),
+        this.latestInsights?.warning || 'Backend intelligence active',
         this.nutrientData.status.toUpperCase(),
-        this.decisionData.switch.validated ? 'VALIDATED' : 'REVIEW'
+        this.latestInsights?.error || 'No blocking backend errors'
       ]],
       theme: 'grid',
       headStyles: { fillColor: primaryGreen, halign: 'center' },
@@ -617,18 +687,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
     // @ts-ignore
     yPos = doc.lastAutoTable.finalY + 15;
 
-    doc.setFillColor(primaryGreen);
+    doc.setFillColor(alertOrange);
     doc.roundedRect(14, yPos, 182, 25, 3, 3, 'F');
 
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text(`RECOMMENDED ${this.decisionData.totalArea}ha PILOT`, 105, yPos + 10, { align: 'center' });
+    doc.text('CURRENT RESPONSE POSTURE', 105, yPos + 10, { align: 'center' });
 
     doc.setFontSize(12);
-    const projectedProfitMillions = projectedProfit / 1000000;
     doc.text(
-      `${this.decisionData.switch.area}ha ${this.decisionData.switch.crop.toUpperCase()} + ${this.decisionData.keep.area}ha ${this.decisionData.keep.crop.toUpperCase()} = $${projectedProfitMillions.toFixed(2)}M ANNUAL PROFIT`,
+      this.dashboardWarningMessage || 'Monitoring backend intelligence and current weather context for the selected block.',
       105,
       yPos + 18,
       { align: 'center' }
@@ -637,9 +706,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
     yPos += 35;
 
     doc.setFontSize(12);
-    doc.setTextColor(warningRed);
+    doc.setTextColor(alertOrange);
     doc.text(
-      `vs Current Crop: ${this.formatCurrency(this.decisionData.current.totalLoss)} per year | ${improvement}% improvement potential`,
+      `Composite vitality: ${this.yieldImpact?.currentYieldPercent.toFixed(0) ?? '--'}% | Nutrient score: ${this.nutrientData.score}%`,
       105,
       yPos - 3,
       { align: 'center' }
@@ -649,25 +718,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     doc.setFontSize(14);
     doc.setTextColor(primaryGreen);
-    doc.text('DETAILED ACTION PLAN', 14, yPos);
+    doc.text('KEY SIGNALS', 14, yPos);
     yPos += 5;
 
     doc.setFontSize(12);
     doc.setTextColor(0, 0, 0);
-    doc.text('Week-by-Week Execution', 14, yPos + 5);
-
-    const actionRows = this.advisorData.actions.slice(0, 4).map((action, index) => ([
-      `${index + 1}`,
-      action.items[0] || action.label,
-      action.severity.toUpperCase(),
-      action.estimatedCost || '$0'
-    ]));
+    doc.text('Current metric values from the backend intelligence endpoint', 14, yPos + 5);
 
     // @ts-ignore
     doc.autoTable({
       startY: yPos + 8,
-      head: [['Step', 'Action', 'Priority', 'Cost']],
-      body: actionRows.length > 0 ? actionRows : [['1', 'Await fresh backend insight refresh', 'INFO', '$0']],
+      head: [['Metric', 'Value', 'State', 'Message']],
+      body: metricRows.length > 0 ? metricRows : [['No metrics', '--', 'WAITING', 'Awaiting backend intelligence']],
       theme: 'striped',
       headStyles: { fillColor: primaryGreen },
       styles: { fontSize: 10, cellPadding: 2 }
@@ -677,38 +739,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
     yPos = doc.lastAutoTable.finalY + 10;
 
     doc.setFontSize(12);
-    doc.text('Crop Breakdown', 14, yPos);
+    doc.text('ACTION CHECKLIST', 14, yPos);
 
     // @ts-ignore
     doc.autoTable({
       startY: yPos + 3,
-      head: [['Crop', 'Hectares', 'Water ML/ha', 'Profit/ha', 'TOTAL PROFIT']],
-      body: [
-        [
-          this.decisionData.switch.crop,
-          `${this.decisionData.switch.area}ha`,
-          `${this.alternativeCrops[0]?.waterRequirement ?? 0}`,
-          `${this.formatCurrency(this.decisionData.switch.profitPerHa)}`,
-          `${this.formatCurrency(this.decisionData.switch.totalProfit)}`
-        ],
-        [
-          this.decisionData.keep.crop,
-          `${this.decisionData.keep.area}ha`,
-          'Current program',
-          `${this.formatCurrency(this.decisionData.keep.profitPerHa)}`,
-          `${this.formatCurrency(this.decisionData.keep.totalProfit)}`
-        ],
-        [
-          'TOTAL PILOT',
-          `${this.decisionData.totalArea}ha`,
-          'Aligned to backend',
-          `${this.formatCurrency(this.decisionData.keep.profitPerHa)}`,
-          `${this.formatCurrency(projectedProfit)}`
-        ]
-      ],
+      head: [['Step', 'Focus', 'Action', 'Severity']],
+      body: actionRows.length > 0 ? actionRows : [['1', 'Monitoring', 'Await backend refresh completion', 'INFO']],
       theme: 'striped',
       headStyles: { fillColor: primaryGreen },
-      footStyles: { fillColor: lightGreen, textColor: primaryGreen, fontStyle: 'bold' },
       styles: { fontSize: 10, cellPadding: 2 }
     });
 
@@ -730,7 +769,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     doc.setTextColor(150);
     doc.text('Sources: Backend block insights, selected block metadata, and weather observations', 105, 285, { align: 'center' });
     doc.setTextColor(primaryGreen);
-    doc.text(`Data freshness: ${this.advisorData.lastUpdated}`, 105, 290, { align: 'center' });
+    doc.text(`Data freshness: ${dataStatus}`, 105, 290, { align: 'center' });
 
     doc.save(`Promasecure_Plan_${this.currentBlock?.name || 'Block'}_${new Date().toISOString().split('T')[0]}.pdf`);
   }
@@ -746,7 +785,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   getSensorValue(label: string): number | string {
-    const sensor = this.sensors.find(item => item.label === label);
+    const aliases: Record<string, string[]> = {
+      'Water Status': ['Water Status'],
+      'Nutrient Status': ['Nutrient Status'],
+      'Crop Health': ['Crop Health'],
+      'Canopy Density': ['Vegetation Strength', 'Growth Density'],
+      'Vegetation Strength': ['Vegetation Strength'],
+      'Growth Density': ['Growth Density']
+    };
+
+    const sensor = this.sensors.find(item => (aliases[label] || [label]).includes(item.label));
     return sensor?.value ?? 'N/A';
   }
 

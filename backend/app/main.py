@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
 from app.core.config import get_settings
-from app.db.bootstrap import ensure_satellite_cache_table
+from app.db.bootstrap import ensure_satellite_support_tables
 from app.services.satellite_insights import satellite_insights_service
 from app.services.satellite_scheduler import satellite_refresh_scheduler
 
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    ensure_satellite_cache_table()
+    ensure_satellite_support_tables()
 
     try:
         satellite_insights_service.initialize()

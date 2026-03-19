@@ -41,7 +41,8 @@ class Settings(BaseSettings):
     satellite_scheduler_initial_delay_seconds: int = Field(default=30, alias="SATELLITE_SCHEDULER_INITIAL_DELAY_SECONDS")
     satellite_scheduler_enabled: bool = Field(default=True, alias="SATELLITE_SCHEDULER_ENABLED")
     satellite_batch_size: int = Field(default=25, alias="SATELLITE_BATCH_SIZE")
-    satellite_buffer_meters: float = Field(default=12.0, alias="SATELLITE_BUFFER_METERS")
+    satellite_buffer_meters: float = Field(default=10.0, alias="SATELLITE_BUFFER_METERS")
+    satellite_simplify_tolerance_meters: float = Field(default=3.0, alias="SATELLITE_SIMPLIFY_TOLERANCE_METERS")
     satellite_cloud_filter_pct: float = Field(default=20.0, alias="SATELLITE_CLOUD_FILTER_PCT")
     satellite_degraded_cloud_threshold_pct: float = Field(default=12.0, alias="SATELLITE_DEGRADED_CLOUD_THRESHOLD_PCT")
     satellite_reduction_scale_meters: int = Field(default=10, alias="SATELLITE_REDUCTION_SCALE_METERS")
@@ -51,6 +52,14 @@ class Settings(BaseSettings):
         default="#8b0000,#d95f0e,#fdd835,#66bb6a,#1b5e20",
         alias="SATELLITE_TILE_PALETTE",
     )
+    satellite_request_priority: int = Field(default=10, alias="SATELLITE_REQUEST_PRIORITY")
+    satellite_schedule_priority: int = Field(default=100, alias="SATELLITE_SCHEDULE_PRIORITY")
+    satellite_refresh_throttle_seconds: int = Field(default=300, alias="SATELLITE_REFRESH_THROTTLE_SECONDS")
+    satellite_job_poll_interval_seconds: float = Field(default=1.0, alias="SATELLITE_JOB_POLL_INTERVAL_SECONDS")
+    satellite_job_stagger_seconds: float = Field(default=0.35, alias="SATELLITE_JOB_STAGGER_SECONDS")
+    satellite_job_timeout_seconds: int = Field(default=900, alias="SATELLITE_JOB_TIMEOUT_SECONDS")
+    satellite_worker_count: int = Field(default=2, alias="SATELLITE_WORKER_COUNT")
+    satellite_gee_timeout_seconds: int = Field(default=90, alias="SATELLITE_GEE_TIMEOUT_SECONDS")
 
     @field_validator("cors_origins", mode="before")
     @classmethod
