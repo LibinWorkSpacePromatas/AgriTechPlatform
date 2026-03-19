@@ -242,8 +242,9 @@
                     Powered by backend block insights -
                     <span class="refresh-indicator">
                         <i-lucide [img]="RefreshCwIcon" size="12" [class.refresh-spinner]="isInsightsLoading"></i-lucide>
-                        {{ isInsightsLoading ? 'Loading latest block insights' : (isUsingFallbackData ? 'Fallback insights active' : 'Backend synced') }}
+                        {{ insightsStatusLabel }}
                     </span>
+                    <span class="refresh-indicator"> {{ insightsLatencyLabel }} </span>
                 </div>
             </div>
             <div class="risk-score-container">
@@ -332,7 +333,7 @@
             <!-- Card Header -->
             <div class="impact-header">
                 <i-lucide [img]="AlertTriangleIcon" size="18" class="icon-orange"></i-lucide>
-                <span>Current Yield Impact Analysis</span>
+                <span>Current Intelligence Signal</span>
             </div>
 
             <!-- Yield Gauge Bar -->
@@ -345,9 +346,9 @@
                 <div class="yield-gauge-meta">
                     <span class="yield-pct-label"
                         [ngClass]="yieldImpact.currentYieldPercent < 60 ? 'text-danger' : yieldImpact.currentYieldPercent < 80 ? 'text-warning' : 'text-success'">
-                        {{ yieldImpact.currentYieldPercent.toFixed(0) }}% of full yield
+                        {{ yieldImpact.currentYieldPercent.toFixed(0) }}% composite vitality
                     </span>
-                    <span class="yield-pct-sub">Based on live sensor readings</span>
+                    <span class="yield-pct-sub">Based on backend satellite intelligence</span>
                 </div>
             </div>
 
@@ -358,29 +359,29 @@
                 <div class="pl-panel profit-panel">
                     <div class="pl-panel-header">
                         <i-lucide [img]="CheckCircleIcon" size="14" class="icon-green-sm"></i-lucide>
-                        <span>Expected Profit</span>
-                        <span class="pl-panel-badge badge-profit">AT CURRENT YIELD</span>
+                        <span>Overall Signal</span>
+                        <span class="pl-panel-badge badge-profit">CURRENT SNAPSHOT</span>
                     </div>
                     <div class="pl-panel-amount profit-amount">
-                        {{ formatCurrency(yieldImpact.baseProfit - yieldImpact.projectedLoss) }}
+                        {{ yieldImpact.currentYieldPercent.toFixed(0) }}%
                     </div>
                     <div class="pl-panel-detail">
                         <div class="pl-detail-row">
-                            <span class="pl-detail-label">Full potential:</span>
-                            <span class="pl-detail-value">{{ formatCurrency(yieldImpact.baseProfit) }}</span>
+                            <span class="pl-detail-label">Target score:</span>
+                            <span class="pl-detail-value">{{ yieldImpact.baseProfit.toFixed(0) }}%</span>
                         </div>
                         <div class="pl-detail-row">
-                            <span class="pl-detail-label">Yield efficiency:</span>
-                            <span class="pl-detail-value profit-pct">{{ yieldImpact.currentYieldPercent.toFixed(0)
+                            <span class="pl-detail-label">Gap to target:</span>
+                            <span class="pl-detail-value profit-pct">{{ yieldImpact.projectedLoss.toFixed(0)
                                 }}%</span>
                         </div>
                         <div class="pl-panel-msg">
                             <i-lucide [img]="CheckCircleIcon" size="11" class="icon-green-sm"></i-lucide>
-                            <span *ngIf="yieldImpact.currentYieldPercent >= 90">Excellent conditions</span>
+                            <span *ngIf="yieldImpact.currentYieldPercent >= 90">Excellent satellite signal</span>
                             <span
-                                *ngIf="yieldImpact.currentYieldPercent >= 75 && yieldImpact.currentYieldPercent < 90">Good,
-                                minor issues</span>
-                            <span *ngIf="yieldImpact.currentYieldPercent < 75">Needs attention</span>
+                                *ngIf="yieldImpact.currentYieldPercent >= 75 && yieldImpact.currentYieldPercent < 90">Stable,
+                                minor gaps</span>
+                            <span *ngIf="yieldImpact.currentYieldPercent < 75">Needs review</span>
                         </div>
                     </div>
                 </div>
@@ -389,17 +390,17 @@
                 <div class="pl-panel loss-panel">
                     <div class="pl-panel-header">
                         <i-lucide [img]="AlertTriangleIcon" size="14" class="icon-red-sm"></i-lucide>
-                        <span>Yield Losses</span>
-                        <span class="pl-panel-badge badge-loss">WHY YOU'RE LOSING</span>
+                        <span>Signal Gaps</span>
+                        <span class="pl-panel-badge badge-loss">WHY ATTENTION IS NEEDED</span>
                     </div>
                     <div class="pl-panel-amount loss-amount">
-                        {{ formatCurrency(-yieldImpact.projectedLoss) }}
+                        {{ yieldImpact.projectedLoss.toFixed(0) }}%
                     </div>
 
                     <!-- No factors = no loss -->
                     <div class="pl-no-loss" *ngIf="yieldImpact.factors.length === 0">
                         <i-lucide [img]="CheckCircleIcon" size="13" class="icon-green-sm"></i-lucide>
-                        <span>No active loss factors &mdash; all sensors optimal</span>
+                        <span>No active gap factors &mdash; all signals are within range</span>
                     </div>
 
                     <!-- Loss Factors breakdown -->
@@ -411,15 +412,12 @@
                                 <span class="loss-factor-name">{{ factor.name }}</span>
                             </div>
                             <div class="loss-factor-right">
-                                <span class="loss-factor-pct">-{{ factor.impact.toFixed(0) }}% yield</span>
-                                <span class="loss-factor-dollars">
-                                    -{{ formatCurrency(yieldImpact.baseProfit * factor.impact / 100) }}
-                                </span>
+                                <span class="loss-factor-pct">-{{ factor.impact.toFixed(0) }}% confidence</span>
                             </div>
                         </div>
                         <div class="loss-factors-tip">
                             <i-lucide [img]="AlertTriangleIcon" size="11" class="icon-orange-sm"></i-lucide>
-                            Fix issues above to recover lost revenue
+                            Review flagged signals above for the next backend refresh
                         </div>
                     </div>
                 </div>
@@ -468,7 +466,7 @@
             <div class="section-title">
                 <i-lucide [img]="SproutIcon" size="20" class="icon-green"></i-lucide>
                 <!-- Reference icon appears to be a rising chart, using Sprout or standard icon for now -->
-                YOUR {{ decisionData.totalArea }}ha DECISION
+                YOUR {{ decisionData.totalArea }}ha RESPONSE PLAN
             </div>
 
             <!-- Current Status (Red) -->
@@ -476,9 +474,9 @@
                 <div class="card-row">
                     <div class="card-left">
                         <div class="card-main-text">
-                            CURRENT ({{ decisionData.current.crop }})
+                            CURRENT SNAPSHOT ({{ decisionData.current.crop }})
                             <span class="sub-financial">
-                                {{ formatCurrency(decisionData.current.lossPerHa) }}/ha &times; {{ decisionData.totalArea }}
+                                {{ decisionData.current.lossPerHa | number:'1.0-0' }}% alert weight
                             </span>
                         </div>
                         <div class="card-detail warning-text">
@@ -486,7 +484,7 @@
                         </div>
                     </div>
                     <div class="card-right financial-negative">
-                        {{ formatCurrency(decisionData.current.totalLoss) }}/year
+                        {{ decisionData.current.totalLoss | number:'1.0-0' }}%
                     </div>
                 </div>
             </div>
@@ -496,15 +494,13 @@
                 <div class="card-row">
                     <div class="card-left">
                         <div class="card-main-text">
-                            {{ decisionData.switch.area }}ha {{ decisionData.switch.crop | uppercase }} SWITCH
+                            PRIORITIZE {{ decisionData.switch.area }}ha {{ decisionData.switch.crop | uppercase }}
                             <span class="sub-financial">
-                                {{ formatCurrency(decisionData.switch.profitPerHa) }}/ha &times; {{ decisionData.switch.area
-                                }}
+                                {{ decisionData.switch.profitPerHa | number:'1.0-0' }}% signal confidence
                             </span>
                         </div>
                         <div class="card-detail success-text">
-                            <span class="check-mark">&#10003;</span> Fits {{ decisionData.switch.allocationMatch }}% allocation
-                            perfectly
+                            <span class="check-mark">&#10003;</span> {{ decisionData.switch.allocationMatch }}% response fit
                         </div>
                         <div class="card-detail success-text">
                             <span class="check-mark">&#10003;</span>
@@ -513,7 +509,7 @@
                         </div>
                     </div>
                     <div class="card-right financial-positive">
-                        {{ formatCurrency(decisionData.switch.totalProfit) }}/year
+                        {{ decisionData.switch.totalProfit | number:'1.0-0' }}%
                     </div>
                 </div>
             </div>
@@ -525,15 +521,15 @@
                         <div class="card-main-text">
                             KEEP {{ decisionData.keep.area }}ha {{ decisionData.keep.crop | uppercase }}
                             <span class="sub-financial">
-                                {{ formatCurrency(decisionData.keep.profitPerHa) }}/ha &times; {{ decisionData.keep.area }}
+                                {{ decisionData.keep.profitPerHa | number:'1.0-0' }}% confidence
                             </span>
                         </div>
                         <div class="card-detail success-text">
-                            <span class="check-mark">&#10003;</span> Uses your existing skills
+                            <span class="check-mark">&#10003;</span> Maintain monitoring on the current block program
                         </div>
                     </div>
                     <div class="card-right financial-positive">
-                        {{ formatCurrency(decisionData.keep.totalProfit) }}/year
+                        {{ decisionData.keep.totalProfit | number:'1.0-0' }}%
                     </div>
                 </div>
             </div>
@@ -703,8 +699,8 @@
 <div class="prototype-notice">
     <div class="notice-icon">i</div>
     <div class="notice-text">
-        <strong>{{ isUsingFallbackData ? 'Fallback Notice' : 'Data Status' }}</strong><br>
-        {{ isUsingFallbackData ? (dashboardWarningMessage || 'Backend insights are temporarily unavailable, so fallback dashboard data is being shown.') : ('This dashboard is using backend-driven block intelligence and live weather data for the selected block.') }}
+        <strong>{{ dataStatusTitle }}</strong><br>
+        {{ dataStatusMessage }}
     </div>
 </div>
 
@@ -830,10 +826,10 @@
                 <div class="condition-item">
                     <div class="condition-label">
                         <i-lucide [img]="WindIcon" size="14"></i-lucide>
-                        Canopy Density
+                        Vegetation Strength
                     </div>
                     <div class="condition-value">
-                        {{ getSensorValue('Canopy Density') }}%
+                        {{ getSensorValue('Vegetation Strength') }}%
                     </div>
                     <div class="condition-status good">
                         <i-lucide [img]="CheckCircleIcon" size="12"></i-lucide>

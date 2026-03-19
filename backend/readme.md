@@ -1,6 +1,6 @@
 ## Backend Satellite Pipeline
 
-This backend now includes a cache-first Sentinel-2 insights pipeline for block polygons stored in PostGIS.
+This backend now includes a cache-first, queue-backed Sentinel-2 insights pipeline for block polygons stored in PostGIS.
 
 ### Endpoint
 
@@ -22,7 +22,11 @@ Response shape:
   "map_tile_url": null,
   "data_quality": "good",
   "composite_date_from": "2026-03-06",
-  "composite_date_to": "2026-03-19"
+  "composite_date_to": "2026-03-19",
+  "status": "fresh",
+  "latency_ms": 132,
+  "source": "cache",
+  "error": null
 }
 ```
 
@@ -30,13 +34,38 @@ Response shape:
 
 - Uses `COPERNICUS/S2_SR_HARMONIZED` only
 - Applies a 14-day rolling window
-- Filters scenes with `CLOUDY_PIXEL_PERCENTAGE < 20`
-- Buffers block geometries inward by 12 meters before querying GEE
+- Validates geometries, buffers inward by 10 meters, and simplifies polygons before querying GEE
 - Builds a median composite in GEE
 - Computes `NDVI`, `NDWI`, `EVI`, `NDRE`, and `LAI` in GEE
-- Aggregates block-level mean values and pixel counts
-- Stores responses in `satellite_cache` with a 5-day TTL
-- Runs a background refresh every 5 days when GEE credentials are configured
+- Aggregates block-level mean values, cloud cover, and pixel counts
+- Stores responses in `satellite_cache` with a 5-day TTL and indexed `last_updated`
+- Records historical metrics in `satellite_timeseries` for future ML/time-series analysis
+- Queues stale or missing refresh work in `satellite_refresh_jobs`
+- Runs background workers that process queued refresh jobs asynchronously
+- Schedules staggered batch refreshes every 5 days when GEE credentials are configured
+
+### Cache And Queue Behavior
+
+- Fresh cache returns immediately with `status: "fresh"` and `source: "cache"`
+- Expired or missing cache never triggers a synchronous GEE call from the request path
+- Stale cache returns immediately with `status: "stale"` while a background refresh job is queued
+- Missing cache returns a placeholder with `status: "updating"` while the refresh worker computes data
+- Per-block throttling prevents repeated request storms from queuing duplicate GEE work
+
+### Data Quality And Errors
+
+- `data_quality: "good"` means usable imagery and acceptable cloud conditions
+- `data_quality: "degraded"` means cloud-heavy or sparse imagery reduced confidence
+- `data_quality: "no_data"` means no usable pixels were available for the selected window
+- `error` is populated for degraded/no-data scenarios or refresh failures so the UI can show a friendly fallback state
+
+### Operational Notes
+
+- Cache is the primary serving layer
+- GEE is refresh-only for API traffic
+- Worker logs include request latency, cache hits, GEE execution time, and queue activity
+- Stuck jobs are automatically recovered back into the queue after the configured timeout
+- The endpoint shape remains backward-compatible; existing metric fields are unchanged and new metadata fields are additive
 
 ### Environment Setup
 
@@ -53,4 +82,4 @@ Required Earth Engine setup:
 
 - The frontend should consume the backend JSON only. It should never call GEE directly.
 - Tile URL generation is optional and disabled by default because it is not part of the critical cache path.
-- The cache table is created automatically at app startup if it does not already exist.
+- Satellite support tables are created automatically at app startup if they do not already exist.

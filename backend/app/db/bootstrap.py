@@ -4,7 +4,7 @@ from sqlalchemy import inspect, text
 
 from app.db.base import Base
 from app.db.database import engine
-from app.db.models import SatelliteCache
+from app.db.models import SatelliteCache, SatelliteRefreshJob, SatelliteTimeseries
 
 
 EXPECTED_SATELLITE_CACHE_COLUMNS = {
@@ -17,6 +17,7 @@ EXPECTED_SATELLITE_CACHE_COLUMNS = {
     "pixel_count",
     "gee_execution_ms",
     "map_tile_url",
+    "last_updated",
     "refreshed_at",
     "expires_at",
 }
@@ -37,6 +38,17 @@ def _rebuild_satellite_cache_table_if_needed() -> None:
         connection.execute(text("DROP TABLE IF EXISTS satellite_cache"))
 
 
-def ensure_satellite_cache_table() -> None:
+def ensure_satellite_support_tables() -> None:
     _rebuild_satellite_cache_table_if_needed()
-    Base.metadata.create_all(bind=engine, tables=[SatelliteCache.__table__])
+    Base.metadata.create_all(
+        bind=engine,
+        tables=[
+            SatelliteCache.__table__,
+            SatelliteRefreshJob.__table__,
+            SatelliteTimeseries.__table__,
+        ],
+    )
+
+
+def ensure_satellite_cache_table() -> None:
+    ensure_satellite_support_tables()
