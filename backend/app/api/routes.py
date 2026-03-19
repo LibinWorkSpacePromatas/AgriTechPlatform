@@ -7,7 +7,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.api import auth, scan
 from app.db.session import SessionLocal
 from app.db.models import Block, User
-from app.services.dashboard_insights import build_block_insights
+from app.schemas.satellite import BlockInsightsResponse
+from app.services.satellite_insights import SatelliteInsightsUnavailableError, satellite_insights_service
 
 router = APIRouter()
 router.include_router(auth.router, prefix="/auth", tags=["auth"])
@@ -78,7 +79,8 @@ def get_blocks(user_id: UUID, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Database error while fetching blocks: {exc}") from exc
 
 
-@router.get("/block/{block_identifier}/insights")
+@router.get("/api/block/{block_identifier}/insights", response_model=BlockInsightsResponse, tags=["satellite"])
+@router.get("/block/{block_identifier}/insights", response_model=BlockInsightsResponse, tags=["satellite"])
 def get_block_insights(block_identifier: str, db: Session = Depends(get_db)):
     try:
         block = db.query(Block).filter(Block.lanslu == block_identifier).first()
@@ -95,6 +97,8 @@ def get_block_insights(block_identifier: str, db: Session = Depends(get_db)):
         if block is None:
             raise HTTPException(status_code=404, detail=f"Block {block_identifier} was not found.")
 
-        return build_block_insights(block)
+        return satellite_insights_service.get_block_insights(db, block)
+    except SatelliteInsightsUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=f"Satellite insights are temporarily unavailable: {exc}") from exc
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=500, detail=f"Database error while fetching block insights: {exc}") from exc

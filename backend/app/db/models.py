@@ -1,5 +1,5 @@
-from sqlalchemy import Column, Float, ForeignKey, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, Date, DateTime, Float, ForeignKey, Index, Integer, String, Text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from geoalchemy2 import Geometry
 
 from app.db.base import Base
@@ -29,4 +29,23 @@ class Block(Base):
     description = Column(String)
     area_ha = Column(Float)
     crop = Column(String)
-    geom = Column(Geometry("POLYGON"))
+    geom = Column(Geometry("GEOMETRY", srid=4326))
+
+
+class SatelliteCache(Base):
+    __tablename__ = "satellite_cache"
+    __table_args__ = (
+        Index("ix_satellite_cache_expires_at", "expires_at"),
+    )
+
+    block_id = Column(UUID(as_uuid=True), ForeignKey("blocks.id", ondelete="CASCADE"), primary_key=True)
+    geometry_hash = Column(String(128), nullable=False)
+    payload = Column(JSONB, nullable=False)
+    data_quality = Column(String(32), nullable=False)
+    composite_date_from = Column(Date, nullable=True)
+    composite_date_to = Column(Date, nullable=True)
+    pixel_count = Column(Integer, nullable=False, default=0)
+    gee_execution_ms = Column(Integer, nullable=True)
+    map_tile_url = Column(Text, nullable=True)
+    refreshed_at = Column(DateTime(timezone=True), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
