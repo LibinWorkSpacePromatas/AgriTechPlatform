@@ -4,7 +4,7 @@ from sqlalchemy import inspect, text
 
 from app.db.base import Base
 from app.db.database import engine
-from app.db.models import SatelliteCache, SatelliteRefreshJob, SatelliteTimeseries
+from app.db.models import SatelliteCache, SatelliteRefreshEventRecord, SatelliteRefreshJob, SatelliteTimeseries
 
 
 EXPECTED_SATELLITE_CACHE_COLUMNS = {
@@ -93,6 +93,7 @@ def ensure_satellite_support_tables() -> None:
         tables=[
             SatelliteCache.__table__,
             SatelliteRefreshJob.__table__,
+            SatelliteRefreshEventRecord.__table__,
             SatelliteTimeseries.__table__,
         ],
     )

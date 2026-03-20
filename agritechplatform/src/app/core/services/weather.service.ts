@@ -5,6 +5,8 @@ import { Observable, map } from 'rxjs';
 export interface WeatherData {
     current: {
         temperature: number;
+        apparentTemperature: number;
+        rain: number;
         windSpeed: number;
         windDirection: number;
         weatherCode: number;
@@ -16,6 +18,7 @@ export interface WeatherData {
     hourly: {
         time: string[];
         temperature_2m: number[];
+        apparent_temperature: number[];
         relative_humidity_2m: number[];
         rain: number[];
         cloud_cover: number[];
@@ -46,11 +49,12 @@ export class WeatherService {
         const params = [
             `latitude=${latitude}`,
             `longitude=${longitude}`,
-            'current=temperature_2m,is_day,rain,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m,cloud_cover',
-            'hourly=temperature_2m,relative_humidity_2m,rain,cloud_cover,wind_speed_10m',
+            'current=temperature_2m,apparent_temperature,is_day,rain,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m,cloud_cover',
+            'hourly=temperature_2m,apparent_temperature,relative_humidity_2m,rain,cloud_cover,wind_speed_10m',
             'daily=temperature_2m_max,temperature_2m_min',
-            'timezone=Australia%2FAdelaide',
-            'forecast_days=8'
+            'timezone=auto',
+            'past_days=7',
+            'forecast_days=1'
         ].join('&');
 
         const fullUrl = `${this.API_URL}?${params}`;
@@ -60,6 +64,8 @@ export class WeatherService {
             map(response => ({
                 current: {
                     temperature: response.current.temperature_2m,
+                    apparentTemperature: response.current.apparent_temperature,
+                    rain: response.current.rain,
                     windSpeed: response.current.wind_speed_10m,
                     windDirection: response.current.wind_direction_10m,
                     weatherCode: response.current.weather_code,
@@ -71,6 +77,7 @@ export class WeatherService {
                 hourly: {
                     time: response.hourly.time,
                     temperature_2m: response.hourly.temperature_2m,
+                    apparent_temperature: response.hourly.apparent_temperature,
                     relative_humidity_2m: response.hourly.relative_humidity_2m,
                     rain: response.hourly.rain,
                     cloud_cover: response.hourly.cloud_cover,

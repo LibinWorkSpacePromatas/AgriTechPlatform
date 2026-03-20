@@ -2,37 +2,18 @@ import { Injectable } from '@angular/core';
 import { environment } from '../../../environments/environment';
 
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 
 import { lastValueFrom } from 'rxjs';
+import {
+  GrowerGptBlockSummaryContract,
+  growerGptBlockSummarySchema,
+  MetricInsightContract
+} from '../../shared/satellite-contract.schemas';
 
-export interface GrowerGptInsight {
-  metric: 'ndvi' | 'ndwi' | 'ndre' | 'evi' | 'lai';
-  code: string;
-  severity: 'info' | 'warning' | 'critical';
-  message: string;
-  value: number;
-  threshold: string;
-}
+export interface GrowerGptInsight extends MetricInsightContract {}
 
-export interface GrowerGptBlockSummary {
-  block_id: string;
-  ndvi: number | null;
-  ndwi: number | null;
-  ndre: number | null;
-  evi: number | null;
-  lai: number | null;
-  cloud_cover_pct: number | null;
-  pixel_count: number;
-  map_tile_url: string | null;
-  data_quality: 'good' | 'degraded' | 'no_data';
-  crop: string | null;
-  date: string | null;
-  data_age_days: number;
-  confidence: string;
-  insights: GrowerGptInsight[];
-  message: string | null;
-}
+export interface GrowerGptBlockSummary extends GrowerGptBlockSummaryContract {}
 
 @Injectable({
   providedIn: 'root'
@@ -43,7 +24,9 @@ export class GrowerGptService {
   constructor(private http: HttpClient) {}
 
   getRuleBasedInsights(blockId: string): Observable<GrowerGptBlockSummary> {
-    return this.http.get<GrowerGptBlockSummary>(`${this.baseUrl}/api/gpt/${blockId}`);
+    return this.http.get<unknown>(`${this.baseUrl}/api/gpt/${blockId}`).pipe(
+      map(payload => growerGptBlockSummarySchema.parse(payload))
+    );
   }
 
   getUserSummary(userId: string): Observable<any> {
@@ -63,11 +46,10 @@ Rules:
 - Use metric units.
 - Refuse non-agriculture topics (e.g., politics, crypto).
 - If block data is provided in the context, you MUST use that data. You are NOT allowed to ask the user to re-provide soil, crop, or weather data.
-- If the user asks about this AgriTech Crop Prediction website, you must explain how the irrigation engine, soil model, ET₀ calculation, or block system works. Do not refuse website-related questions.
-- Use the platform-computed values exactly. 
-- Do not recalculate ETc, irrigationNeeded, or soilFactor. Use only values provided by the platform engine.
-- Do not override ETc, Kc, soilFactor, or irrigationNeeded. 
-- Do not assume new crop coefficients. 
+- If the user asks about this AgriTech Crop Prediction website, you must explain how the irrigation engine, soil model, ET0 calculation, or block system works. Do not refuse website-related questions.
+- Use the platform-computed satellite values exactly.
+- Do not derive new scores, financial conclusions, or custom thresholds.
+- Use backend interpretations, alerts, and limitations as the only interpretation layer.
 - Only explain and summarize.
 `;
 
@@ -81,29 +63,24 @@ Area: ${blockArea} hectares
 Location: ${blockLatitude}, ${blockLongitude}
 
 SATELLITE TRUTH (ALL INDICES):
-NDVI: ${satellite?.ndvi ?? 'N/A'}
-NDWI: ${satellite?.ndwi ?? 'N/A'}
-NDRE: ${satellite?.ndre ?? 'N/A'}
-EVI: ${satellite?.evi ?? 'N/A'}
-LAI: ${satellite?.lai ?? 'N/A'}
+NDVI: ${satellite?.ndvi ?? 'N/A'} (${satellite?.interpretations.ndvi.status ?? 'No data'})
+NDWI: ${satellite?.ndwi ?? 'N/A'} (${satellite?.interpretations.ndwi.status ?? 'No data'})
+NDRE: ${satellite?.ndre ?? 'N/A'} (${satellite?.interpretations.ndre.status ?? 'No data'})
+EVI: ${satellite?.evi ?? 'N/A'} (${satellite?.interpretations.evi.status ?? 'No data'})
+LAI: ${satellite?.lai ?? 'N/A'} (${satellite?.interpretations.lai.status ?? 'No data'})
 Data Quality: ${satellite?.data_quality ?? 'N/A'}
 Confidence: ${satellite?.confidence ?? 'N/A'}
 Data Age Days: ${satellite?.data_age_days ?? 'N/A'}
+Last Satellite Update: ${satellite?.last_satellite_update ?? 'N/A'}
+Scientific Limitations:
+${satellite?.limitations?.map((limitation: string) => `- ${limitation}`).join('\n') || 'None'}
 Backend Summary: ${satellite?.message ?? 'N/A'}
+Backend Interpretations:
+${satellite?.insights?.map((insight: any) => `- ${insight.metric.toUpperCase()}: ${insight.status}`).join('\n') || 'None'}
 Backend Alerts:
-${satellite?.insights?.map((insight: any) => `- ${insight.metric.toUpperCase()}: ${insight.message} (${insight.threshold})`).join('\n') || 'None'}
+${satellite?.alerts?.map((alert: any) => `- ${alert.metric.toUpperCase()}: ${alert.message} (${alert.threshold})`).join('\n') || 'None'}
 
-FINANCIAL DATA (Profit & Risk):
-- Projected ROI: ${user?.financials?.projectedRoi ?? 'N/A'}%
-- Risk Index: ${user?.financials?.riskIndex ?? 'N/A'}
-- Potential Loss: $${user?.financials?.potentialLoss ?? 'N/A'}
-- Estimated Yield: ${user?.financials?.estimatedYield ?? 'N/A'} t/ha
-- Market Value: $${user?.financials?.marketValue ?? 'N/A'}/ton
-
-GROWING OPPORTUNITIES:
-${user?.opportunities?.map((o: any) => `- ${o.title} (${o.tags.join(', ')})`).join('\n') || 'None listed'}
-
-You must use these values exactly. 
+You must use these values exactly.
 Do not override or assume new values.
 `;
 

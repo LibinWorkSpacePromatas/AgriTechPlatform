@@ -2,33 +2,21 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, catchError, map, of } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { WaterResponseContract, waterResponseSchema } from '../../shared/satellite-contract.schemas';
 
 export interface IrrigationStatus {
-  status: 'normal' | 'irrigation_alert' | 'urgent_irrigation' | 'no_data';
-  ndvi: number | null;
+  status: 'Well-watered' | 'Mild stress' | 'Moderate stress' | 'Severe stress' | 'No data';
   ndwi: number | null;
   recommendation: string;
   date: string | null;
-  dataQuality: string;
+  dataQuality: 'good' | 'degraded' | 'no_data';
   lanslu: string;
   blockId: string;
   mapTileUrl: string | null;
+  mapTileType: 'ndvi' | null;
   pixelCount: number;
-  alerts: Array<{ metric: string; code: string; severity: string; message: string; value: number; threshold: string }>;
-}
-
-interface WaterApiResponse {
-  status: 'normal' | 'irrigation_alert' | 'urgent_irrigation' | 'no_data';
-  ndvi: number | null;
-  ndwi: number | null;
-  recommendation: string;
-  date: string | null;
-  data_quality: string;
-  lanslu: string;
-  block_id: string;
-  map_tile_url?: string | null;
-  pixel_count?: number;
-  alerts?: Array<{ metric: string; code: string; severity: string; message: string; value: number; threshold: string }>;
+  lastSatelliteUpdate: string | null;
+  limitations: string[];
 }
 
 @Injectable({
@@ -37,51 +25,53 @@ interface WaterApiResponse {
 export class WaterIrrigationService {
   private readonly baseUrl = environment.apiBaseUrl.replace(/\/$/, '');
 
-  constructor(
-    private http: HttpClient
-  ) {}
+  constructor(private http: HttpClient) {}
 
-  getIrrigationStatus(
-    blockId: string
-  ): Observable<IrrigationStatus> {
-    return this.http.get<WaterApiResponse>(`${this.baseUrl}/api/water/${blockId}`).pipe(
-      map((data: WaterApiResponse) => ({
-        status: data.status,
-        ndvi: data.ndvi,
-        ndwi: data.ndwi,
-        recommendation: data.recommendation,
-        date: data.date,
-        dataQuality: data.data_quality,
-        lanslu: data.lanslu,
-        blockId: data.block_id,
-        mapTileUrl: data.map_tile_url || null,
-        pixelCount: typeof data.pixel_count === 'number' ? data.pixel_count : 0,
-        alerts: data.alerts || []
-      })),
-      catchError(err => {
-        console.error('WaterIrrigationService error:', err);
+  getIrrigationStatus(blockId: string): Observable<IrrigationStatus> {
+    return this.http.get<unknown>(`${this.baseUrl}/api/water/${blockId}`).pipe(
+      map(payload => this.mapResponse(waterResponseSchema.parse(payload))),
+      catchError(error => {
+        console.error('WaterIrrigationService error:', error);
         return of(this.getFallbackStatus(blockId));
       })
     );
   }
 
+  refreshData(blockId: string): Observable<IrrigationStatus> {
+    return this.getIrrigationStatus(blockId);
+  }
+
+  private mapResponse(data: WaterResponseContract): IrrigationStatus {
+    return {
+      status: data.status,
+      ndwi: data.ndwi,
+      recommendation: data.recommendation,
+      date: data.date,
+      dataQuality: data.data_quality,
+      lanslu: data.lanslu,
+      blockId: data.block_id,
+      mapTileUrl: data.map_tile_url,
+      mapTileType: data.map_tile_type,
+      pixelCount: data.pixel_count,
+      lastSatelliteUpdate: data.last_satellite_update,
+      limitations: [...data.limitations]
+    };
+  }
+
   private getFallbackStatus(blockId: string): IrrigationStatus {
     return {
-      status: 'no_data',
-      ndvi: null,
+      status: 'No data',
       ndwi: null,
       recommendation: 'Unable to fetch water data. Please check connection.',
       date: null,
       dataQuality: 'no_data',
       lanslu: 'N/A',
-      blockId: blockId,
+      blockId,
       mapTileUrl: null,
+      mapTileType: null,
       pixelCount: 0,
-      alerts: []
+      lastSatelliteUpdate: null,
+      limitations: []
     };
-  }
-
-  refreshData(blockId: string): Observable<IrrigationStatus> {
-    return this.getIrrigationStatus(blockId);
   }
 }

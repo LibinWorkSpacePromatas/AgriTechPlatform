@@ -11,7 +11,7 @@ from app.services.satellite_insights import SatelliteInsightsUnavailableError
 
 from pydantic import BaseModel
 from typing import Optional
-from app.schemas.insights import GrowerGPTResponse, UserGPTInsight, UserGPTResponse
+from app.schemas.insights import GrowerGPTResponse, MetricInsight, UserGPTInsight, UserGPTResponse
 
 router = APIRouter()
 
@@ -51,7 +51,7 @@ async def get_gpt(block_id: str):
         snapshot = satellite_access_service.get_block_snapshot(block_id)
         satellite_response = snapshot.insights
         is_fresh = satellite_response.freshness_status == "fresh"
-        insights = list(satellite_response.alerts) if is_fresh else []
+        insights = _build_metric_insights(satellite_response)
         data_age = calculate_data_age(satellite_response)
         confidence = calculate_confidence(satellite_response)
 
@@ -71,7 +71,9 @@ async def get_gpt(block_id: str):
             - EVI (Canopy): {satellite_response.evi if satellite_response.evi is not None else 'N/A'}
             - LAI (Yield): {satellite_response.lai if satellite_response.lai is not None else 'N/A'}
 
-            Current Insights: {json.dumps([alert.model_dump(mode="json") for alert in insights])}
+            Current Interpretations: {json.dumps([insight.model_dump(mode="json") for insight in insights])}
+            Active Alerts: {json.dumps(_build_alert_summaries(satellite_response))}
+            Scientific Limitations: {json.dumps(satellite_response.limitations)}
 
             Provide a professional, brief summary of the field status and 1-2 key recommendations for the grower.
             Keep it under 100 words.
@@ -110,14 +112,21 @@ async def user_gpt(user_id: str):
             satellite_response = snapshot.insights
             block_name = snapshot.lanslu or snapshot.block_id
             is_fresh = satellite_response.freshness_status == "fresh"
-            insights = list(satellite_response.alerts) if is_fresh else []
+            insights = _build_metric_insights(satellite_response) if is_fresh else []
+            alert_summaries = _build_alert_summaries(satellite_response) if is_fresh else []
 
-            if insights:
+            if alert_summaries:
+                fresh_block_summaries.append({
+                    "block_name": block_name,
+                    "crop": snapshot.crop,
+                    "status": alert_summaries[0],
+                })
+            elif insights:
                 primary_alert = insights[0]
                 fresh_block_summaries.append({
                     "block_name": block_name,
                     "crop": snapshot.crop,
-                    "status": primary_alert.message
+                    "status": f"{primary_alert.metric.upper()}: {primary_alert.status}"
                 })
             elif not is_fresh:
                 stale_block_names.append(block_name)
@@ -140,7 +149,7 @@ async def user_gpt(user_id: str):
             if stale_block_names:
                 summary = f"{summary} Freshness note: {len(stale_block_names)} block(s) are still stale or updating and were excluded."
         elif stale_block_names:
-            summary = "Fresh property-wide GPT advice is temporarily unavailable because all block cache entries are stale or currently refreshing."
+            summary = "Fresh property-wide GPT advice is temporarily unavailable because all block refreshes are still pending."
         else:
             summary = "All blocks are performing within optimal ranges."
 
@@ -148,7 +157,8 @@ async def user_gpt(user_id: str):
             all_insights,
             key=lambda item: (
                 item.freshness_status != "fresh",
-                item.insight.severity != "critical",
+                item.block_name,
+                item.insight.metric,
             ),
         )[:5]
 
@@ -167,5 +177,17 @@ def _build_freshness_guardrail_message(freshness_status: str, error: str | None)
     if freshness_status == "updating":
         return "Grower GPT is waiting for a fresh satellite refresh to finish before generating advice for this block."
     if error:
-        return f"Grower GPT withheld advice because the latest cache entry is older than the 5-day TTL: {error}"
-    return "Grower GPT withheld advice because the latest cache entry is older than the 5-day TTL."
+        return f"Grower GPT withheld advice because the latest satellite refresh is not ready yet: {error}"
+    return "Grower GPT withheld advice because the latest satellite refresh is not ready yet."
+
+
+def _build_metric_insights(satellite_response) -> list[MetricInsight]:
+    return [
+        MetricInsight(metric=metric, value=getattr(satellite_response, metric), status=detail.status)
+        for metric, detail in satellite_response.interpretations.items()
+        if detail.status != "No data"
+    ]
+
+
+def _build_alert_summaries(satellite_response) -> list[str]:
+    return [f"{alert.metric.upper()}: {alert.message}" for alert in satellite_response.alerts]

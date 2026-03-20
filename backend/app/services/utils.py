@@ -10,6 +10,7 @@ SATELLITE_CONTRACT_RESPONSE_FIELDS = {
     "freshness_status",
     "composite_date_from",
     "composite_date_to",
+    "last_satellite_update",
     "ndvi",
     "ndwi",
     "evi",
@@ -18,9 +19,14 @@ SATELLITE_CONTRACT_RESPONSE_FIELDS = {
     "cloud_cover_pct",
     "pixel_count",
     "map_tile_url",
+    "map_tile_type",
     "cache_last_updated_at",
     "cache_expires_at",
     "data_quality",
+    "acquisition_metadata",
+    "interpretations",
+    "alerts",
+    "limitations",
 }
 
 

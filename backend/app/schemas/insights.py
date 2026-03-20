@@ -5,26 +5,27 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from app.schemas.satellite import SatelliteAlert, SatelliteContractResponse
+from app.schemas.satellite import SatelliteContractResponse
 
 
-class BlockInsightAlert(SatelliteAlert):
-    pass
+class MetricInsight(BaseModel):
+    metric: Literal["ndvi", "ndwi", "ndre", "evi", "lai"]
+    value: float | None = None
+    status: str
 
 
 class DashboardBlockInsightsResponse(SatelliteContractResponse):
     crop: Optional[str] = None
     data_age_days: int = 0
     confidence: str = "high"
-    insights: List[BlockInsightAlert] = Field(default_factory=list)
+    insights: List[MetricInsight] = Field(default_factory=list)
 
 
 class WaterResponse(SatelliteContractResponse):
     lanslu: str
     date: Optional[date_type] = None
-    status: Literal["normal", "irrigation_alert", "urgent_irrigation", "no_data"]
+    status: Literal["Well-watered", "Mild stress", "Moderate stress", "Severe stress", "No data"]
     recommendation: str
-    alerts: List[SatelliteAlert] = Field(default_factory=list)
 
 
 class GrowerGPTResponse(SatelliteContractResponse):
@@ -32,7 +33,7 @@ class GrowerGPTResponse(SatelliteContractResponse):
     date: Optional[date_type] = None
     data_age_days: int = 0
     confidence: str = "high"
-    insights: List[SatelliteAlert] = Field(default_factory=list)
+    insights: List[MetricInsight] = Field(default_factory=list)
     message: Optional[str] = None
 
 
@@ -41,7 +42,7 @@ class UserGPTInsight(BaseModel):
     block_name: str
     crop: Optional[str] = None
     freshness_status: Literal["fresh", "stale", "updating"] = "fresh"
-    insight: SatelliteAlert
+    insight: MetricInsight
 
 
 class UserGPTResponse(BaseModel):

@@ -22,8 +22,8 @@ NDWI_BANDS = ("B3", "B8")
 NDRE_BANDS = ("B6", "B4")
 EVI_EXPRESSION = "2.5 * ((nir - red) / (nir + 6 * red - 7.5 * blue + 1))"
 LAI_EXPRESSION = "3.618 * exp(2.04 * ndvi) - 2"
-DEGRADED_CLOUD_COVER_PCT = 50.0
 MASKED_SCL_CLASSES = (1, 3, 8, 9, 10, 11)
+DEGRADED_CLOUD_COVER_PCT = get_settings().satellite_degraded_cloud_threshold_pct
 
 
 class EarthEngineConfigurationError(RuntimeError):
@@ -48,6 +48,16 @@ class SatelliteComputation:
     composite_date_to: date | None
     map_tile_url: str | None
     image_count: int
+    actual_dates: list[date]
+    execution_ms: int
+
+
+@dataclass(slots=True)
+class AcquisitionMetadataComputation:
+    image_count: int
+    actual_dates: list[date]
+    composite_date_from: date | None
+    composite_date_to: date | None
     execution_ms: int
 
 
@@ -138,6 +148,27 @@ class EarthEngineClient:
                 f"Earth Engine computation timed out after {self._settings.satellite_gee_timeout_seconds} seconds."
             ) from exc
 
+    def get_acquisition_metadata(
+        self,
+        geometry_geojson: dict[str, Any],
+        *,
+        date_from: date,
+        date_to: date,
+    ) -> AcquisitionMetadataComputation:
+        future = self._executor.submit(
+            self._get_acquisition_metadata_impl,
+            geometry_geojson,
+            date_from=date_from,
+            date_to=date_to,
+        )
+        try:
+            return future.result(timeout=self._settings.satellite_gee_timeout_seconds)
+        except FuturesTimeoutError as exc:
+            future.cancel()
+            raise EarthEngineExecutionError(
+                f"Earth Engine acquisition lookup timed out after {self._settings.satellite_gee_timeout_seconds} seconds."
+            ) from exc
+
     def shutdown(self) -> None:
         self._executor.shutdown(wait=False, cancel_futures=True)
 
@@ -157,13 +188,10 @@ class EarthEngineClient:
 
         try:
             geometry = ee.Geometry(geometry_geojson)
-            collection = (
-                ee.ImageCollection(DATASET_ID)
-                .filterDate(date_from.isoformat(), (date_to + timedelta(days=1)).isoformat())
-                .filterBounds(geometry)
-                .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", self._settings.satellite_cloud_filter_pct))
-            )
-            image_count = int(collection.size().getInfo())
+            collection = self._build_collection(geometry, date_from=date_from, date_to=date_to)
+            metadata_summary = self._build_collection_metadata_summary(collection).getInfo()
+            image_count = int(metadata_summary.get("image_count") or 0)
+            actual_dates = self._parse_iso_dates(metadata_summary.get("actual_dates"))
             if image_count == 0:
                 return SatelliteComputation(
                     ndvi=None,
@@ -178,6 +206,7 @@ class EarthEngineClient:
                     composite_date_to=date_to,
                     map_tile_url=None,
                     image_count=0,
+                    actual_dates=[],
                     execution_ms=int((perf_counter() - started_at) * 1000),
                 )
 
@@ -207,16 +236,58 @@ class EarthEngineClient:
                 cloud_cover_pct=cloud_cover_pct,
                 pixel_count=pixel_count,
                 data_quality="no_data" if pixel_count == 0 else data_quality,
-                composite_date_from=self._parse_iso_date(summary.get("composite_date_from")) or date_from,
-                composite_date_to=self._parse_iso_date(summary.get("composite_date_to")) or date_to,
+                composite_date_from=self._parse_iso_date(metadata_summary.get("composite_date_from")) or date_from,
+                composite_date_to=self._parse_iso_date(metadata_summary.get("composite_date_to")) or date_to,
                 map_tile_url=map_tile_url,
                 image_count=image_count,
+                actual_dates=actual_dates,
                 execution_ms=int((perf_counter() - started_at) * 1000),
             )
         except EarthEngineConfigurationError:
             raise
         except Exception as exc:
             raise EarthEngineExecutionError(f"Earth Engine computation failed: {exc}") from exc
+
+    def _get_acquisition_metadata_impl(
+        self,
+        geometry_geojson: dict[str, Any],
+        *,
+        date_from: date,
+        date_to: date,
+    ) -> AcquisitionMetadataComputation:
+        self.initialize()
+        ee = self._ee
+        assert ee is not None
+
+        started_at = perf_counter()
+
+        try:
+            geometry = ee.Geometry(geometry_geojson)
+            collection = self._build_collection(geometry, date_from=date_from, date_to=date_to)
+            summary = self._build_collection_metadata_summary(collection).getInfo()
+
+            return AcquisitionMetadataComputation(
+                image_count=int(summary.get("image_count") or 0),
+                actual_dates=self._parse_iso_dates(summary.get("actual_dates")),
+                composite_date_from=self._parse_iso_date(summary.get("composite_date_from")) or date_from,
+                composite_date_to=self._parse_iso_date(summary.get("composite_date_to")) or date_to,
+                execution_ms=int((perf_counter() - started_at) * 1000),
+            )
+        except EarthEngineConfigurationError:
+            raise
+        except Exception as exc:
+            raise EarthEngineExecutionError(f"Earth Engine acquisition lookup failed: {exc}") from exc
+
+    def _build_collection(self, geometry: Any, *, date_from: date, date_to: date) -> Any:
+        ee = self._ee
+        assert ee is not None
+
+        return (
+            ee.ImageCollection(DATASET_ID)
+            .filterDate(date_from.isoformat(), (date_to + timedelta(days=1)).isoformat())
+            .filterBounds(geometry)
+            .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", self._settings.satellite_cloud_filter_pct))
+        )
 
     def _prepare_image(self, image: Any) -> Any:
         ee = self._ee
@@ -277,8 +348,31 @@ class EarthEngineClient:
             {
                 "stats": stats,
                 "cloud_cover_pct": cloud_cover_pct,
-                "composite_date_from": ee.Date(collection.aggregate_min("system:time_start")).format("YYYY-MM-dd"),
-                "composite_date_to": ee.Date(collection.aggregate_max("system:time_start")).format("YYYY-MM-dd"),
+            }
+        )
+
+    def _build_collection_metadata_summary(self, collection: Any) -> Any:
+        ee = self._ee
+        assert ee is not None
+
+        actual_dates = ee.List(collection.aggregate_array("system:time_start")).map(
+            lambda time_start: ee.Date(time_start).format("YYYY-MM-dd")
+        )
+
+        return ee.Dictionary(
+            {
+                "image_count": collection.size(),
+                "actual_dates": actual_dates.distinct().sort(),
+                "composite_date_from": ee.Algorithms.If(
+                    collection.size().gt(0),
+                    ee.Date(collection.aggregate_min("system:time_start")).format("YYYY-MM-dd"),
+                    None,
+                ),
+                "composite_date_to": ee.Algorithms.If(
+                    collection.size().gt(0),
+                    ee.Date(collection.aggregate_max("system:time_start")).format("YYYY-MM-dd"),
+                    None,
+                ),
             }
         )
 
@@ -301,7 +395,7 @@ class EarthEngineClient:
     def _classify_quality(self, *, pixel_count: int, cloud_cover_pct: float | None, image_count: int) -> str:
         if pixel_count <= 0:
             return "no_data"
-        if cloud_cover_pct is not None and cloud_cover_pct > DEGRADED_CLOUD_COVER_PCT:
+        if cloud_cover_pct is not None and cloud_cover_pct > self._settings.satellite_degraded_cloud_threshold_pct:
             return "degraded"
         return "good"
 
@@ -331,6 +425,12 @@ class EarthEngineClient:
         if not value:
             return None
         return date.fromisoformat(str(value))
+
+    @classmethod
+    def _parse_iso_dates(cls, values: Any) -> list[date]:
+        if not values:
+            return []
+        return [parsed for parsed in (cls._parse_iso_date(value) for value in values) if parsed is not None]
 
 
 earth_engine_client = EarthEngineClient()

@@ -198,7 +198,7 @@ export class GrowerGptComponent implements OnInit, AfterViewChecked, OnDestroy {
             this.chatHistory.push({
               role: 'assistant',
               content: `Hello! I've performed a specialized analysis on **${block.name}**.\n\n`
-                + backendData.insights.map((insight) => `- **${insight.message}** (${insight.metric.toUpperCase()})`).join('\n')
+                + backendData.insights.map((insight) => `- **${insight.metric.toUpperCase()}**: ${insight.status}`).join('\n')
                 + `\n\n${backendData.message || 'Ask me how to act on these satellite signals.'}`
             });
             return;
@@ -206,7 +206,7 @@ export class GrowerGptComponent implements OnInit, AfterViewChecked, OnDestroy {
 
           this.chatHistory.push({
             role: 'assistant',
-            content: `Hello! I'm monitoring **${block.name}**.\n\n${backendData.message || 'No critical satellite alerts are active right now, but I can help interpret NDVI, NDWI, NDRE, EVI, and LAI for you.'}`
+            content: `Hello! I'm monitoring **${block.name}**.\n\n${backendData.message || 'No satellite interpretation is active right now, but I can help explain NDVI, NDWI, NDRE, EVI, and LAI for you.'}`
           });
         },
         error: () => {

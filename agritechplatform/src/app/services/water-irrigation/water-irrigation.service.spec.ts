@@ -25,14 +25,30 @@ describe('WaterIrrigationService', () => {
 
   it('fetches irrigation status from the backend', async () => {
     const mockResponse = {
-      status: 'normal',
+      block_id: 'block-123',
+      source: 'real',
+      freshness_status: 'fresh',
+      composite_date_from: '2026-03-06',
+      composite_date_to: '2026-03-20',
+      last_satellite_update: '2026-03-20',
       ndwi: 0.25,
       recommendation: 'Field looks good',
       date: '2026-03-20',
       data_quality: 'good',
+      pixel_count: 12,
+      map_tile_url: null,
+      map_tile_type: 'ndvi',
+      acquisition_metadata: { image_count: 1, actual_dates: ['2026-03-20'] },
+      interpretations: {
+        ndvi: { value: null, status: 'No data' },
+        ndwi: { value: 0.25, status: 'Well-watered' },
+        ndre: { value: null, status: 'No data' },
+        evi: { value: null, status: 'No data' },
+        lai: { value: null, status: 'No data' }
+      },
+      limitations: [],
       lanslu: 'BCPKFB',
-      block_id: 'block-123',
-      alerts: []
+      status: 'Well-watered'
     };
 
     const statusPromise = firstValueFrom(service.getIrrigationStatus('block-123'));
@@ -42,11 +58,12 @@ describe('WaterIrrigationService', () => {
     req.flush(mockResponse);
 
     const result = await statusPromise;
-    expect(result.status).toBe('normal');
+    expect(result.status).toBe('Well-watered');
     expect(result.ndwi).toBe(0.25);
     expect(result.dataQuality).toBe('good');
     expect(result.blockId).toBe('block-123');
-    expect(result.alerts).toEqual([]);
+    expect(result.mapTileType).toBe('ndvi');
+    expect(result.limitations).toEqual([]);
   });
 
   it('returns fallback status on error', async () => {
@@ -56,7 +73,7 @@ describe('WaterIrrigationService', () => {
     req.error(new ErrorEvent('Network error'));
 
     const result = await statusPromise;
-    expect(result.status).toBe('no_data');
+    expect(result.status).toBe('No data');
     expect(result.ndwi).toBeNull();
     expect(result.recommendation).toContain('Unable to fetch water data');
   });

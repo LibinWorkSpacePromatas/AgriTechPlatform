@@ -15,7 +15,9 @@ from app.core.config import Settings, get_settings
 from app.db.models import Block, SatelliteCache, SatelliteTimeseries
 from app.schemas.satellite import BlockInsightsResponse, SatelliteTimeseriesPoint
 from app.services.earth_engine import EarthEngineConfigurationError, EarthEngineExecutionError, earth_engine_client
-from app.services.interpretation_engine import interpret_satellite_payload
+from app.services.alerts_engine import build_alerts
+from app.services.interpretation_tables import interpret_payload
+from app.services.limitations_engine import build_limitations
 
 
 logger = logging.getLogger(__name__)
@@ -48,30 +50,11 @@ class SatelliteInsightsService:
         request_started_at = perf_counter()
         window_from, window_to = self._build_composite_window()
         geometry_payload = self._load_block_geometry(db, block.id)
-        fresh_cache = self._load_cache(db, block.id, geometry_payload.geometry_hash, only_fresh=True)
-
-        if fresh_cache is not None and not force_refresh:
-            response = self._response_from_cache(
-                fresh_cache,
-                status="fresh",
-                source="cache",
-                latency_ms=self._elapsed_ms(request_started_at),
-            )
-            self._log_request(
-                block_id=block.id,
-                status=response.status,
-                source=response.source,
-                latency_ms=response.latency_ms,
-                cache_hit=True,
-                data_quality=response.data_quality,
-            )
-            return response
-
-        stale_cache = self._load_cache(db, block.id, geometry_payload.geometry_hash, only_fresh=False)
+        cache = self._load_cache(db, block.id, geometry_payload.geometry_hash, only_fresh=False)
         job = None
         enqueue_error = geometry_payload.error
 
-        if geometry_payload.is_queryable:
+        if geometry_payload.is_queryable and (force_refresh or self._is_refresh_due(cache)):
             from app.services.satellite_scheduler import satellite_refresh_scheduler
 
             enqueue_result = satellite_refresh_scheduler.enqueue_block_refresh(
@@ -85,14 +68,16 @@ class SatelliteInsightsService:
             if enqueue_result.error:
                 enqueue_error = enqueue_result.error
 
-        if stale_cache is not None:
+        if cache is not None and not force_refresh:
+            cache_status = "fresh" if self._is_cache_fresh(cache) else "stale"
             response = self._response_from_cache(
-                stale_cache,
-                status="stale",
+                cache,
+                block_area_ha=block.area_ha,
+                status=cache_status,
                 source="cache",
                 latency_ms=self._elapsed_ms(request_started_at),
                 error=self._resolve_error_message(
-                    data_quality=self._deserialize_cache_payload(stale_cache).data_quality,
+                    data_quality=self._deserialize_cache_payload(cache, block_area_ha=block.area_ha).data_quality,
                     fallback=enqueue_error,
                     job_error=getattr(job, "last_error", None),
                 ),
@@ -109,7 +94,7 @@ class SatelliteInsightsService:
 
         response_status = "updating" if geometry_payload.is_queryable else "stale"
         placeholder = self._decorate_response(
-            self._build_no_data_response(block.id, window_from, window_to),
+            self._build_no_data_response(block.id, window_from, window_to, block_area_ha=block.area_ha),
             status=response_status,
             source="cache",
             latency_ms=self._elapsed_ms(request_started_at),
@@ -133,10 +118,11 @@ class SatelliteInsightsService:
     def refresh_block_insights(self, db: Session, block: Block) -> BlockInsightsResponse:
         window_from, window_to = self._build_composite_window()
         geometry_payload = self._load_block_geometry(db, block.id)
+        existing_cache = self._load_cache(db, block.id, geometry_payload.geometry_hash, only_fresh=False)
 
         if not geometry_payload.is_queryable:
             response = self._decorate_response(
-                self._build_no_data_response(block.id, window_from, window_to),
+                self._build_no_data_response(block.id, window_from, window_to, block_area_ha=block.area_ha),
                 status="fresh",
                 source="gee",
                 latency_ms=0,
@@ -158,6 +144,35 @@ class SatelliteInsightsService:
             )
 
         try:
+            if existing_cache is not None:
+                acquisition_metadata = self._earth_engine.get_acquisition_metadata(
+                    geometry_payload.geojson or {},
+                    date_from=window_from,
+                    date_to=window_to,
+                )
+                cached_response = self._deserialize_cache_payload(existing_cache, block_area_ha=block.area_ha)
+                if self._same_acquisition_pass(cached_response, acquisition_metadata.actual_dates):
+                    cache_last_updated_at, cache_expires_at = self._touch_cache(
+                        db,
+                        existing_cache,
+                        cached_response,
+                    )
+                    logger.info(
+                        "event=satellite_refresh_skipped_no_new_image block_id=%s image_count=%s actual_dates=%s",
+                        block.id,
+                        acquisition_metadata.image_count,
+                        [value.isoformat() for value in acquisition_metadata.actual_dates],
+                    )
+                    return cached_response.model_copy(
+                        update={
+                            "status": "fresh",
+                            "freshness_status": "fresh",
+                            "latency_ms": acquisition_metadata.execution_ms,
+                            "cache_last_updated_at": cache_last_updated_at,
+                            "cache_expires_at": cache_expires_at,
+                        }
+                    )
+
             response = self._compute_block_response_for_window(
                 block,
                 geometry_payload.geojson or {},
@@ -281,6 +296,9 @@ class SatelliteInsightsService:
                 observed_on=record.observed_on,
                 ndvi=record.ndvi,
                 ndwi=record.ndwi,
+                evi=record.evi,
+                ndre=record.ndre,
+                lai=record.lai,
             )
             for record in records
         ]
@@ -299,7 +317,7 @@ class SatelliteInsightsService:
             date_to=date_to,
         )
         return self._decorate_response(
-            self._with_interpretation(BlockInsightsResponse(
+            self._enrich_response(BlockInsightsResponse(
                 block_id=str(block.id),
                 ndvi=computation.ndvi,
                 ndwi=computation.ndwi,
@@ -309,10 +327,15 @@ class SatelliteInsightsService:
                 cloud_cover_pct=computation.cloud_cover_pct,
                 pixel_count=computation.pixel_count,
                 map_tile_url=computation.map_tile_url,
+                map_tile_type="ndvi" if computation.map_tile_url else None,
                 data_quality=computation.data_quality,
                 composite_date_from=computation.composite_date_from,
                 composite_date_to=computation.composite_date_to,
-            )),
+                acquisition_metadata={
+                    "image_count": computation.image_count,
+                    "actual_dates": computation.actual_dates,
+                },
+            ), block_area_ha=block.area_ha),
             status="fresh",
             source="gee",
             latency_ms=computation.execution_ms,
@@ -327,37 +350,19 @@ class SatelliteInsightsService:
                     SELECT
                         ST_IsValid(geom) AS is_valid,
                         ST_IsEmpty(geom) AS is_empty,
-                        ST_Transform(ST_MakeValid(geom), 3857) AS valid_geom
+                        ST_MakeValid(geom) AS valid_geom
                     FROM blocks
                     WHERE id = :block_id
-                ),
-                buffered AS (
-                    SELECT
-                        is_valid,
-                        is_empty,
-                        CASE
-                            WHEN ST_IsEmpty(ST_Buffer(valid_geom, -:buffer_meters))
-                                THEN valid_geom
-                            ELSE ST_Buffer(valid_geom, -:buffer_meters)
-                        END AS buffered_geom
-                    FROM prepared
                 )
                 SELECT
                     is_valid,
                     is_empty,
-                    ST_AsGeoJSON(
-                        ST_Transform(
-                            ST_SimplifyPreserveTopology(buffered_geom, :simplify_tolerance_meters),
-                            4326
-                        )
-                    ) AS buffered_geojson
-                FROM buffered
+                    ST_AsGeoJSON(ST_Transform(valid_geom, 4326)) AS buffered_geojson
+                FROM prepared
                 """
             ),
             {
                 "block_id": str(block_id),
-                "buffer_meters": self._settings.satellite_buffer_meters,
-                "simplify_tolerance_meters": self._settings.satellite_simplify_tolerance_meters,
             },
         ).mappings().first()
 
@@ -396,20 +401,30 @@ class SatelliteInsightsService:
             return None
         return cache
 
-    def _deserialize_cache_payload(self, cache: SatelliteCache) -> BlockInsightsResponse:
-        return self._with_interpretation(BlockInsightsResponse.model_validate(cache.payload))
+    def _deserialize_cache_payload(
+        self,
+        cache: SatelliteCache,
+        *,
+        block_area_ha: float | None = None,
+    ) -> BlockInsightsResponse:
+        response = BlockInsightsResponse.model_validate(cache.payload)
+        needs_enrichment = not response.interpretations or response.last_satellite_update is None
+        if needs_enrichment:
+            return self._enrich_response(response, block_area_ha=block_area_ha)
+        return response
 
     def _response_from_cache(
         self,
         cache: SatelliteCache,
         *,
+        block_area_ha: float | None = None,
         status: str,
         source: str,
         latency_ms: int,
         error: str | None = None,
     ) -> BlockInsightsResponse:
         return self._decorate_response(
-            self._deserialize_cache_payload(cache),
+            self._deserialize_cache_payload(cache, block_area_ha=block_area_ha),
             status=status,
             source=source,
             latency_ms=latency_ms,
@@ -451,6 +466,27 @@ class SatelliteInsightsService:
         db.commit()
         return now, expires_at
 
+    def _touch_cache(
+        self,
+        db: Session,
+        cache: SatelliteCache,
+        response: BlockInsightsResponse,
+    ) -> tuple[datetime, datetime]:
+        now = self._utcnow()
+        expires_at = now + timedelta(days=self._settings.satellite_cache_ttl_days)
+        cache.payload = response.model_dump(mode="json")
+        cache.data_quality = response.data_quality
+        cache.composite_date_from = response.composite_date_from
+        cache.composite_date_to = response.composite_date_to
+        cache.pixel_count = response.pixel_count
+        cache.map_tile_url = response.map_tile_url
+        cache.last_updated = now
+        cache.refreshed_at = now
+        cache.expires_at = expires_at
+        db.add(cache)
+        db.commit()
+        return now, expires_at
+
     def _append_timeseries(
         self,
         db: Session,
@@ -461,6 +497,18 @@ class SatelliteInsightsService:
         recorded_at: datetime,
     ) -> None:
         observed_on = response.composite_date_to or self._utcnow().date()
+        existing_record = (
+            db.query(SatelliteTimeseries)
+            .filter(
+                SatelliteTimeseries.block_id == block_id,
+                SatelliteTimeseries.observed_on == observed_on,
+                SatelliteTimeseries.geometry_hash == geometry_hash,
+            )
+            .first()
+        )
+        if existing_record is not None:
+            return
+
         record = SatelliteTimeseries(
             block_id=block_id,
             observed_on=observed_on,
@@ -479,8 +527,15 @@ class SatelliteInsightsService:
         )
         db.add(record)
 
-    def _build_no_data_response(self, block_id: Any, window_from: date, window_to: date) -> BlockInsightsResponse:
-        return self._with_interpretation(BlockInsightsResponse(
+    def _build_no_data_response(
+        self,
+        block_id: Any,
+        window_from: date,
+        window_to: date,
+        *,
+        block_area_ha: float | None,
+    ) -> BlockInsightsResponse:
+        return self._enrich_response(BlockInsightsResponse(
             block_id=str(block_id),
             ndvi=None,
             ndwi=None,
@@ -490,10 +545,11 @@ class SatelliteInsightsService:
             cloud_cover_pct=None,
             pixel_count=0,
             map_tile_url=None,
+            map_tile_type=None,
             data_quality="no_data",
             composite_date_from=window_from,
             composite_date_to=window_to,
-        ))
+        ), block_area_ha=block_area_ha)
 
     def _decorate_response(
         self,
@@ -507,7 +563,7 @@ class SatelliteInsightsService:
         cache_last_updated_at: datetime | None = None,
         cache_expires_at: datetime | None = None,
     ) -> BlockInsightsResponse:
-        return self._with_interpretation(response).model_copy(
+        return response.model_copy(
             update={
                 "status": status,
                 "source": "real",
@@ -521,22 +577,6 @@ class SatelliteInsightsService:
                     self._resolve_error_message(data_quality=response.data_quality)
                     if infer_error
                     else None
-                ),
-            }
-        )
-
-    def _with_interpretation(self, response: BlockInsightsResponse) -> BlockInsightsResponse:
-        return BlockInsightsResponse.model_validate(
-            {
-                **response.model_dump(mode="python"),
-                **interpret_satellite_payload(
-                    {
-                        "ndvi": response.ndvi,
-                        "ndwi": response.ndwi,
-                        "ndre": response.ndre,
-                        "evi": response.evi,
-                        "lai": response.lai,
-                    }
                 ),
             }
         )
@@ -557,6 +597,60 @@ class SatelliteInsightsService:
         if data_quality == "no_data":
             return "No usable satellite pixels were available for the selected period."
         return None
+
+    def _enrich_response(self, response: BlockInsightsResponse, *, block_area_ha: float | None) -> BlockInsightsResponse:
+        interpretations = interpret_payload(
+            {
+                "ndvi": response.ndvi,
+                "ndwi": response.ndwi,
+                "ndre": response.ndre,
+                "evi": response.evi,
+                "lai": response.lai,
+            }
+        )
+        limitations = build_limitations(
+            cloud_cover_pct=response.cloud_cover_pct,
+            data_quality=response.data_quality,
+            composite_date_to=response.composite_date_to,
+            block_area_ha=block_area_ha,
+            ndvi=response.ndvi,
+            lai=response.lai,
+            settings=self._settings,
+        )
+        return BlockInsightsResponse.model_validate(
+            {
+                **response.model_dump(mode="python"),
+                "interpretations": interpretations,
+                "alerts": build_alerts(
+                    {
+                        "ndvi": response.ndvi,
+                        "ndwi": response.ndwi,
+                        "ndre": response.ndre,
+                        "evi": response.evi,
+                        "lai": response.lai,
+                    }
+                ),
+                "limitations": limitations,
+                "last_satellite_update": (
+                    response.acquisition_metadata.actual_dates[-1]
+                    if response.acquisition_metadata.actual_dates
+                    else response.last_satellite_update
+                ),
+                "map_tile_type": response.map_tile_type or ("ndvi" if response.map_tile_url else None),
+            }
+        )
+
+    def _same_acquisition_pass(self, response: BlockInsightsResponse, actual_dates: list[date]) -> bool:
+        cached_dates = [value for value in response.acquisition_metadata.actual_dates]
+        return cached_dates == actual_dates
+
+    def _is_refresh_due(self, cache: SatelliteCache | None) -> bool:
+        if cache is None:
+            return True
+        return cache.expires_at <= self._utcnow()
+
+    def _is_cache_fresh(self, cache: SatelliteCache) -> bool:
+        return cache.expires_at > self._utcnow()
 
     def _build_composite_window(self) -> tuple[date, date]:
         today = self._utcnow().date()

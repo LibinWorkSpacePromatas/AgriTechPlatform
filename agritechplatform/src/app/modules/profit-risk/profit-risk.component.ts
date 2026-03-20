@@ -212,7 +212,7 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
   // Computed Values
   cropMetrics = computed(() => {
       const allocation = this.waterAllocation() / 100;
-      const yieldFactor = this.liveYieldFactor() ?? 1;
+      const yieldFactor = 1;
 
       return this.crops.map(crop => {
           const effectiveWaterProportion = allocation;
@@ -301,22 +301,15 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
   readonly WINE_GRAPE_BASELINE = 493.44512195121956;
 
   liveLai = computed(() => this.liveInsights()?.metrics.lai.raw ?? null);
-  liveYieldFactor = computed(() => {
-      const lai = this.liveLai();
-      if (lai === null) {
-          return null;
-      }
-
-      return Math.max(0.35, Math.min(1.15, Number((lai / 5).toFixed(2))));
-  });
+  liveLaiStatus = computed(() => this.liveInsights()?.metrics.lai.label ?? 'No data');
 
   currentYieldMode = computed(() => {
       const insights = this.liveInsights();
       if (!insights || insights.source !== 'real' || insights.dataQuality === 'no_data' || this.liveLai() === null) {
-          return 'Baseline market assumptions';
+          return 'Baseline market assumptions (live LAI unavailable)';
       }
 
-      return `Satellite-adjusted from LAI ${this.liveLai()!.toFixed(2)}`;
+      return `Live LAI ${this.liveLai()!.toFixed(2)} (${this.liveLaiStatus()}) shown for yield context`;
   });
 
   wineGrapeMetrics = computed(() => {

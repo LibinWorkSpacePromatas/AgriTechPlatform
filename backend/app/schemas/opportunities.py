@@ -4,7 +4,8 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from app.schemas.satellite import SatelliteAlert, SatelliteContractResponse
+from app.schemas.insights import MetricInsight
+from app.schemas.satellite import SatelliteContractResponse
 
 
 class OpportunityCard(BaseModel):
@@ -20,8 +21,8 @@ class OpportunityCard(BaseModel):
 
 class OpportunitiesResponse(SatelliteContractResponse):
     crop: Optional[str] = None
-    ndre_status: str = "no_data"
-    evi_status: str = "no_data"
+    ndre_status: str = "No data"
+    evi_status: str = "No data"
     warning: Optional[str] = None
-    alerts: List[SatelliteAlert] = Field(default_factory=list)
+    insights: List[MetricInsight] = Field(default_factory=list)
     opportunities: List[OpportunityCard] = Field(default_factory=list)

@@ -184,44 +184,35 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
   }
 
   getStatusColor(status: string): string {
-    if (status.includes('urgent_irrigation')) return 'text-red-600';
-    if (status.includes('irrigation_alert')) return 'text-orange-600';
-    if (status.includes('normal')) return 'text-blue-600';
+    if (status === 'Severe stress') return 'text-red-600';
+    if (status === 'Moderate stress' || status === 'Mild stress') return 'text-orange-600';
+    if (status === 'Well-watered') return 'text-blue-600';
     return 'text-gray-600';
   }
 
   getStatusBgColor(status: string): string {
-    if (status.includes('urgent_irrigation')) return 'bg-red-100 border-red-200';
-    if (status.includes('irrigation_alert')) return 'bg-orange-100 border-orange-200';
-    if (status.includes('normal')) return 'bg-blue-100 border-blue-200';
+    if (status === 'Severe stress') return 'bg-red-100 border-red-200';
+    if (status === 'Moderate stress' || status === 'Mild stress') return 'bg-orange-100 border-orange-200';
+    if (status === 'Well-watered') return 'bg-blue-100 border-blue-200';
     return 'bg-gray-100 border-gray-200';
   }
 
   getStatusIndicatorClass(status: string): string {
-    if (status.includes('urgent_irrigation')) return 'urgent';
-    if (status.includes('irrigation_alert')) return 'monitor';
-    if (status.includes('normal')) return 'saturated';
+    if (status === 'Severe stress') return 'urgent';
+    if (status === 'Moderate stress' || status === 'Mild stress') return 'monitor';
+    if (status === 'Well-watered') return 'saturated';
     return '';
   }
 
   formatStatusLabel(status: string): string {
-    switch (status) {
-      case 'urgent_irrigation':
-        return 'Urgent Irrigation';
-      case 'irrigation_alert':
-        return 'Irrigation Alert';
-      case 'normal':
-        return 'Normal';
-      default:
-        return 'No Data';
-    }
+    return status || 'No data';
   }
 
   getInsightTone(status: string): string {
     switch (status) {
-      case 'stale':
+      case 'degraded':
         return 'warning';
-      case 'updating':
+      case 'no_data':
         return 'info';
       default:
         return 'success';
@@ -240,14 +231,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
   }
 
   getRecommendationLabel(level: string): string {
-    switch (level) {
-      case 'urgent_irrigation':
-        return 'Urgent irrigation';
-      case 'irrigation_alert':
-        return 'Irrigation alert';
-      default:
-        return 'Normal';
-    }
+    return level;
   }
 
   private renderSpatialLayers(): void {
@@ -310,7 +294,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     if (this.irrigationStatus?.mapTileUrl) {
       this.ndviTileLayer = L.tileLayer(this.irrigationStatus.mapTileUrl, {
         opacity: 0.65,
-        attribution: 'NDVI © Sentinel-2 / Google Earth Engine'
+        attribution: 'NDVI overlay © Sentinel-2 / Google Earth Engine'
       }).addTo(this.map);
     }
   }

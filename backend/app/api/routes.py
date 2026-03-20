@@ -1,5 +1,5 @@
 import json
-from queue import Empty
+from time import sleep
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -145,23 +145,28 @@ def stream_block_satellite_events(block_id: str):
         raise HTTPException(status_code=500, detail=f"Database error while preparing satellite events: {exc}") from exc
 
     def event_stream():
-        subscriber = satellite_event_broker.subscribe(block_id=block_reference.block_id)
-        try:
-            yield _format_sse_payload(
-                {
-                    "block_id": block_reference.block_id,
-                    "event": "connected",
-                    "reason": "stream_opened",
-                }
+        last_event_id: int | None = None
+        yield _format_sse_payload(
+            {
+                "block_id": block_reference.block_id,
+                "event": "connected",
+                "reason": "stream_opened",
+            }
+        )
+
+        while True:
+            refresh_events = satellite_event_broker.list_events(
+                block_id=block_reference.block_id,
+                after_id=last_event_id,
             )
 
-            while True:
-                try:
-                    refresh_event = subscriber.queue.get(timeout=15)
-                except Empty:
-                    yield ": keep-alive\n\n"
-                    continue
+            if not refresh_events:
+                yield ": keep-alive\n\n"
+                sleep(1)
+                continue
 
+            for refresh_event in refresh_events:
+                last_event_id = refresh_event.id
                 yield _format_sse_payload(
                     {
                         "block_id": refresh_event.block_id,
@@ -173,8 +178,6 @@ def stream_block_satellite_events(block_id: str):
                         "latency_ms": refresh_event.latency_ms,
                     }
                 )
-        finally:
-            satellite_event_broker.unsubscribe(subscriber)
 
     return StreamingResponse(
         event_stream(),

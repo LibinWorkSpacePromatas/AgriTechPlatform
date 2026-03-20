@@ -1,13 +1,23 @@
 from __future__ import annotations
 
 from app.db.models import Block
+from app.schemas.insights import MetricInsight
 from app.schemas.opportunities import OpportunitiesResponse, OpportunityCard
 from app.schemas.satellite import BlockInsightsResponse
 
 
 def build_opportunities_response(block: Block, satellite_response: BlockInsightsResponse) -> OpportunitiesResponse:
-    relevant_alerts = [alert for alert in satellite_response.alerts if alert.metric in {"ndre", "evi"}]
-    warning = satellite_response.error
+    ndre_status = _interpretation_status(satellite_response, "ndre")
+    evi_status = _interpretation_status(satellite_response, "evi")
+    relevant_insights = [
+        MetricInsight(metric="ndre", value=satellite_response.ndre, status=ndre_status),
+        MetricInsight(metric="evi", value=satellite_response.evi, status=evi_status),
+    ]
+    warning = (
+        satellite_response.error
+        or _first_relevant_alert_message(satellite_response)
+        or (satellite_response.limitations[0] if satellite_response.limitations else None)
+    )
 
     if satellite_response.data_quality == "no_data" or satellite_response.ndre is None or satellite_response.evi is None:
         if not warning:
@@ -25,12 +35,16 @@ def build_opportunities_response(block: Block, satellite_response: BlockInsights
             cloud_cover_pct=satellite_response.cloud_cover_pct,
             pixel_count=satellite_response.pixel_count,
             map_tile_url=satellite_response.map_tile_url,
+            map_tile_type=satellite_response.map_tile_type,
             data_quality=satellite_response.data_quality,
+            acquisition_metadata=satellite_response.acquisition_metadata,
+            interpretations=satellite_response.interpretations,
+            limitations=satellite_response.limitations,
             crop=block.crop,
-            ndre_status=satellite_response.ndre_status,
-            evi_status=satellite_response.evi_status,
+            ndre_status=ndre_status,
+            evi_status=evi_status,
             warning=warning,
-            alerts=relevant_alerts,
+            insights=relevant_insights,
             opportunities=[],
         )
 
@@ -48,12 +62,16 @@ def build_opportunities_response(block: Block, satellite_response: BlockInsights
         cloud_cover_pct=satellite_response.cloud_cover_pct,
         pixel_count=satellite_response.pixel_count,
         map_tile_url=satellite_response.map_tile_url,
+        map_tile_type=satellite_response.map_tile_type,
         data_quality=satellite_response.data_quality,
+        acquisition_metadata=satellite_response.acquisition_metadata,
+        interpretations=satellite_response.interpretations,
+        limitations=satellite_response.limitations,
         crop=block.crop,
-        ndre_status=satellite_response.ndre_status,
-        evi_status=satellite_response.evi_status,
+        ndre_status=ndre_status,
+        evi_status=evi_status,
         warning=warning,
-        alerts=relevant_alerts,
+        insights=relevant_insights,
         opportunities=opportunities,
     )
 
@@ -63,19 +81,22 @@ def _build_cards(block: Block, satellite_response: BlockInsightsResponse) -> lis
     evi = satellite_response.evi or 0.0
     cards: list[OpportunityCard] = []
 
-    if satellite_response.ndre_status == "nutrient_issue":
+    ndre_status = _interpretation_status(satellite_response, "ndre")
+    evi_status = _interpretation_status(satellite_response, "evi")
+
+    if ndre_status in {"Low", "Critical"}:
         cards.append(
             OpportunityCard(
                 id="nutrient-recovery",
                 title="Nutrient Recovery Opportunity",
-                description="NDRE indicates nutrient pressure, so the strongest opportunity is to restore chlorophyll activity before pushing growth.",
+                description="NDRE indicates reduced chlorophyll strength, so the strongest opportunity is to restore nutrient performance before pushing growth.",
                 full_description=(
-                    f"Block {block.lanslu or block.id} is returning NDRE {ndre:.3f}, below the canonical nutrient threshold. "
+                    f"Block {block.lanslu or block.id} is returning NDRE {ndre:.3f} with an interpretation of {ndre_status}. "
                     "Correcting nutrient constraints first gives the block a better platform for later canopy and yield improvements."
                 ),
                 key_points=[
-                    f"NDRE is {ndre:.3f}, below the nutrient issue threshold of 0.25.",
-                    f"EVI is {evi:.3f}, which shows the current canopy response to that nutrient state.",
+                    f"NDRE is {ndre:.3f} ({ndre_status}).",
+                    f"EVI is {evi:.3f} ({evi_status}), which shows the current canopy response to that nutrient state.",
                     "Use this cycle to target tissue testing, fertigation timing, and weaker chlorophyll zones.",
                 ],
                 tags=["ndre", "nutrients", "recovery"],
@@ -88,13 +109,13 @@ def _build_cards(block: Block, satellite_response: BlockInsightsResponse) -> lis
             OpportunityCard(
                 id="quality-lift",
                 title="Quality Lift Opportunity",
-                description="NDRE is holding in the normal range, which supports targeted quality programs and premium fruit management.",
+                description="NDRE is holding in a supportive range, which supports targeted quality programs and premium fruit management.",
                 full_description=(
-                    f"Block {block.lanslu or block.id} is returning NDRE {ndre:.3f}, which is inside the canonical nutrient band. "
+                    f"Block {block.lanslu or block.id} is returning NDRE {ndre:.3f} with an interpretation of {ndre_status}. "
                     "That keeps nutrient activity supportive for quality-focused canopy and fruit decisions."
                 ),
                 key_points=[
-                    f"NDRE is {ndre:.3f}, so nutrient activity is not currently triggering a backend issue.",
+                    f"NDRE is {ndre:.3f} ({ndre_status}).",
                     "Use the next refresh cycle to confirm stability before committing more aggressively.",
                     "This is the right state for selective premium-management or varietal trial planning.",
                 ],
@@ -104,18 +125,18 @@ def _build_cards(block: Block, satellite_response: BlockInsightsResponse) -> lis
             )
         )
 
-    if satellite_response.evi_status == "canopy_alert":
+    if evi_status == "Dense canopy":
         cards.append(
             OpportunityCard(
                 id="canopy-reset",
                 title="Canopy Reset Opportunity",
-                description="EVI is above the canopy alert line, creating an opportunity to rebalance vigour and improve light/air movement.",
+                description="EVI indicates dense canopy growth, creating an opportunity to rebalance vigour and improve light and air movement.",
                 full_description=(
-                    f"EVI is {evi:.3f}, above the canonical canopy alert threshold. "
+                    f"EVI is {evi:.3f} with an interpretation of {evi_status}. "
                     "Reducing excess canopy pressure can improve fruit exposure, spray penetration, and block uniformity."
                 ),
                 key_points=[
-                    f"EVI is {evi:.3f}, above the canopy alert threshold of 0.50.",
+                    f"EVI is {evi:.3f} ({evi_status}).",
                     "Review shoot density, hedging, and canopy airflow in the strongest zones first.",
                     "Pair canopy action with the current NDRE result so the block is not pushed into nutrient imbalance.",
                 ],
@@ -129,13 +150,13 @@ def _build_cards(block: Block, satellite_response: BlockInsightsResponse) -> lis
             OpportunityCard(
                 id="canopy-efficiency",
                 title="Canopy Efficiency Opportunity",
-                description="EVI is not in canopy alert territory, which supports steady growth programs without corrective pruning pressure.",
+                description="EVI does not indicate dense canopy pressure, which supports steady growth programs without corrective pruning pressure.",
                 full_description=(
-                    f"EVI is {evi:.3f}, so the block is not currently in a canopy alert state. "
+                    f"EVI is {evi:.3f} with an interpretation of {evi_status}. "
                     "That makes it easier to focus on efficiency gains rather than corrective canopy reduction."
                 ),
                 key_points=[
-                    f"EVI is {evi:.3f}, remaining at or below the 0.50 canopy alert threshold.",
+                    f"EVI is {evi:.3f} ({evi_status}).",
                     "Use this state to protect uniform canopy development across the next composite cycle.",
                     "Combine canopy stability with NDRE strength when prioritizing blocks for premium management.",
                 ],
@@ -155,8 +176,8 @@ def _build_cards(block: Block, satellite_response: BlockInsightsResponse) -> lis
                 "Use those two indices together to decide whether the next cycle should focus on nutrient uplift, canopy control, or premium quality tracking."
             ),
             key_points=[
-                f"NDRE driver state: {satellite_response.ndre_status}.",
-                f"EVI driver state: {satellite_response.evi_status}.",
+                f"NDRE driver state: {ndre_status}.",
+                f"EVI driver state: {evi_status}.",
                 "Track both indices together rather than treating growth and nutrient signals independently.",
             ],
             tags=["ndre", "evi", "planning"],
@@ -167,3 +188,17 @@ def _build_cards(block: Block, satellite_response: BlockInsightsResponse) -> lis
 
     priority_rank = {"high": 0, "medium": 1, "low": 2}
     return sorted(cards, key=lambda card: priority_rank[card.priority])
+
+
+def _interpretation_status(satellite_response: BlockInsightsResponse, metric: str) -> str:
+    detail = satellite_response.interpretations.get(metric)
+    if detail is None:
+        return "No data"
+    return getattr(detail, "status", "No data")
+
+
+def _first_relevant_alert_message(satellite_response: BlockInsightsResponse) -> str | None:
+    for alert in satellite_response.alerts:
+        if alert.metric in {"ndre", "evi"}:
+            return alert.message
+    return None

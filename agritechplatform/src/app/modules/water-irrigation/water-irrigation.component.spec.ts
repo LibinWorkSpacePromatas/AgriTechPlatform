@@ -73,7 +73,7 @@ describe('WaterIrrigationComponent', () => {
 
     expect(waterIrrigationService.getIrrigationStatus.calls.mostRecent().args[0]).toBe('LAN-002');
     expect(component.selectedBlockLan).toBe('LAN-002');
-    expect(component.irrigationStatus?.status).toBe('irrigation_alert');
+    expect(component.irrigationStatus?.status).toBe('Moderate stress');
   });
 });
 
@@ -102,8 +102,7 @@ class MockBlockService {
 
 function buildIrrigationStatus(lan: string): IrrigationStatus {
   return {
-    status: lan === 'LAN-002' ? 'irrigation_alert' : 'normal',
-    ndvi: lan === 'LAN-002' ? 0.42 : 0.55,
+    status: lan === 'LAN-002' ? 'Moderate stress' : 'Well-watered',
     ndwi: lan === 'LAN-002' ? -0.2 : 0.25,
     recommendation: 'Test recommendation',
     date: '2026-03-20',
@@ -111,18 +110,9 @@ function buildIrrigationStatus(lan: string): IrrigationStatus {
     lanslu: lan,
     blockId: lan,
     mapTileUrl: null,
+    mapTileType: 'ndvi',
     pixelCount: 8,
-    alerts: lan === 'LAN-002'
-      ? [
-          {
-            metric: 'ndwi',
-            code: 'irrigation_alert',
-            severity: 'warning',
-            message: 'Irrigation alert triggered.',
-            value: -0.2,
-            threshold: 'NDWI < -0.15'
-          }
-        ]
-      : []
+    lastSatelliteUpdate: '2026-03-20',
+    limitations: lan === 'LAN-002' ? ['Thresholds may vary by crop and region'] : []
   };
 }

@@ -72,6 +72,23 @@ class SatelliteRefreshJob(Base):
     last_duration_ms = Column(Integer, nullable=True)
 
 
+class SatelliteRefreshEventRecord(Base):
+    __tablename__ = "satellite_refresh_events"
+    __table_args__ = (
+        Index("ix_satellite_refresh_events_block_id_id", "block_id", "id"),
+        Index("ix_satellite_refresh_events_created_at", "created_at"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    block_id = Column(UUID(as_uuid=True), ForeignKey("blocks.id", ondelete="CASCADE"), nullable=False)
+    event = Column(String(32), nullable=False)
+    reason = Column(String(64), nullable=False)
+    data_quality = Column(String(32), nullable=True)
+    error = Column(Text, nullable=True)
+    latency_ms = Column(Integer, nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+
+
 class SatelliteTimeseries(Base):
     __tablename__ = "satellite_timeseries"
     __table_args__ = (

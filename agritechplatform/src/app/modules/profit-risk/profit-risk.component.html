@@ -10,11 +10,14 @@
     </div>
 
     <div class="modal-disclaimer">
-        <h5>Yield Driver</h5>
+        <h5>Data Basis</h5>
         <p>
-            {{ currentYieldMode() }}
-            <span *ngIf="liveLai() !== null"> • Yield factor {{ liveYieldFactor() }}</span>
+            <strong>Satellite-derived:</strong>
+            <span *ngIf="liveLai() !== null; else noLiveLai">LAI {{ liveLai() | number:'1.2-2' }} ({{ liveLaiStatus() }}) is shown as live satellite context.</span>
+            <ng-template #noLiveLai>Live LAI is unavailable for this block.</ng-template>
         </p>
+        <p><strong>Assumed / economic model:</strong> Water allocation, prices, variable costs, fixed costs, volatility, and capital inputs remain the fixed assumptions used by this module.</p>
+        <p>{{ currentYieldMode() }}</p>
         <p *ngIf="satelliteError()">{{ satelliteError() }}</p>
     </div>
 
@@ -257,7 +260,7 @@
                 <div>
                     <h4 class="insight-title">Key Insight</h4>
                     <p class="insight-text">
-                        Wine grapes now project {{ getProjectedYieldForCrop('Wine Grapes') | number:'1.1-1' }} t/ha under the current LAI-adjusted yield factor.
+                        Wine grapes now project {{ getProjectedYieldForCrop('Wine Grapes') | number:'1.1-1' }} t/ha under baseline economics, with live LAI shown separately for context.
                     </p>
                     <p class="insight-warning">
                         <i-lucide [img]="AlertTriangle" class="icon-sm"></i-lucide>
@@ -346,7 +349,7 @@
                     <i-lucide [img]="DollarSign" class="icon-green"></i-lucide>
                     <h3>Net Margin per Hectare</h3>
                 </div>
-                <p class="chart-subtitle">Revenue minus input costs • Zero line shown • Yield driven by LAI</p>
+                <p class="chart-subtitle">Revenue minus input costs • Zero line shown • Baseline economics with live LAI context</p>
 
                 <div class="margin-chart-container">
                     <!-- Y Axis -->

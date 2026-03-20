@@ -6,7 +6,8 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
-RATIO_INDEX_FIELDS = ("ndvi", "ndwi", "ndre", "evi")
+RATIO_INDEX_FIELDS = ("ndvi", "ndwi", "ndre")
+INTERPRETATION_KEYS = ("ndvi", "ndwi", "ndre", "evi", "lai")
 
 
 def _coerce_nullable_float(value: object) -> float | None:
@@ -60,6 +61,33 @@ class SatelliteAlert(BaseModel):
         return self
 
 
+class MetricInterpretation(BaseModel):
+    value: float | None = None
+    status: str
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, value: str) -> str:
+        return _validate_not_blank(value, field_name="status")
+
+
+class AcquisitionMetadata(BaseModel):
+    image_count: int = 0
+    actual_dates: list[date] = Field(default_factory=list)
+
+    @field_validator("image_count")
+    @classmethod
+    def validate_image_count(cls, value: int) -> int:
+        if value < 0:
+            raise ValueError("image_count must be non-negative.")
+        return value
+
+    @model_validator(mode="after")
+    def normalize_actual_dates(self) -> "AcquisitionMetadata":
+        self.actual_dates = sorted(dict.fromkeys(self.actual_dates))
+        return self
+
+
 class SatelliteContractResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -68,6 +96,7 @@ class SatelliteContractResponse(BaseModel):
     freshness_status: Literal["fresh", "stale", "updating"] = "fresh"
     composite_date_from: date | None = None
     composite_date_to: date | None = None
+    last_satellite_update: date | None = None
     ndvi: float | None = None
     ndwi: float | None = None
     evi: float | None = None
@@ -76,9 +105,14 @@ class SatelliteContractResponse(BaseModel):
     cloud_cover_pct: float | None = None
     pixel_count: int = 0
     map_tile_url: str | None = None
+    map_tile_type: Literal["ndvi"] | None = None
     cache_last_updated_at: datetime | None = None
     cache_expires_at: datetime | None = None
     data_quality: Literal["good", "degraded", "no_data"]
+    acquisition_metadata: AcquisitionMetadata = Field(default_factory=AcquisitionMetadata)
+    interpretations: dict[Literal["ndvi", "ndwi", "ndre", "evi", "lai"], MetricInterpretation] = Field(default_factory=dict)
+    alerts: list[SatelliteAlert] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
 
     @field_validator("block_id")
     @classmethod
@@ -109,6 +143,11 @@ class SatelliteContractResponse(BaseModel):
     def normalize_optional_floats(cls, value: object) -> float | None:
         return _coerce_nullable_float(value)
 
+    @field_validator("evi", mode="before")
+    @classmethod
+    def normalize_evi(cls, value: object) -> float | None:
+        return _coerce_nullable_float(value)
+
     @field_validator("lai")
     @classmethod
     def validate_lai(cls, value: float | None) -> float | None:
@@ -137,14 +176,29 @@ class SatelliteContractResponse(BaseModel):
             return None
         return str(value)
 
+    @field_validator("limitations")
+    @classmethod
+    def normalize_limitations(cls, value: list[str]) -> list[str]:
+        normalized = []
+        for entry in value:
+            normalized.append(_validate_not_blank(str(entry), field_name="limitations"))
+        return normalized
+
     @model_validator(mode="after")
-    def validate_date_window(self) -> "SatelliteContractResponse":
+    def validate_contract(self) -> "SatelliteContractResponse":
         if (
             self.composite_date_from is not None
             and self.composite_date_to is not None
             and self.composite_date_from > self.composite_date_to
         ):
             raise ValueError("composite_date_from cannot be after composite_date_to.")
+
+        if self.last_satellite_update is None and self.acquisition_metadata.actual_dates:
+            self.last_satellite_update = self.acquisition_metadata.actual_dates[-1]
+
+        if self.map_tile_url and self.map_tile_type is None:
+            self.map_tile_type = "ndvi"
+
         return self
 
 
@@ -152,12 +206,6 @@ class BlockInsightsResponse(SatelliteContractResponse):
     status: Literal["fresh", "stale", "updating"] = "fresh"
     latency_ms: int = 0
     error: str | None = None
-    ndvi_status: str = "no_data"
-    ndwi_status: str = "no_data"
-    ndre_status: str = "no_data"
-    evi_status: str = "no_data"
-    lai_status: str = "no_data"
-    alerts: list[SatelliteAlert] = Field(default_factory=list)
 
 
 class SatelliteTimeseriesPoint(BaseModel):
@@ -165,13 +213,31 @@ class SatelliteTimeseriesPoint(BaseModel):
     observed_on: date | None = None
     ndvi: float | None = None
     ndwi: float | None = None
+    evi: float | None = None
+    ndre: float | None = None
+    lai: float | None = None
 
-    @field_validator("ndvi", "ndwi", mode="before")
+    @field_validator("ndvi", "ndwi", "ndre", mode="before")
     @classmethod
-    def normalize_series_indices(cls, value: object) -> float | None:
+    def normalize_series_ratio_indices(cls, value: object) -> float | None:
         return _coerce_nullable_float(value)
 
-    @field_validator("ndvi", "ndwi")
+    @field_validator("ndvi", "ndwi", "ndre")
     @classmethod
-    def validate_series_indices(cls, value: float | None, info) -> float | None:
+    def validate_series_ratio_indices(cls, value: float | None, info) -> float | None:
         return _validate_ratio_index_range(value, field_name=info.field_name)
+
+    @field_validator("evi", mode="before")
+    @classmethod
+    def normalize_series_evi(cls, value: object) -> float | None:
+        return _coerce_nullable_float(value)
+
+    @field_validator("lai", mode="before")
+    @classmethod
+    def normalize_series_lai(cls, value: object) -> float | None:
+        return _coerce_nullable_float(value)
+
+    @field_validator("lai")
+    @classmethod
+    def validate_series_lai(cls, value: float | None) -> float | None:
+        return _validate_non_negative(value, field_name="lai")

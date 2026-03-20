@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { distinctUntilChanged, filter, interval, Subject, Subscription, takeUntil } from 'rxjs';
 import {
@@ -62,17 +62,27 @@ interface DashboardSensor {
   summaryLabel: string;
   message: string;
   colorClass: 'good' | 'warning' | 'error';
-  history: number[];
+  history: Array<number | null>;
   historyLabels: string[];
-  historyHours: number[];
+  historyHours: Array<number | null>;
   labelsHours: string[];
-  historyDays: number[];
+  historyDays: Array<number | null>;
   labelsDays: string[];
-  historyWeeks: number[];
+  historyWeeks: Array<number | null>;
   labelsWeeks: string[];
   suggestedMin?: number;
   suggestedMax?: number;
 }
+
+interface SatelliteTrendChartPoint {
+  dateKey: string;
+  ndvi: number | null;
+  ndwi: number | null;
+  ndre: number | null;
+  evi: number | null;
+}
+
+type SatelliteTrendSeriesKey = keyof Omit<SatelliteTrendChartPoint, 'dateKey'>;
 
 @Component({
   selector: 'app-dashboard',
@@ -82,6 +92,9 @@ interface DashboardSensor {
   styleUrls: ['./dashboard.component.css', './dashboard-premium.component.css', './dashboard-alt-modal.component.css', './dashboard-action-cards.component.css']
 })
 export class DashboardComponent implements OnInit, OnDestroy {
+  readonly strictSpecMode = true;
+  @ViewChild('detailPanel') detailPanelRef?: ElementRef<HTMLElement>;
+
   CpuIcon = Cpu;
   DropletsIcon = Droplets;
   ThermometerIcon = Thermometer;
@@ -125,7 +138,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   sensors: DashboardSensor[] = [];
   advisorData = {
-    riskScore: 0,
+    riskScore: null as number | null,
     riskLevel: 'Low' as 'Low' | 'Moderate' | 'High',
     lastUpdated: 'Waiting for backend insight refresh',
     sensorAnalysis: [
@@ -140,7 +153,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   riskExplanations: string[] = [];
 
   nutrientData = {
-    status: 'Low' as 'High' | 'Medium' | 'Low',
+    status: 'Low' as string,
     reason: 'Waiting for backend insights',
     score: 0,
     details: [] as string[]
@@ -174,12 +187,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ) { }
 
   get insightsStatusLabel(): string {
-    if (this.isInsightsLoading) {
+    if (this.isInsightsLoading && !this.latestInsights) {
       return 'Loading latest block intelligence';
-    }
-
-    if (this.isInsightsRefreshing) {
-      return 'Checking for newly refreshed satellite data';
     }
 
     if (!this.latestInsights) {
@@ -210,7 +219,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return 'Data latency unavailable';
     }
 
-    return `Data retrieved in ${this.latestInsights.latencyMs} ms`;
+    if (this.isInsightsRefreshing || this.latestInsights.status === 'updating') {
+      return 'Refreshing in the background';
+    }
+
+    return this.formatLatencyLabel(this.latestInsights.latencyMs);
   }
 
   get dataStatusTitle(): string {
@@ -262,7 +275,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   get currentSensorLabels(): string[] {
-    const sensor = this.lockedSensor || this.hoveredSensor;
+    const sensor = this.activeDetailSensor;
     if (!sensor) return [];
 
     switch (this.activeSensorTab) {
@@ -277,8 +290,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  get currentSensorData(): number[] {
-    const sensor = this.lockedSensor || this.hoveredSensor;
+  get currentSensorData(): Array<number | null> {
+    const sensor = this.activeDetailSensor;
     if (!sensor) return [];
 
     switch (this.activeSensorTab) {
@@ -293,44 +306,69 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
+  get currentSensorHasData(): boolean {
+    return this.currentSensorData.some(value => typeof value === 'number');
+  }
+
+  get primarySensor(): DashboardSensor | null {
+    return this.findSensorById('ndvi');
+  }
+
+  get activeDetailSensor(): DashboardSensor | null {
+    return this.lockedSensor || this.primarySensor;
+  }
+
+  get secondarySensors(): DashboardSensor[] {
+    return this.sensors.filter(sensor => sensor.id !== 'ndvi');
+  }
+
+  get dashboardLimitations(): string[] {
+    return [...(this.latestInsights?.limitations || [])];
+  }
+
+  get ndviTrendMessage(): string {
+    return this.latestInsights?.trends.ndvi.message || 'NDVI trend is still being collected.';
+  }
+
+  get ndviTrendDirection(): DashboardTrendDirection | undefined {
+    return this.latestInsights?.trends.ndvi.direction;
+  }
+
   get hasSatelliteTrendData(): boolean {
-    const populatedPoints = (this.latestInsights?.timeseries || []).filter(point => point.ndvi !== null || point.ndwi !== null);
-    return populatedPoints.length >= 2;
+    return this.getSatelliteTrendPoints().filter(point =>
+      point.ndvi !== null || point.ndwi !== null || point.ndre !== null || point.evi !== null
+    ).length >= 2;
   }
 
   get satelliteTrendLabels(): string[] {
-    return (this.latestInsights?.timeseries || []).map(point => this.formatTimeseriesLabel(point.date));
+    return this.getSatelliteTrendPoints().map(point => this.formatTimeseriesLabel(point.dateKey));
   }
 
   get satelliteTrendSeries(): ChartSeries[] {
-    if (!this.latestInsights) {
+    const trendPoints = this.getSatelliteTrendPoints();
+    if (!trendPoints.length) {
       return [];
     }
 
-    const ndviPoints = this.latestInsights.timeseries.map(point => point.ndvi);
-    const ndwiPoints = this.latestInsights.timeseries.map(point => point.ndwi);
-    const hasNdvi = ndviPoints.some(point => point !== null);
-    const hasNdwi = ndwiPoints.some(point => point !== null);
-
     const series: ChartSeries[] = [];
+    const seriesConfig: Array<{ key: SatelliteTrendSeriesKey; name: string; color: string }> = [
+      { key: 'ndvi', name: 'NDVI', color: '#15803d' },
+      { key: 'ndwi', name: 'NDWI', color: '#0369a1' },
+      { key: 'ndre', name: 'NDRE', color: '#7c3aed' },
+      { key: 'evi', name: 'EVI', color: '#b45309' }
+    ];
 
-    if (hasNdvi) {
-      series.push({
-        name: 'NDVI',
-        data: ndviPoints.map(point => point ?? 0),
-        color: '#16a34a',
-        unit: ''
-      });
-    }
-
-    if (hasNdwi) {
-      series.push({
-        name: 'NDWI',
-        data: ndwiPoints.map(point => point ?? 0),
-        color: '#0284c7',
-        unit: ''
-      });
-    }
+    seriesConfig.forEach(config => {
+      const points = trendPoints.map(point => point[config.key]);
+      if (points.some(point => point !== null)) {
+        series.push({
+          name: config.name,
+          data: points,
+          color: config.color,
+          unit: ''
+        });
+      }
+    });
 
     return series;
   }
@@ -340,8 +378,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   get satelliteTrendLastUpdated(): string {
-    const latestDate = this.latestInsights?.trends.latestDate;
+    const latestDate = this.latestInsights?.lastSatelliteUpdate || this.latestInsights?.trends.latestDate;
     return latestDate ? this.formatInsightsTimestamp(latestDate) : 'No historical observations yet';
+  }
+
+  get currentRainAmount(): number {
+    if (!this.weatherData) {
+      return 0;
+    }
+
+    return this.weatherData.current.rain ?? this.weatherData.hourly.rain[0] ?? 0;
   }
 
   get currentBlockPrefix(): string {
@@ -353,38 +399,34 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (!this.weatherData) return [];
 
     if (this.chartMode === 'hourly') {
+      const recentHourly = this.getRecentHourlyWeather();
       return [
         {
-          name: 'Temp C',
-          data: this.weatherData.hourly.temperature_2m.slice(0, 24),
+          name: 'Temperature',
+          data: recentHourly.temperature,
           color: '#f59e0b',
           unit: 'C'
         },
         {
-          name: 'Humidity %',
-          data: this.weatherData.hourly.relative_humidity_2m.slice(0, 24),
+          name: 'Feels Like',
+          data: recentHourly.apparentTemperature,
           color: '#3b82f6',
-          unit: '%'
-        },
-        {
-          name: 'Rain mm',
-          data: this.weatherData.hourly.rain.slice(0, 24),
-          color: '#60a5fa',
-          unit: 'mm'
+          unit: 'C'
         }
       ];
     }
 
+    const recentDaily = this.getRecentDailyWeather();
     return [
       {
         name: 'Max Temp',
-        data: this.weatherData.daily.temperature_2m_max,
+        data: recentDaily.maxTemperature,
         color: '#f59e0b',
         unit: 'C'
       },
       {
         name: 'Min Temp',
-        data: this.weatherData.daily.temperature_2m_min,
+        data: recentDaily.minTemperature,
         color: '#3b82f6',
         unit: 'C'
       }
@@ -394,8 +436,61 @@ export class DashboardComponent implements OnInit, OnDestroy {
   get chartLabels(): string[] {
     if (!this.weatherData) return [];
     return this.chartMode === 'hourly'
-      ? this.formatHourlyLabels(this.weatherData.hourly.time.slice(0, 24))
-      : this.formatDailyLabels(this.weatherData.daily.time);
+      ? this.formatHourlyLabels(this.getRecentHourlyWeather().times)
+      : this.formatDailyLabels(this.getRecentDailyWeather().dates);
+  }
+
+  private getRecentHourlyWeather(): {
+    times: string[];
+    temperature: number[];
+    apparentTemperature: number[];
+  } {
+    if (!this.weatherData) {
+      return { times: [], temperature: [], apparentTemperature: [] };
+    }
+
+    const currentTime = this.parseDateValue(this.weatherData.current.time).getTime();
+    const rows = this.weatherData.hourly.time
+      .map((time, index) => ({
+        time,
+        timestamp: this.parseDateValue(time).getTime(),
+        temperature: this.weatherData!.hourly.temperature_2m[index],
+        apparentTemperature: this.weatherData!.hourly.apparent_temperature[index]
+      }))
+      .filter(row => Number.isFinite(row.timestamp) && row.timestamp <= currentTime)
+      .slice(-24);
+
+    return {
+      times: rows.map(row => row.time),
+      temperature: rows.map(row => row.temperature),
+      apparentTemperature: rows.map(row => row.apparentTemperature)
+    };
+  }
+
+  private getRecentDailyWeather(): {
+    dates: string[];
+    maxTemperature: number[];
+    minTemperature: number[];
+  } {
+    if (!this.weatherData) {
+      return { dates: [], maxTemperature: [], minTemperature: [] };
+    }
+
+    const todayKey = this.toDateKey(this.weatherData.current.time);
+    const rows = this.weatherData.daily.time
+      .map((date, index) => ({
+        date,
+        maxTemperature: this.weatherData!.daily.temperature_2m_max[index],
+        minTemperature: this.weatherData!.daily.temperature_2m_min[index]
+      }))
+      .filter(row => this.toDateKey(row.date) <= todayKey)
+      .slice(-7);
+
+    return {
+      dates: rows.map(row => row.date),
+      maxTemperature: rows.map(row => row.maxTemperature),
+      minTemperature: rows.map(row => row.minTemperature)
+    };
   }
 
   ngOnInit(): void {
@@ -544,7 +639,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.advisorData = {
       riskScore: insights.advisor.riskScore,
       riskLevel: insights.advisor.riskLevel,
-      lastUpdated: this.formatInsightsTimestamp(insights.compositeDateTo || ''),
+      lastUpdated: this.formatInsightsTimestamp(insights.lastSatelliteUpdate || insights.compositeDateTo || ''),
       sensorAnalysis: insights.advisor.sensorAnalysis.map(item => ({
         ...item,
         icon: this.getAnalysisIcon(item.label)
@@ -630,8 +725,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
         labelsDays: [...metric.history.labelsDays],
         historyWeeks: [...metric.history.weeks],
         labelsWeeks: [...metric.history.labelsWeeks],
-        suggestedMin: key === 'ndwi' ? -100 : 0,
-        suggestedMax: key === 'lai' ? 6.5 : 100
+        suggestedMin: key === 'lai' ? 0 : -1,
+        suggestedMax: key === 'lai' ? 7 : 1
       };
     });
   }
@@ -639,6 +734,71 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private findSensorById(id?: DashboardMetricKey): DashboardSensor | null {
     if (!id) return null;
     return this.sensors.find(sensor => sensor.id === id) || null;
+  }
+
+  private getSatelliteTrendPoints(): SatelliteTrendChartPoint[] {
+    if (!this.latestInsights?.timeseries.length) {
+      return [];
+    }
+
+    const grouped = new Map<string, {
+      dateKey: string;
+      ndviTotal: number;
+      ndviCount: number;
+      ndwiTotal: number;
+      ndwiCount: number;
+      ndreTotal: number;
+      ndreCount: number;
+      eviTotal: number;
+      eviCount: number;
+    }>();
+
+    this.latestInsights.timeseries.forEach(point => {
+      const dateKey = this.toDateKey(point.observedOn || point.date);
+      const existing = grouped.get(dateKey) || {
+        dateKey,
+        ndviTotal: 0,
+        ndviCount: 0,
+        ndwiTotal: 0,
+        ndwiCount: 0,
+        ndreTotal: 0,
+        ndreCount: 0,
+        eviTotal: 0,
+        eviCount: 0
+      };
+
+      if (point.ndvi !== null) {
+        existing.ndviTotal += point.ndvi;
+        existing.ndviCount += 1;
+      }
+
+      if (point.ndwi !== null) {
+        existing.ndwiTotal += point.ndwi;
+        existing.ndwiCount += 1;
+      }
+
+      if (point.ndre !== null) {
+        existing.ndreTotal += point.ndre;
+        existing.ndreCount += 1;
+      }
+
+      if (point.evi !== null) {
+        existing.eviTotal += point.evi;
+        existing.eviCount += 1;
+      }
+
+      grouped.set(dateKey, existing);
+    });
+
+    return Array.from(grouped.values())
+      .sort((left, right) => left.dateKey.localeCompare(right.dateKey))
+      .map(point => ({
+        dateKey: point.dateKey,
+        ndvi: point.ndviCount ? Number((point.ndviTotal / point.ndviCount).toFixed(4)) : null,
+        ndwi: point.ndwiCount ? Number((point.ndwiTotal / point.ndwiCount).toFixed(4)) : null,
+        ndre: point.ndreCount ? Number((point.ndreTotal / point.ndreCount).toFixed(4)) : null,
+        evi: point.eviCount ? Number((point.eviTotal / point.eviCount).toFixed(4)) : null
+      }));
   }
 
   private getAnalysisIcon(label: string): any {
@@ -752,14 +912,26 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     this.lockedSensor = sensor;
-    this.hoveredSensor = sensor;
+    this.hoveredSensor = null;
     this.activeSensorTab = 'recent';
+    this.scrollToTrendPanel();
   }
 
   closePopup(event?: Event): void {
     event?.stopPropagation();
     this.lockedSensor = null;
     this.hoveredSensor = null;
+  }
+
+  private scrollToTrendPanel(): void {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        this.detailPanelRef?.nativeElement.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      });
+    });
   }
 
   setSensorTab(tab: 'recent' | 'daily' | 'weekly'): void {
@@ -787,7 +959,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     const primaryGreen = '#2e7d32';
     const alertOrange = '#d97706';
-    const riskText = `${this.advisorData.riskLevel.toUpperCase()} RISK - ${this.advisorData.riskScore}%`;
+    const riskText = this.primarySensor
+      ? `PRIMARY NDVI ${this.primarySensor.value}${this.primarySensor.unit}`
+      : 'NDVI-LED MVP MODE';
     const dataStatus = this.latestInsights
       ? `${this.latestInsights.status.toUpperCase()} / ${this.latestInsights.source.toUpperCase()} / ${this.latestInsights.dataQuality.toUpperCase()}`
       : 'LOADING';
@@ -831,7 +1005,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     // @ts-ignore
     doc.autoTable({
       startY: yPos,
-      head: [['Data Status', 'Latency', 'Risk Score']],
+      head: [['Data Status', 'Latency', 'Primary Signal']],
       body: [[dataStatus, this.insightsLatencyLabel, riskText]],
       foot: [[
         this.latestInsights?.warning || 'Backend intelligence active',
@@ -854,7 +1028,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('CURRENT RESPONSE POSTURE', 105, yPos + 10, { align: 'center' });
+    doc.text('CURRENT INTERPRETATION STATUS', 105, yPos + 10, { align: 'center' });
 
     doc.setFontSize(12);
     doc.text(
@@ -869,7 +1043,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     doc.setFontSize(12);
     doc.setTextColor(alertOrange);
     doc.text(
-      `Composite vitality: ${this.yieldImpact?.currentYieldPercent.toFixed(0) ?? '--'}% | Nutrient score: ${this.nutrientData.score}%`,
+      `Primary signal: NDVI ${this.getSensorDisplay('ndvi')} | Supporting NDRE ${this.getSensorDisplay('ndre')}`,
       105,
       yPos - 3,
       { align: 'center' }
@@ -917,7 +1091,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     doc.setFontSize(12);
     doc.setTextColor(0, 0, 0);
-    doc.text('RISK ASSESSMENT', 14, yPos);
+    doc.text('INTERPRETATION STATUS', 14, yPos);
 
     doc.setFillColor(primaryGreen);
     doc.roundedRect(14, yPos + 3, 70, 15, 2, 2, 'F');
@@ -947,12 +1121,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   getSensorValue(label: string): number | string {
     const aliases: Record<string, string[]> = {
-      'Water Status': ['Water Status'],
+      'Water Stress': ['Water Stress'],
       'Nutrient Status': ['Nutrient Status'],
-      'Crop Health': ['Crop Health'],
-      'Canopy Density': ['Vegetation Strength', 'Growth Density'],
-      'Vegetation Strength': ['Vegetation Strength'],
-      'Growth Density': ['Growth Density']
+      'Vegetation Health': ['Vegetation Health'],
+      'Canopy Density': ['Canopy Density'],
+      'Yield Potential': ['Yield Potential']
     };
 
     const sensor = this.sensors.find(item => (aliases[label] || [label]).includes(item.label));
@@ -975,14 +1148,32 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   formatHourlyLabels(times: string[]): string[] {
-    return times.map(time => new Date(time).getHours() + ':00');
+    return times.map((time, index) => {
+      const parsed = this.parseDateValue(time);
+      if (Number.isNaN(parsed.getTime())) {
+        return time;
+      }
+
+      if (index === times.length - 1) {
+        return 'Now';
+      }
+
+      return parsed.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        hour12: false
+      });
+    });
   }
 
   formatDailyLabels(dates: string[]): string[] {
-    return dates.map(dateValue => {
+    return dates.map((dateValue, index) => {
       const parsed = this.parseDateValue(dateValue);
       if (Number.isNaN(parsed.getTime())) {
         return dateValue;
+      }
+
+      if (index === dates.length - 1) {
+        return 'Today';
       }
 
       return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -1021,14 +1212,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
-  getAverage(values: number[]): number {
-    if (!values.length) return 0;
-    return values.reduce((total, value) => total + value, 0) / values.length;
+  getAverage(values: Array<number | null>): number {
+    const numericValues = values.filter((value): value is number => typeof value === 'number');
+    if (!numericValues.length) return 0;
+    return numericValues.reduce((total, value) => total + value, 0) / numericValues.length;
   }
 
-  getMax(values: number[]): number {
-    if (!values.length) return 0;
-    return Math.max(...values);
+  getMax(values: Array<number | null>): number {
+    const numericValues = values.filter((value): value is number => typeof value === 'number');
+    if (!numericValues.length) return 0;
+    return Math.max(...numericValues);
   }
 
   getTrendBadgeClass(direction: DashboardTrendDirection | undefined): string {
@@ -1045,29 +1238,164 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return 'Collecting';
   }
 
+  getStatusToneClass(status: DashboardSensor['status']): string {
+    if (status === 'Normal') return 'tone-good';
+    if (status === 'Low') return 'tone-watch';
+    return 'tone-alert';
+  }
+
+  getReadableStatus(sensor: DashboardSensor): string {
+    if (sensor.status === 'Normal') {
+      return 'Good';
+    }
+
+    if (sensor.status === 'Low') {
+      return 'Needs watching';
+    }
+
+    return 'Needs action';
+  }
+
+  getFriendlySensorName(id: DashboardMetricKey): string {
+    const names: Record<DashboardMetricKey, string> = {
+      ndvi: 'Plant health',
+      ndwi: 'Water balance',
+      ndre: 'Nutrient activity',
+      evi: 'Leaf strength',
+      lai: 'Canopy cover'
+    };
+
+    return names[id];
+  }
+
+  getPlainLanguageSignal(id: DashboardMetricKey): string {
+    const labels: Record<DashboardMetricKey, string> = {
+      ndvi: 'Main crop signal',
+      ndwi: 'Water support signal',
+      ndre: 'Nutrient support signal',
+      evi: 'Growth support signal',
+      lai: 'Canopy support signal'
+    };
+
+    return labels[id];
+  }
+
+  getPrimaryHeadline(sensor: DashboardSensor): string {
+    if (sensor.status === 'Normal') {
+      return 'Crop growth looks steady today.';
+    }
+
+    if (sensor.status === 'Low') {
+      return 'Crop growth is weaker than expected today.';
+    }
+
+    return 'Crop growth needs attention today.';
+  }
+
+  getPrimarySummary(sensor: DashboardSensor): string {
+    if (sensor.status === 'Normal') {
+      return 'The main plant-health signal is in a safer range. You can use the supporting cards below only if you want extra detail.';
+    }
+
+    if (sensor.status === 'Low') {
+      return 'The main plant-health signal is below the ideal range. Check the supporting cards for likely pressure from water, nutrients, or canopy cover.';
+    }
+
+    return 'The main plant-health signal is outside the safer range. Review the supporting cards and interpretation tab before making field decisions.';
+  }
+
+  getSensorSupportMessage(sensor: DashboardSensor): string {
+    if (sensor.message) {
+      return sensor.message;
+    }
+
+    if (sensor.status === 'Normal') {
+      return `${this.getFriendlySensorName(sensor.id)} looks stable.`;
+    }
+
+    if (sensor.status === 'Low') {
+      return `${this.getFriendlySensorName(sensor.id)} is lower than expected.`;
+    }
+
+    return `${this.getFriendlySensorName(sensor.id)} needs closer review.`;
+  }
+
+  getWeatherSummary(): string {
+    if (!this.weatherData) {
+      return 'Weather data is loading for this block.';
+    }
+
+    const description = this.weatherService.getWeatherDescription(this.weatherData.current.weatherCode).toLowerCase();
+    return `Current conditions: ${this.weatherData.current.temperature} deg C, feels like ${this.weatherData.current.apparentTemperature} deg C, ${description}, humidity ${this.weatherData.current.relativeHumidity}% and wind ${this.weatherData.current.windSpeed} m/s.`;
+  }
+
+  getWeatherFieldTip(): string {
+    if (!this.weatherData) {
+      return 'Refresh weather to see the latest field conditions.';
+    }
+
+    if (this.currentRainAmount > 2) {
+      return 'Rain is present now. Delay spraying or field traffic if possible.';
+    }
+
+    if (this.weatherData.current.windSpeed >= 8) {
+      return 'Wind is strong right now. Be careful with spraying and exposed irrigation work.';
+    }
+
+    if (this.weatherData.current.temperature >= 32) {
+      return 'Heat is building. Watch irrigation timing and signs of crop stress.';
+    }
+
+    if (this.weatherData.current.relativeHumidity >= 85) {
+      return 'Humidity is high. Keep an eye on disease pressure in dense canopy areas.';
+    }
+
+    return 'Conditions are fairly calm right now. Use the chart below to review the latest 24 hours and last 7 days.';
+  }
+
   getSensorTrendSummary(sensor: DashboardSensor | null): string {
     if (!sensor) {
       return 'No metric selected';
     }
 
-    if (sensor.id === 'ndvi' && this.latestInsights?.trends) {
-      return this.latestInsights.trends.ndvi.message;
+    const trend = this.latestInsights?.trends?.[sensor.id];
+    if (trend) {
+      return trend.message;
     }
 
-    if (sensor.id === 'ndwi' && this.latestInsights?.trends) {
-      return this.latestInsights.trends.ndwi.message;
+    return 'Historical trend is not available for this metric yet.';
+  }
+
+  private formatLatencyLabel(latencyMs: number): string {
+    if (!Number.isFinite(latencyMs) || latencyMs < 0) {
+      return 'Data latency unavailable';
     }
 
-    if (sensor.historyDays.length <= 1) {
-      return 'Historical trend is not available for this metric yet.';
+    if (latencyMs < 10) {
+      return 'Data retrieved in under 10 ms';
     }
 
-    const delta = sensor.historyDays[sensor.historyDays.length - 1] - sensor.historyDays[0];
-    if (Math.abs(delta) < 1) {
-      return `${sensor.label} is stable across the available history.`;
+    if (latencyMs < 100) {
+      return `Data retrieved in about ${Math.round(latencyMs / 10) * 10} ms`;
     }
 
-    return `${sensor.label} is ${delta > 0 ? 'improving' : 'declining'} across the available history.`;
+    if (latencyMs < 1000) {
+      return `Data retrieved in about ${Math.round(latencyMs / 50) * 50} ms`;
+    }
+
+    return `Data retrieved in about ${(latencyMs / 1000).toFixed(1)} s`;
+  }
+
+  private toDateKey(value: string): string {
+    const date = this.parseDateValue(value);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   private parseDateValue(value: string): Date {
