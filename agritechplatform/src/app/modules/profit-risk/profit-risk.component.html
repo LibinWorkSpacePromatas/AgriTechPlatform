@@ -9,6 +9,36 @@
             selectedBlock()?.location }}</p>
     </div>
 
+    <div class="live-forecast-panel">
+        <div class="forecast-copy">
+            <div class="forecast-kicker">Live Block Forecast</div>
+            <h2>{{ laiAdvisory().title }}</h2>
+            <p class="forecast-summary">{{ laiAdvisory().message }}</p>
+            <p class="forecast-status">{{ liveForecastStatus() }}</p>
+        </div>
+        <div class="forecast-metrics">
+            <div class="forecast-metric">
+                <span class="forecast-label">Projected tonnage</span>
+                <strong>{{ projectedTonnageRange()?.total || '--' }}</strong>
+                <small>{{ projectedTonnageRange()?.perHa || 'Waiting for LAI-based estimate' }}</small>
+            </div>
+            <div class="forecast-metric">
+                <span class="forecast-label">Forecast confidence</span>
+                <strong>{{ forecastConfidence() }}</strong>
+                <small>{{ freshnessSummary() }}</small>
+            </div>
+            <div class="forecast-metric">
+                <span class="forecast-label">Profit outlook</span>
+                <strong>{{ liveInsights()?.metrics?.lai?.raw !== null && liveInsights()?.metrics?.lai?.raw !== undefined ? ('LAI ' + (liveInsights()!.metrics.lai.raw! | number:'1.1-2')) : '--' }}</strong>
+                <small>{{ profitForecastSummary() }}</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="forecast-warning" *ngIf="liveInsights()?.warning || profitRiskWarning()">
+        {{ liveInsights()?.warning || profitRiskWarning() }}
+    </div>
+
     <!-- Crisis Alert -->
     <div class="crisis-alert">
         <div class="alert-icon-wrapper">

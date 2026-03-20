@@ -1,7 +1,8 @@
-import { Component, OnInit, computed, signal, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { Subscription, distinctUntilChanged, filter } from 'rxjs';
 import { AdelaideTimePipe } from '../../shared/pipes/adelaide-time.pipe';
 import { BlockService } from '../../shared/services/block.service';
 import { 
@@ -24,6 +25,8 @@ import {
 import { UserDataService } from '../../core/services/user-data.service';
 import { AuthService } from '../../core/services/auth.service';
 import { User } from '../../core/models/user.model';
+import { DashboardApiService, DashboardInsightsResponse } from '../../core/services/dashboard-api.service';
+import { Block } from '../../shared/models';
 
 export interface Crop {
   name: string;
@@ -55,7 +58,7 @@ export interface Crop {
   templateUrl: './profit-risk.component.html',
   styleUrls: ['./profit-risk.component.css']
 })
-export class ProfitRiskComponent implements OnInit {
+export class ProfitRiskComponent implements OnInit, OnDestroy {
   // Icons
   readonly TrendingUp = TrendingUp;
   readonly AlertTriangle = AlertTriangle;
@@ -82,6 +85,7 @@ export class ProfitRiskComponent implements OnInit {
   user: User | undefined;
   private blockService = inject(BlockService);
   selectedBlock = toSignal(this.blockService.selectedBlock$);
+  private insightsRequest?: Subscription;
 
   // State
   waterAllocation = signal<number>(100); // Default 100% as requested
@@ -92,6 +96,9 @@ export class ProfitRiskComponent implements OnInit {
   hoveredRevenueCrop = signal<string | null>(null);
   hoveredCrop = signal<any>(null); // For quadrant tooltip
   selectedQuadrantCrop = signal<any>(null); // For detail modal
+  liveInsights = signal<DashboardInsightsResponse | null>(null);
+  profitRiskWarning = signal<string | null>(null);
+  isLiveForecastLoading = signal<boolean>(false);
 
   // Constants
   readonly WATER_PRICE_PER_ML = 150; // Assumed temporary value, adjust if needed
@@ -179,12 +186,116 @@ export class ProfitRiskComponent implements OnInit {
 
   constructor(
     private userDataService: UserDataService,
-    private authService: AuthService
+    private authService: AuthService,
+    private dashboardApiService: DashboardApiService
   ) {}
 
   ngOnInit() {
     this.user = this.authService.getCurrentUser() || this.userDataService.getUsers()[0];
+    this.insightsRequest = this.blockService.selectedBlock$
+      .pipe(
+        filter((block): block is Block => !!block),
+        distinctUntilChanged((previous, current) => previous.lan === current.lan)
+      )
+      .subscribe(block => {
+        this.loadLiveForecast(block);
+      });
   }
+
+  ngOnDestroy(): void {
+    this.insightsRequest?.unsubscribe();
+  }
+
+  liveLai = computed(() => this.liveInsights()?.metrics.lai.raw ?? null);
+
+  projectedTonnageRange = computed(() => {
+    const block = this.selectedBlock();
+    const lai = this.liveInsights()?.metrics.lai.raw ?? null;
+    if (!block || lai === null) {
+      return null;
+    }
+
+    const tonnesPerHaCenter = Math.max(1.2, Math.min(5.8, 1.15 + lai * 0.78));
+    const lowerPerHa = tonnesPerHaCenter * 0.85;
+    const upperPerHa = tonnesPerHaCenter * 1.15;
+    const totalLower = lowerPerHa * block.size;
+    const totalUpper = upperPerHa * block.size;
+
+    return {
+      perHa: `${lowerPerHa.toFixed(1)}-${upperPerHa.toFixed(1)} t/ha`,
+      total: `${totalLower.toFixed(1)}-${totalUpper.toFixed(1)} t`,
+    };
+  });
+
+  forecastConfidence = computed(() => {
+    const insights = this.liveInsights();
+    if (!insights) return 'Waiting';
+    if (insights.confidence === 'high') return 'High confidence';
+    if (insights.confidence === 'medium') return 'Moderate confidence';
+    return 'Low confidence';
+  });
+
+  liveForecastStatus = computed(() => {
+    const insights = this.liveInsights();
+    if (!insights) return 'Loading live forecast';
+    if (insights.status === 'updating') return 'Live forecast refresh in progress';
+    if (insights.status === 'stale') return 'Showing cached forecast while refresh runs';
+    if (insights.dataQuality === 'degraded') return 'Forecast available with reduced image quality';
+    if (insights.dataQuality === 'no_data') return 'No usable satellite data available';
+    return insights.source === 'gee' ? 'Forecast refreshed from satellite data' : 'Forecast loaded from cache';
+  });
+
+  freshnessSummary = computed(() => {
+    const insights = this.liveInsights();
+    if (!insights?.compositeDateTo) return 'Composite date unavailable';
+    return `Composite date: ${this.formatInsightDate(insights.compositeDateTo)}`;
+  });
+
+  laiAdvisory = computed(() => {
+    const lai = this.liveInsights()?.metrics.lai.raw ?? null;
+    if (lai === null) {
+      return {
+        title: 'Waiting for live tonnage forecast',
+        message: 'The next clear satellite composite will update the yield outlook for this block.',
+        severity: 'info'
+      };
+    }
+
+    if (lai > 5) {
+      return {
+        title: 'Above-average yield advisory',
+        message: 'Leaf area is high for this block. Review canopy and quality settings so strong volume does not reduce fruit quality.',
+        severity: 'positive'
+      };
+    }
+
+    if (lai < 2) {
+      return {
+        title: 'Yield warning',
+        message: 'Leaf area is below target, so harvest tonnage and profit expectations should be revised downward.',
+        severity: 'critical'
+      };
+    }
+
+    return {
+      title: 'Forecast tracking normally',
+      message: 'Leaf area is in the workable production range. Continue monitoring every new satellite refresh.',
+      severity: 'neutral'
+    };
+  });
+
+  profitForecastSummary = computed(() => {
+    const insights = this.liveInsights();
+    if (!insights) {
+      return 'Profit impact unavailable while the live forecast loads.';
+    }
+
+    if (insights.yieldImpact.projectedLoss > 0) {
+      return `Projected profit risk: ${this.formatCompactCurrency(insights.yieldImpact.projectedLoss)} under current block conditions.`;
+    }
+
+    return 'No immediate profit loss is implied by the current block forecast.';
+  });
 
   // Computed Values
   cropMetrics = computed(() => {
@@ -387,6 +498,48 @@ export class ProfitRiskComponent implements OnInit {
 
       if (wineGrapesRevenue === 0) return 0;
       return ((cropRevenue - wineGrapesRevenue) / wineGrapesRevenue) * 100;
+  }
+
+  private loadLiveForecast(block: Block): void {
+      this.isLiveForecastLoading.set(true);
+      this.profitRiskWarning.set(null);
+      this.dashboardApiService.getBlockInsights(block.lan || block.id).subscribe({
+          next: insights => {
+              this.liveInsights.set(insights);
+              this.profitRiskWarning.set(insights.warning);
+              this.isLiveForecastLoading.set(false);
+          },
+          error: error => {
+              console.error('Profit & Risk forecast failed to load.', error);
+              this.liveInsights.set(null);
+              this.profitRiskWarning.set('Unable to load the live satellite forecast for this block.');
+              this.isLiveForecastLoading.set(false);
+          }
+      });
+  }
+
+  private formatInsightDate(value: string): string {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+          return value;
+      }
+
+      return date.toLocaleDateString('en-US', {
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric'
+      });
+  }
+
+  private formatCompactCurrency(value: number): string {
+      const absValue = Math.abs(value);
+      if (absValue >= 1000000) {
+          return `$${(absValue / 1000000).toFixed(1)}M`;
+      }
+      if (absValue >= 1000) {
+          return `$${(absValue / 1000).toFixed(1)}k`;
+      }
+      return `$${Math.round(absValue)}`;
   }
 
     // Quadrant positioning for Global Market Quadrant view

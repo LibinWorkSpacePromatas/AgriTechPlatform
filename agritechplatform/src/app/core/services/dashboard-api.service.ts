@@ -137,6 +137,8 @@ export interface DashboardInsightsResponse {
   warning: string | null;
   compositeDateFrom: string | null;
   compositeDateTo: string | null;
+  confidence: string;
+  dataAgeDays: number;
   metrics: Record<DashboardMetricKey, DashboardMetric>;
   advisor: DashboardAdvisorData;
   nutrient: DashboardNutrientData;
@@ -299,6 +301,8 @@ export class DashboardApiService {
       warning,
       compositeDateFrom: response.composite_date_from,
       compositeDateTo: response.composite_date_to,
+      confidence: response.confidence || 'high',
+      dataAgeDays: response.data_age_days ?? 0,
       metrics,
       advisor,
       nutrient,
