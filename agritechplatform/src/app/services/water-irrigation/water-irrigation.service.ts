@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, map, of } from 'rxjs';
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { Observable, catchError, map, of, switchMap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export interface IrrigationStatus {
@@ -38,7 +38,30 @@ export class WaterIrrigationService {
   getIrrigationStatus(
     blockId: string
   ): Observable<IrrigationStatus> {
-    return this.http.get<WaterApiResponse>(`${this.baseUrl}/api/water/${blockId}`).pipe(
+    return this.fetchIrrigationStatus(blockId).pipe(
+      switchMap(status => {
+        // Force refresh if no data OR if we're on the water page and missing the map tile URL
+        const needsRefresh = status.status === 'no_data' || !status.map_tile_url;
+        return needsRefresh
+          ? this.fetchIrrigationStatus(blockId, true)
+          : of(status);
+      }),
+      catchError(err => {
+        console.error('WaterIrrigationService error:', err);
+        return of(this.getFallbackStatus(blockId));
+      })
+    );
+  }
+
+  private fetchIrrigationStatus(
+    blockId: string,
+    forceRefresh: boolean = false
+  ): Observable<IrrigationStatus> {
+    const params = forceRefresh
+      ? new HttpParams().set('refresh', 'true')
+      : undefined;
+
+    return this.http.get<WaterApiResponse>(`${this.baseUrl}/api/water/${blockId}`, { params }).pipe(
       map((data: WaterApiResponse) => ({
         status: data.status,
         ndwi: data.ndwi,
@@ -48,11 +71,7 @@ export class WaterIrrigationService {
         lanslu: data.lanslu,
         blockId: data.block_id,
         map_tile_url: data.map_tile_url
-      })),
-      catchError(err => {
-        console.error('WaterIrrigationService error:', err);
-        return of(this.getFallbackStatus(blockId));
-      })
+      }))
     );
   }
 

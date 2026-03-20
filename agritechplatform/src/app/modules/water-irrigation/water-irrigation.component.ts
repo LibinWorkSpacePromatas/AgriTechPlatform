@@ -94,19 +94,10 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
 
     interval(15 * 60 * 1000)
       .pipe(
-        takeUntil(this.destroy$),
-        switchMap(() => {
-          return this.waterIrrigationService.getIrrigationStatus(this.currentLan);
-        })
+        takeUntil(this.destroy$)
       )
-      .subscribe({
-        next: status => {
-          this.irrigationStatus = status;
-          this.error = null;
-        },
-        error: error => {
-          console.error('Auto-refresh failed:', error);
-        }
+      .subscribe(() => {
+        this.refreshData(false);
       });
 
     this.refreshData(true);
@@ -237,10 +228,16 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
           }
 
           if (status.map_tile_url) {
+            console.log('Adding NDWI Tile Layer:', status.map_tile_url);
             this.ndwiLayer = L.tileLayer(status.map_tile_url, {
               maxZoom: 20,
-              attribution: 'Google Earth Engine'
+              attribution: 'Google Earth Engine',
+              opacity: 0.7, // 70% opacity for color visibility
+              zIndex: 1000  // High z-index to stay above base map
             }).addTo(this.map);
+            
+            // Bring to front to ensure it's not hidden
+            this.ndwiLayer.bringToFront();
           }
 
           if (updateMapView) {

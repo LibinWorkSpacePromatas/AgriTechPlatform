@@ -60,4 +60,38 @@ describe('WaterIrrigationService', () => {
     expect(result.ndwi).toBeNull();
     expect(result.recommendation).toContain('Unable to fetch water data');
   });
+
+  it('forces a refresh call when the cached response has no data', async () => {
+    const statusPromise = firstValueFrom(service.getIrrigationStatus('block-123'));
+
+    const initialReq = httpMock.expectOne(`${baseUrl}/api/water/block-123`);
+    initialReq.flush({
+      status: 'no_data',
+      ndwi: null,
+      recommendation: 'No data available',
+      date: null,
+      data_quality: 'no_data',
+      lanslu: 'BCPKFB',
+      block_id: 'block-123'
+    });
+
+    const refreshReq = httpMock.expectOne(req =>
+      req.url === `${baseUrl}/api/water/block-123` && req.params.get('refresh') === 'true'
+    );
+    refreshReq.flush({
+      status: 'moderate_stress',
+      ndwi: -0.22,
+      recommendation: 'Irrigate soon',
+      date: '2026-03-20',
+      data_quality: 'good',
+      lanslu: 'BCPKFB',
+      block_id: 'block-123',
+      map_tile_url: 'https://earthengine.googleapis.com/example/{z}/{x}/{y}'
+    });
+
+    const result = await statusPromise;
+    expect(result.status).toBe('moderate_stress');
+    expect(result.ndwi).toBe(-0.22);
+    expect(result.map_tile_url).toContain('earthengine.googleapis.com');
+  });
 });
