@@ -146,6 +146,7 @@ class SatelliteInsightsService:
                 geometry_payload.geojson or {},
                 date_from=window_from,
                 date_to=window_to,
+                generate_tile_url=True,  # Explicitly request tile URL for Water page
             )
             now = self._utcnow()
             expires_at = (now + timedelta(days=self._settings.satellite_cache_ttl_days)).date()

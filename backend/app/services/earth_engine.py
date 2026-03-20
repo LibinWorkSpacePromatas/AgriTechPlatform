@@ -199,7 +199,9 @@ class EarthEngineClient:
             map_tile_url = None
 
             if generate_tile_url or (generate_tile_url is None and self._settings.satellite_enable_tile_urls):
-                map_tile_url = self._build_tile_url(indices.select("ndvi").clip(geometry))
+                # PDF Requirement: NDWI zone map (spatial visualization)
+                # min=-0.5, max=0.5, palette=["red", "orange", "yellow", "green"]
+                map_tile_url = self._build_ndwi_tile_url(indices.select("ndwi").clip(geometry))
 
             return SatelliteComputation(
                 ndvi=self._maybe_round(stats.get("ndvi_mean")),
@@ -312,6 +314,26 @@ class EarthEngineClient:
                 "composite_date_to": ee.Date(newest_first.first().get("system:time_start")).format("YYYY-MM-dd"),
             }
         )
+
+    def _build_ndwi_tile_url(self, ndwi_image: Any) -> str | None:
+        """
+        Generates an NDWI zone map tile URL according to PDF requirements.
+        Palette: red (severe), orange (moderate), yellow (mild), green (optimal)
+        """
+        try:
+            map_id = ndwi_image.getMapId(
+                {
+                    "min": -0.5,
+                    "max": 0.5,
+                    "palette": ["red", "orange", "yellow", "green"],
+                }
+            )
+        except Exception as exc:
+            logger.warning("Unable to generate NDWI tile URL: %s", exc)
+            return None
+
+        tile_fetcher = map_id.get("tile_fetcher")
+        return getattr(tile_fetcher, "url_format", None)
 
     def _build_tile_url(self, ndvi_image: Any) -> str | None:
         try:

@@ -46,7 +46,16 @@ def get_water_data(block_id: str, db: Session = Depends(get_db)):
     ).first()
 
     if not cache:
-        return {"message": "No data available for this block"}
+        return {
+            "block_id": str(block.id),
+            "lanslu": block.lanslu,
+            "ndwi": None,
+            "status": "no_data",
+            "recommendation": "No data available for this block",
+            "date": None,
+            "data_quality": "no_data",
+            "map_tile_url": None,
+        }
 
     payload = cache.payload
     ndwi = payload.get("ndwi")
@@ -61,5 +70,6 @@ def get_water_data(block_id: str, db: Session = Depends(get_db)):
         "status": status,
         "recommendation": recommendation,
         "date": cache.composite_date_to,
-        "data_quality": cache.data_quality
+        "data_quality": cache.data_quality,
+        "map_tile_url": cache.map_tile_url,
     }

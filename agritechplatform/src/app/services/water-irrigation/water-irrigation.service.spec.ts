@@ -31,7 +31,8 @@ describe('WaterIrrigationService', () => {
       date: '2026-03-20',
       data_quality: 'good',
       lanslu: 'BCPKFB',
-      block_id: 'block-123'
+      block_id: 'block-123',
+      map_tile_url: 'https://earthengine.googleapis.com/example/{z}/{x}/{y}'
     };
 
     const statusPromise = firstValueFrom(service.getIrrigationStatus('block-123'));
@@ -45,6 +46,7 @@ describe('WaterIrrigationService', () => {
     expect(result.ndwi).toBe(0.25);
     expect(result.dataQuality).toBe('good');
     expect(result.blockId).toBe('block-123');
+    expect(result.map_tile_url).toContain('earthengine.googleapis.com');
   });
 
   it('returns fallback status on error', async () => {

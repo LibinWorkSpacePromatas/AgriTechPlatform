@@ -38,6 +38,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
 
   private map!: L.Map;
   private marker!: L.Marker;
+  private ndwiLayer?: L.TileLayer;
   private isBrowser: boolean;
 
   private readonly AUS_BOUNDS = {
@@ -227,7 +228,22 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
         if (this.isBrowser) {
           if (!this.map) {
             this.initMap();
-          } else if (updateMapView) {
+          }
+
+          // Update NDWI Tile Layer if available
+          if (this.ndwiLayer) {
+            this.map.removeLayer(this.ndwiLayer);
+            this.ndwiLayer = undefined;
+          }
+
+          if (status.map_tile_url) {
+            this.ndwiLayer = L.tileLayer(status.map_tile_url, {
+              maxZoom: 20,
+              attribution: 'Google Earth Engine'
+            }).addTo(this.map);
+          }
+
+          if (updateMapView) {
             this.map.setView([this.latitude, this.longitude], 16);
             this.marker.setLatLng([this.latitude, this.longitude]);
             this.map.invalidateSize();

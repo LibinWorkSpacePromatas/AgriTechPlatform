@@ -11,6 +11,7 @@ export interface IrrigationStatus {
   dataQuality: string;
   lanslu: string;
   blockId: string;
+  map_tile_url?: string | null;
 }
 
 interface WaterApiResponse {
@@ -21,6 +22,7 @@ interface WaterApiResponse {
   data_quality: string;
   lanslu: string;
   block_id: string;
+  map_tile_url?: string | null;
 }
 
 @Injectable({
@@ -44,7 +46,8 @@ export class WaterIrrigationService {
         date: data.date,
         dataQuality: data.data_quality,
         lanslu: data.lanslu,
-        blockId: data.block_id
+        blockId: data.block_id,
+        map_tile_url: data.map_tile_url
       })),
       catchError(err => {
         console.error('WaterIrrigationService error:', err);
