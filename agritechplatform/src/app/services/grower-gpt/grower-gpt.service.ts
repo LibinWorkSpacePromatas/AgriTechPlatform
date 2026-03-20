@@ -1,10 +1,26 @@
 import { Injectable } from '@angular/core';
 import { environment } from '../../../environments/environment';
 
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+import { lastValueFrom } from 'rxjs';
+
 @Injectable({
   providedIn: 'root'
 })
 export class GrowerGptService {
+  private baseUrl = environment.apiBaseUrl.replace(/\/$/, '');
+
+  constructor(private http: HttpClient) {}
+
+  getRuleBasedInsights(blockId: string): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/api/gpt/${blockId}`);
+  }
+
+  getUserSummary(userId: string): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/api/gpt/user/${userId}`);
+  }
 
   async askGrowerGPT(block: any, user: any, irrigation: any, message: string, blockName: string) {
     const systemPrompt = `
@@ -32,20 +48,11 @@ Crop: ${block.crop}
 Area: ${block.area} hectares
 Location: ${block.latitude}, ${block.longitude}
 
-SOIL INFORMATION:
-Soil Code: ${block.soilSubgroup}
-Soil Description: ${block.description}
-Primary Soil Type: ${user?.primarySoilType || 'N/A'}
-Soil Factor: ${irrigation?.soilFactor ?? 'N/A'}
-
-IRRIGATION ENGINE OUTPUT:
-ET0: ${irrigation?.et0Today ?? 'N/A'} mm/day
-Kc: ${irrigation?.kcValue ?? 'N/A'}
-ETc: ${irrigation?.netIrrigation ?? 'N/A'} mm/day
-Irrigation Needed: ${irrigation?.irrigationNeeded ?? 'N/A'} ML/ha
-Current Hydration: ${irrigation?.currentHydration ?? 'N/A'}%
-Rain (7 days): ${irrigation?.rainToday ?? 'N/A'} mm
-Status: ${irrigation?.status ?? 'N/A'}
+SATELLITE TRUTH (NDWI):
+NDWI Value: ${irrigation?.ndwi ?? 'N/A'}
+Water Status: ${irrigation?.status ?? 'N/A'}
+Data Quality: ${irrigation?.dataQuality ?? 'N/A'}
+Recommendation: ${irrigation?.recommendation ?? 'N/A'}
 
 FINANCIAL DATA (Profit & Risk):
 - Projected ROI: ${user?.financials?.projectedRoi ?? 'N/A'}%
@@ -62,40 +69,21 @@ Do not override or assume new values.
 `;
 
     try {
-      console.debug(`GrowerGptService: Sending request to ${environment.ollama.host}/chat/completions`);
-      const response = await fetch(`${environment.ollama.host}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${environment.ollama.apiKey}`,
-          'HTTP-Referer': window.location.origin,
-          'X-Title': 'AgriTech Crop Prediction',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'openrouter/free',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            {
-              role: 'user',
-              content: `${context}\n\nUser Question:\n${message}`
-            }
-          ]
-        })
+      console.debug(`GrowerGptService: Calling backend proxy at ${this.baseUrl}/api/gpt/chat`);
+      const response$ = this.http.post<any>(`${this.baseUrl}/api/gpt/chat`, {
+        message: message,
+        system_prompt: systemPrompt,
+        context: context
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        if (response.status === 429) {
-          throw new Error('The AI service is currently very busy (Rate Limited). Please try again in a few moments or try a different model.');
-        }
-        throw new Error(`OpenRouter API error: ${response.statusText} ${JSON.stringify(errorData)}`);
-      }
-
-      const data = await response.json();
-      return data.choices[0].message.content;
-    } catch (error) {
+      const data = await lastValueFrom(response$);
+      return data.response;
+    } catch (error: any) {
       console.error('Error in GrowerGptService:', error);
-      throw error;
+      if (error.status === 429) {
+        throw new Error('The AI service is currently very busy (Rate Limited). Please try again in a few moments.');
+      }
+      throw new Error(`Grower GPT Error: ${error.message || 'Unknown error occurred.'}`);
     }
   }
 }

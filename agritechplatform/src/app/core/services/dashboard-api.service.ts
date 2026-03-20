@@ -121,6 +121,10 @@ export interface BackendBlockInsightsResponse {
   data_quality: BackendDataQuality;
   composite_date_from: string | null;
   composite_date_to: string | null;
+  data_age_days?: number;
+  confidence?: string;
+  reason?: string;
+  insights?: any[];
 }
 
 export interface DashboardInsightsResponse {
@@ -139,6 +143,7 @@ export interface DashboardInsightsResponse {
   yieldImpact: DashboardYieldImpact;
   alternativeCrops: DashboardAlternativeCrop[];
   decision: DashboardDecisionData;
+  insights: any[];
 }
 
 interface MetricPresentation {
@@ -219,10 +224,10 @@ export class DashboardApiService {
   constructor(private http: HttpClient) { }
 
   getBlockInsights(blockId: string): Observable<DashboardInsightsResponse> {
-    return this.http.get<unknown>(`${this.baseUrl}/api/block/${blockId}/insights`).pipe(
+    return this.http.get<unknown>(`${this.baseUrl}/api/blocks/${blockId}/insights`).pipe(
       map(payload => this.mapToDashboardInsights(this.normalizeResponse(payload))),
       catchError(primaryError =>
-        this.http.get<unknown>(`${this.baseUrl}/block/${blockId}/insights`).pipe(
+        this.http.get<unknown>(`${this.baseUrl}/api/block/${blockId}/insights`).pipe(
           map(payload => this.mapToDashboardInsights(this.normalizeResponse(payload))),
           catchError(legacyError => {
             console.warn('Satellite insights API unavailable. Showing placeholder intelligence state.', {
@@ -247,6 +252,7 @@ export class DashboardApiService {
       dataQuality?: BackendDataQuality;
       compositeDateFrom?: string | null;
       compositeDateTo?: string | null;
+      insights?: any[];
     };
 
     const blockId = this.asString(candidate.block_id ?? candidate.blockId);
@@ -267,7 +273,11 @@ export class DashboardApiService {
       error: this.asNullableString(candidate.error),
       data_quality: this.normalizeDataQuality(candidate.data_quality ?? candidate.dataQuality),
       composite_date_from: this.asNullableString(candidate.composite_date_from ?? candidate.compositeDateFrom),
-      composite_date_to: this.asNullableString(candidate.composite_date_to ?? candidate.compositeDateTo)
+      composite_date_to: this.asNullableString(candidate.composite_date_to ?? candidate.compositeDateTo),
+      insights: candidate.insights || [],
+      data_age_days: candidate.data_age_days ?? 0,
+      confidence: candidate.confidence || 'high',
+      reason: candidate.reason || ''
     };
   }
 
@@ -317,7 +327,8 @@ export class DashboardApiService {
           profitPerHa: vitality,
           totalProfit: Math.max(25, vitality - 10)
         }
-      }
+      },
+      insights: (response as any).insights || []
     };
   }
 

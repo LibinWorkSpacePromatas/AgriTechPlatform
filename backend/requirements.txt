@@ -12,3 +12,4 @@ python-multipart
 geoalchemy2
 earthengine-api
 apscheduler
+httpx

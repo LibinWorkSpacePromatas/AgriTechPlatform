@@ -61,6 +61,9 @@ class Settings(BaseSettings):
     satellite_worker_count: int = Field(default=2, alias="SATELLITE_WORKER_COUNT")
     satellite_gee_timeout_seconds: int = Field(default=90, alias="SATELLITE_GEE_TIMEOUT_SECONDS")
 
+    openrouter_api_key: str | None = Field(default=None, alias="OPENROUTER_API_KEY")
+    openrouter_model: str = Field(default="google/gemini-2.0-flash-001", alias="OPENROUTER_MODEL")
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def parse_cors_origins(cls, value: Any) -> Any:

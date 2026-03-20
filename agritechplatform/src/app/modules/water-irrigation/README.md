@@ -1,52 +1,51 @@
-# 💧 Advanced Water & Irrigation System
+# 💧 Satellite-Driven Water & Irrigation System (NDWI Only)
 
-This module represents the core intelligence of the AgriTech platform, providing real-time, scientifically-backed irrigation guidance for precision viticulture. It integrates satellite weather data, Open-Meteo API, and detailed soil classification to automate complex irrigation decisions.
+This module provides real-time, satellite-backed irrigation guidance for precision viticulture. It integrates direct leaf moisture measurements from **Sentinel-2** imagery to automate irrigation decisions without the complexity of traditional agronomical math.
 
 ---
 
 ## 🏗 System Architecture & Data Flow
 
-The system follows a reactive architecture using **Angular Standalone Components** and **RxJS** for real-time state synchronization.
+The system follows a reactive architecture using **Angular Standalone Components** and a **FastAPI** backend.
 
 ### 1. The Global Selection Chain
 - **Trigger**: User selects a block from the `SidebarComponent` dropdown.
-- **State Management**: The selection is pushed to the [BlockService](file:///d:/Project-2/AgriTech/src/app/shared/services/block.service.ts) using a `BehaviorSubject`.
-- **Sync**: Both the [DashboardComponent](file:///d:/Project-2/AgriTech/src/app/modules/dashboard/dashboard.component.ts) and [WaterIrrigationComponent](file:///d:/Project-2/AgriTech/src/app/modules/water-irrigation/water-irrigation.component.ts) are subscribers. They react instantly to the new block's coordinates and soil profile.
+- **State Management**: The selection is pushed to the [BlockService](file:///c:/Users/hp/Music/Agritech/agritechplatform/src/app/shared/services/block.service.ts) using a `BehaviorSubject`.
+- **Sync**: The [WaterIrrigationComponent](file:///c:/Users/hp/Music/Agritech/agritechplatform/src/app/modules/water-irrigation/water-irrigation.component.ts) reacts instantly to the new block's LANSLU and coordinates.
 
-### 2. The Calculation Pipeline
+### 2. The Satellite Pipeline
 When a block is selected or the map marker is moved:
-1. **Coordinate Fetch**: Retrieves `lat`/`lon` from the selected block (now with real vineyard locations).
-2. **Weather Fetch**: [WaterIrrigationService](file:///d:/Project-2/AgriTech/src/app/services/water-irrigation/water-irrigation.service.ts) calls Open-Meteo for ET₀, rainfall, and multi-depth soil moisture data.
-3. **Soil Processing**: [SoilService](file:///d:/Project-2/AgriTech/src/app/services/soil/soil.service.ts) calculates a `soilFactor` based on the block's LANSLU classification.
-4. **Engine Execution**: The scientific model computes the final irrigation requirement using real soil moisture data.
+1. **API Call**: [WaterIrrigationService](file:///c:/Users/hp/Music/Agritech/agritechplatform/src/app/services/water-irrigation/water-irrigation.service.ts) calls the backend `/api/water/{block_id}`.
+2. **Database Lookup**: The backend queries the `satellite_cache` table for the latest **NDWI** (Normalized Difference Water Index) value.
+3. **Classification**: The backend's [Classification Engine](file:///c:/Users/hp/Music/Agritech/backend/app/services/insights.py) applies scientifically-backed thresholds to determine field status.
 
 ---
 
-## 🧪 The Scientific Engine (Deep Dive)
+## 🧪 The "Satellite Truth" Philosophy (MVP)
 
-The engine implements the **FAO-56 Penman-Monteith** principles simplified for a robust MVP model.
+To ensure 100% alignment with ground truth, the MVP uses a simplified **NDWI-only** model.
 
-### 1. Evapotranspiration (Water Loss)
-- **Base ET₀**: Reference evapotranspiration from Open-Meteo API.
-- **Crop Factor (Kc)**: Dynamically assigned based on variety (e.g., Shiraz: 0.85, Cabernet: 0.88).
-- **Formula**: `ETc = ET₀ × Kc`
+### ❌ What Was Removed (And Why)
+Previous versions of this page used a "Hybrid Formula" that combined:
+- **ET₀ (Evapotranspiration)**: Weather-based estimation of water loss.
+- **Kc (Crop Coefficient)**: Theoretical values that vary by growth stage.
+- **Soil Factors**: Complex variables for drainage and texture.
 
-### 2. Irrigation Requirement (ML/ha)
-We calculate the "Net Deficit" which represents the actual water gap in the soil.
-- **Daily ET₀/Rainfall**: Uses Open-Meteo's pre-aggregated daily totals.
-- **Effective Rain**: `Rain × 0.8` (Logic: 20% of rain is lost to immediate runoff/evaporation).
-- **Net Deficit**: `Math.max(0, ETc - Effective Rain)` (Clamped to prevent negative values).
-- **Soil Adjustment**: `Adjusted_mm = Net Deficit / Soil Factor`.
-    - *Sandy Soil*: Factor ~0.8 (Increases water need).
-    - *Clay Soil*: Factor ~1.2 (Decreases water need).
-- **Volume Conversion**: `Irrigation = Adjusted_mm × 0.01` (Converts mm depth to Megaliters per Hectare).
+**The Problem**: These factors often introduced "noise" and required manual calibration for every block. If the weather API was slightly off, the recommendation would be wrong.
 
-### 3. Real Soil Moisture (Single Source of Truth)
-We have unified the data source for hydration to ensure consistency across the entire platform.
-- **SensorService**: The central authority for soil moisture data.
-- **Hydration Source**: `SensorService.getSoilMoisture()` (e.g., 32.5%).
-- **Why**: This ensures that the Dashboard sensor card and the Irrigation page's "Current Hydration" value match perfectly.
-- **Integration**: The irrigation engine uses this sensor value as the baseline for all calculations, rather than estimating hydration from weather models.
+**The Solution**: We stripped out the math and moved to **Direct Leaf Monitoring**. NDWI tells us exactly how much water is *inside* the plant right now, making it the most reliable metric for irrigation decisions.
+
+### 1. Why NDWI?
+- **Direct Measurement**: NDWI measures the liquid water content in vegetation leaves using the Near-Infrared (NIR) and Shortwave Infrared (SWIR) bands.
+- **Precision**: Unlike weather-based models that *estimate* water loss, NDWI *shows* the actual hydration state of the vine.
+- **Simplicity**: Removes the need for complex coefficients that can vary by vineyard block.
+
+### 2. Classification Logic (The Rules)
+The backend applys the following logic strictly based on the PDF requirements:
+- **🔵 Well-watered** (NDWI > 0.1): Leaf moisture is optimal. Recommendation: "Well-watered — check over-irrigation".
+- **🟡 Mild Stress** (-0.1 ≤ NDWI ≤ 0.1): Monitor closely. Recommendation: "Consider irrigation in 2–3 days".
+- **🟠 Moderate Stress** (-0.3 ≤ NDWI < -0.1): Moderate deficit. Recommendation: "Irrigate today".
+- **🔴 Severe Stress** (NDWI < -0.3): Critical deficit. Recommendation: "Immediate irrigation required".
 
 ---
 
@@ -54,58 +53,46 @@ We have unified the data source for hydration to ensure consistency across the e
 
 Powered by **Leaflet.js**, the map provides more than just a visual; it is an input tool.
 
-- **Real Vineyard Locations**: Each block now uses authentic coordinates from renowned SA wineries:
-  - Angove's Winery (Renmark)
-  - Château Tanunda (Tanunda)
-  - d'Arenberg (McLaren Vale)
-  - Penfolds/Wolf Blass (Nuriootpa)
-  
+- **Real Vineyard Locations**: Each block uses authentic coordinates from South Australian wineries (Angove's, Château Tanunda, d'Arenberg, etc.).
 - **Marker Persistence**: The system places a custom marker at the block's center.
-- **Manual Override**: If the user drags the marker, the `onMapClick` event captures the new `lat`/`lon`, triggering a full recalculation for that specific geographical point.
-- **Auto-Zoom Logic**: 
-  - On load: Zooms to level 10 (Regional view).
-  - On selection: Zooms to level 16 (Block/Vine view) using `map.setView([lat, lon], 16)`.
+- **Manual Override**: If the user drags the marker, the `onMapClick` event captures the new `lat`/`lon`, triggering a fresh satellite data fetch for that specific point.
 
 ---
 
 ## ⚙️ Service-Layer Methods
 
 ### `WaterIrrigationService`
-- `getIrrigationStatus(lat, lon, soil?)`: The entry point. Orchestrates Open-Meteo calls.
-- `calculateIrrigationStatus(...)`: The core math engine. Implements the scientific model using real soil moisture data.
-- Uses **daily ET₀/rainfall aggregates** instead of manual calculations.
-
-### `SoilService`
-- `calculateSoilFactor(soil)`: Analyzes texture, drainage, and AWHC (Available Water Holding Capacity) to return a multiplier for the irrigation engine.
-
-### `WeatherService`
-- Enhanced with **multi-depth soil moisture** support and **daily aggregated ET₀/rainfall** data.
-- Cleaned parameters focused on irrigation-relevant variables only.
+- `getIrrigationStatus(blockId)`: The primary entry point. Orchestrates the backend API call and maps the response to the `IrrigationStatus` interface.
+- `refreshData(blockId)`: Triggers a fresh reload of the satellite data.
 
 ---
 
-## 📊 Status Thresholds & Alerts
+## 📊 UI Components & Layout
 
-- **🔴 URGENT (Hydration < 20%)**: Immediate irrigation required. High risk of vine stress.
-- **🟡 MONITOR (Hydration 20%-80%)**: Safe operating range. Track depletion rate.
-- **🔵 SATURATED (Hydration > 80%)**: Soil at field capacity. Risk of root rot if more water is added.
+### 1. Header Card
+- **Block Selector**: Allows quick switching between farm blocks.
+- **Location Picker**: Shows real-time coordinates. The "Update" button triggers a fresh satellite query.
 
----
+### 2. Map Interface
+- **Interactive Leaflet Map**: Centered on the block.
+- **Draggable Marker**: Users can refine the location. Dropping the marker automatically refreshes the NDWI status for that specific spot.
 
-## 🔄 Recent Improvements
+### 3. Water Management (Primary Analysis)
+- **Field Status Indicator**: A large, color-coded visual showing the stress level.
+- **Recommendation**: A bold, clear sentence telling the grower exactly what to do (e.g., "Irrigate today").
+- **NDWI Value**: The raw satellite index, formatted to two decimal places.
 
-1.  **Sensor Integration**: Implemented `SensorService` as the single source of truth for soil moisture, ensuring 100% consistency between Dashboard and Irrigation modules.
-2.  **Daily Aggregates**: Uses pre-calculated daily ET₀/rainfall instead of manual hourly aggregation.
-3.  **Authentic Locations**: Updated all block coordinates to real South Australian vineyard locations.
-4.  **Backend Removal**: Eliminated all localhost:8000 dependencies - system now runs purely on client-side APIs.
-5.  **UI Layout**: Rearranged cards for better visual flow and space utilization.
+### 4. Insight Banner
+- **Data Quality Pill**: Indicates if the satellite imagery was clear (Good) or cloud-heavy (Degraded).
+- **Latest Date**: Shows when the last satellite composite was captured.
+
+### 5. Logic Card
+- **Formula Box**: Explicitly lists the NDWI thresholds used by the engine. This builds trust by showing the "why" behind every recommendation.
 
 ---
 
 ## 📂 File Reference
-- [water-irrigation.component.ts](file:///d:/Project-2/AgriTech/src/app/modules/water-irrigation/water-irrigation.component.ts): UI State & Map Events.
-- [water-irrigation.service.ts](file:///d:/Project-2/AgriTech/src/app/services/water-irrigation/water-irrigation.service.ts): Data fetching & Math Engine.
-- [sensor.service.ts](file:///d:/Project-2/AgriTech/src/app/core/services/sensor.service.ts): The Single Source of Truth for soil moisture data.
-- [soil.service.ts](file:///d:/Project-2/AgriTech/src/app/services/soil/soil.service.ts): Soil science & LANSLU parsing.
-- [weather.service.ts](file:///d:/Project-2/AgriTech/src/app/services/weather-service/weather.service.ts): Enhanced weather API with multi-depth soil moisture.
-- [user-data.service.ts](file:///d:/Project-2/AgriTech/src/app/core/services/user-data.service.ts): Real vineyard coordinates for each user block.
+- [water-irrigation.component.ts](file:///c:/Users/hp/Music/Agritech/agritechplatform/src/app/modules/water-irrigation/water-irrigation.component.ts): UI State & Map Events.
+- [water-irrigation.service.ts](file:///c:/Users/hp/Music/Agritech/agritechplatform/src/app/services/water-irrigation/water-irrigation.service.ts): Frontend API proxy.
+- [water.py](file:///c:/Users/hp/Music/Agritech/backend/app/api/water.py): Backend API implementation.
+- [insights.py](file:///c:/Users/hp/Music/Agritech/backend/app/services/insights.py): The core classification logic (Rule Engine).

@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
+from app.api import gpt, water
 from app.core.config import get_settings
 from app.db.bootstrap import ensure_satellite_support_tables
 from app.services.satellite_insights import satellite_insights_service
@@ -45,3 +46,5 @@ app.add_middleware(
 )
 
 app.include_router(router)
+app.include_router(gpt.router, prefix="/api")
+app.include_router(water.router, prefix="/api/water")

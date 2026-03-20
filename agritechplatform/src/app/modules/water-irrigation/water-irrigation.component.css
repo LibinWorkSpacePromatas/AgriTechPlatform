@@ -500,7 +500,33 @@
     padding: 1rem;
   }
 }
-.font-bold { font-weight: 700; }
+.uppercase { text-transform: uppercase; }
+.bold { font-weight: 700; }
+
+.recommendation-section {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(0,0,0,0.05);
+}
+
+.about-section {
+  margin-top: 1.25rem;
+}
+
+.about-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.about-list li {
+  font-size: 0.8rem;
+  color: #64748b;
+  line-height: 1.4;
+}
 
 .depth-status {
   font-size: 0.65rem;
@@ -772,4 +798,67 @@
   .dashboard-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Structured Alerts */
+.structured-alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.alert-item {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.85rem;
+  border-radius: 0.75rem;
+  border-left: 4px solid transparent;
+  background: white;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  border: 1px solid #e2e8f0;
+}
+
+.alert-item.critical { border-left-color: #ef4444; background: #fff1f2; border-color: #fecaca; }
+.alert-item.warning { border-left-color: #f59e0b; background: #fffbeb; border-color: #fde68a; }
+.alert-item.info { border-left-color: #3b82f6; background: #eff6ff; border-color: #bfdbfe; }
+
+.alert-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.alert-item.critical .alert-icon { color: #ef4444; }
+.alert-item.warning .alert-icon { color: #f59e0b; }
+.alert-item.info .alert-icon { color: #3b82f6; }
+
+.alert-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.alert-msg {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 !important;
+}
+
+.alert-reason {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-family: 'Courier New', Courier, monospace;
+  margin: 0 !important;
+}
+
+.alert-tag {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #94a3b8;
+  letter-spacing: 0.025em;
+  margin-top: 0.25rem;
 }

@@ -95,9 +95,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
       .pipe(
         takeUntil(this.destroy$),
         switchMap(() => {
-          const currentBlock = this.blocks.find(b => b.lan === this.currentLan);
-          const cropName = currentBlock?.crop || 'Shiraz';
-          return this.waterIrrigationService.getIrrigationStatus(this.latitude, this.longitude, this.currentLan, cropName);
+          return this.waterIrrigationService.getIrrigationStatus(this.currentLan);
         })
       )
       .subscribe({
@@ -219,10 +217,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     this.isLoading = true;
     this.error = null;
 
-    const currentBlock = this.blocks.find(b => b.lan === this.currentLan);
-    const cropName = currentBlock?.crop || 'Shiraz';
-
-    this.waterIrrigationService.getIrrigationStatus(this.latitude, this.longitude, this.currentLan, cropName).subscribe({
+    this.waterIrrigationService.getIrrigationStatus(this.currentLan).subscribe({
       next: status => {
         console.log('Final Processed Irrigation Status:', status);
         this.irrigationStatus = status;
@@ -243,9 +238,6 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
         console.error('Failed to load irrigation data:', error);
         this.error = error.message || 'Failed to load irrigation data. Please check your connection.';
         this.isLoading = false;
-        if (error.message === 'Location must be within Australia.') {
-          alert(error.message);
-        }
       }
     });
   }
@@ -255,33 +247,19 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
   }
 
   getStatusColor(status: string): string {
-    switch (status) {
-      case 'urgent': return 'text-red-600';
-      case 'saturated': return 'text-blue-600';
-      case 'monitor': return 'text-yellow-600';
-      default: return 'text-gray-600';
-    }
+    if (status.includes('severe_stress')) return 'text-red-600';
+    if (status.includes('moderate_stress')) return 'text-orange-600';
+    if (status.includes('mild_stress')) return 'text-yellow-600';
+    if (status.includes('well_watered')) return 'text-blue-600';
+    return 'text-gray-600';
   }
 
   getStatusBgColor(status: string): string {
-    switch (status) {
-      case 'urgent': return 'bg-red-100 border-red-200';
-      case 'saturated': return 'bg-blue-100 border-blue-200';
-      case 'monitor': return 'bg-yellow-100 border-yellow-200';
-      default: return 'bg-gray-100 border-gray-200';
-    }
-  }
-
-  getWaterHoldingLabel(factor: number): string {
-    if (factor > 1.1) return 'High';
-    if (factor < 0.9) return 'Low';
-    return 'Medium';
-  }
-
-  getWaterHoldingClass(factor: number): string {
-    if (factor > 1.1) return 'text-green-600 font-bold';
-    if (factor < 0.9) return 'text-orange-600 font-bold';
-    return 'text-blue-600 font-bold';
+    if (status.includes('severe_stress')) return 'bg-red-100 border-red-200';
+    if (status.includes('moderate_stress')) return 'bg-orange-100 border-orange-200';
+    if (status.includes('mild_stress')) return 'bg-yellow-100 border-yellow-200';
+    if (status.includes('well_watered')) return 'bg-blue-100 border-blue-200';
+    return 'bg-gray-100 border-gray-200';
   }
 
   getInsightTone(status: string): string {

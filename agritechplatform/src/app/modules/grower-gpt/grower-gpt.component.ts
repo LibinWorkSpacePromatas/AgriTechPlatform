@@ -8,7 +8,7 @@ import { BlockService } from '../../shared/services/block.service';
 import { UserDataService } from '../../core/services/user-data.service';
 import { WaterIrrigationService, IrrigationStatus } from '../../services/water-irrigation/water-irrigation.service';
 import { AuthService } from '../../core/services/auth.service';
-import { take } from 'rxjs';
+import { take, lastValueFrom } from 'rxjs';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
@@ -72,26 +72,40 @@ export class GrowerGptComponent implements OnInit, AfterViewChecked {
   }
 
   ngOnInit() {
-    // Initial load of irrigation data for the selected block
     const block = this.blockService.getSelectedBlock();
-    this.irrigationService.getIrrigationStatus(block.lat, block.lon, block.lan, block.crop)
+    
+    // Fetch backend rule-based insights first
+    this.growerGptService.getRuleBasedInsights(block.id || block.lan)
+      .pipe(take(1))
+      .subscribe({
+        next: (backendData) => {
+          if (backendData.insights && backendData.insights.length > 0) {
+            this.chatHistory.push({
+              role: 'assistant',
+              content: `Hello! I've performed a specialized analysis on **${block.name}**.\n\n` +
+                       backendData.insights.map((i: any) => `- **${i.message}** (Priority: ${i.severity})`).join('\n') +
+                       `\n\nHow can I help you manage these findings?`
+            });
+          } else {
+            this.chatHistory.push({
+              role: 'assistant',
+              content: `Hello! I'm monitoring **${block.name}**. Everything looks optimal currently. How can I help you today?`
+            });
+          }
+        },
+        error: () => {
+          this.chatHistory.push({
+            role: 'assistant',
+            content: `Hello! I'm here to help with **${block.name}**. Ask me anything about your viticulture strategy!`
+          });
+        }
+      });
+
+    this.irrigationService.getIrrigationStatus(block.lan)
       .pipe(take(1))
       .subscribe({
         next: (status) => {
           this.irrigationData = status;
-
-          // Add initial greeting
-          this.chatHistory.push({
-            role: 'assistant',
-            content: `Hello! I've analyzed **${block.name} - ${block.crop}**. Currently, soil moisture is at ${status.currentHydration.toFixed(1)}%, which is ${status.status}. Would you like an agronomic insight?`
-          });
-        },
-        error: (err) => {
-          console.error('Error fetching irrigation status:', err);
-          this.chatHistory.push({
-            role: 'assistant',
-            content: `Hello! I'm here to help, but I'm having trouble fetching the latest irrigation data for **${block.name}**. You can still ask me questions about viticulture or the platform!`
-          });
         }
       });
   }
@@ -163,7 +177,7 @@ export class GrowerGptComponent implements OnInit, AfterViewChecked {
       // Fetch fresh irrigation data if it's a different block
       let targetIrrigation = this.irrigationData;
       if (targetBlock.lan !== currentBlock.lan || !targetIrrigation) {
-        const status = await this.irrigationService.getIrrigationStatus(targetBlock.lat, targetBlock.lon, targetBlock.lan, targetBlock.crop).toPromise();
+        const status = await lastValueFrom(this.irrigationService.getIrrigationStatus(targetBlock.lan));
         targetIrrigation = status || null;
       }
 

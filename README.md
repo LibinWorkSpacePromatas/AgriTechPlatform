@@ -189,58 +189,42 @@ The frontend routes are defined in [`agritechplatform/src/app/app.routes.ts`](c:
 
 **Purpose**
 
-- Explains and visualizes irrigation need for the selected block.
+- Provides real-time satellite-driven hydration monitoring for the selected block.
 
 **What is displayed**
 
 - block selector dropdown
-- editable latitude/longitude inputs
-- interactive map
-- soil moisture profile by depth
-- soil composition card
-- overall field status
-- irrigation formula breakdown
-- hydration and ML/ha needed metrics
-- ET0 and rainfall data
-- nearest BoM station card
+- interactive Leaflet map
+- **Field Status Card**: Color-coded hydration status (Severe, Moderate, Mild, Well-watered).
+- **Satellite Truth (NDWI)**: Direct index value and data quality.
+- **Actionable Recommendation**: Logic-driven advice based on the NDWI index.
+- **Water Logic Breakdown**: Thresholds used for satellite ground truth.
 
 **How it works**
 
-- The page subscribes to the globally selected block.
-- It initializes a Leaflet map centered on the block location.
-- The user can:
-  - change block from dropdown
-  - manually type coordinates
-  - click on the map
-  - drag the map marker
-- Each location update recalculates irrigation status.
+- The page fetches data from the backend `/api/water/{block_id}` endpoint.
+- It uses **NDWI (Normalized Difference Water Index)** as the primary "ground truth" for leaf water content.
+- The user can select blocks or change coordinates on the map, which triggers a fresh satellite data fetch.
 
 **Where the data comes from**
 
-- Irrigation engine:
-  - [`WaterIrrigationService`](c:\PromatasDev\AgriTech\agritechplatform\src\app\services\water-irrigation\water-irrigation.service.ts)
-- Weather for ET0, rain, soil moisture depths:
-  - [`services/weather-service/weather.service.ts`](c:\PromatasDev\AgriTech\agritechplatform\src\app\services\weather-service\weather.service.ts)
-- Soil composition lookup:
-  - [`SoilService`](c:\PromatasDev\AgriTech\agritechplatform\src\app\services\soil\soil.service.ts)
-- Soil JSON asset:
-  - [`agritechplatform/src/assets/data/soil-data.json`](c:\PromatasDev\AgriTech\agritechplatform\src\assets\data\soil-data.json)
-- Hydration baseline:
-  - [`SensorService`](c:\PromatasDev\AgriTech\agritechplatform\src\app\core\services\sensor.service.ts)
+- **Backend Water API**: [`backend/app/api/water.py`](file:///c:/Users/hp/Music/Agritech/backend/app/api/water.py)
+- **Database**: `satellite_cache` table (PostgreSQL), containing Sentinel-2 payloads.
+- **Classification Engine**: [`backend/app/services/insights.py`](file:///c:/Users/hp/Music/Agritech/backend/app/services/insights.py)
 
-**Current calculation logic**
+**Current calculation logic (Simplified MVP)**
 
-- Uses Open-Meteo ET0 and rainfall
-- Applies crop-specific Kc values by crop name
-- Uses a soil factor derived from LANSLU-linked soil classifications
-- Converts adjusted water deficit into ML/ha
-- Uses dashboard soil moisture sensor value as the current hydration baseline
+To ensure 100% alignment with satellite truth, the MVP uses a simplified **NDWI-only** classification engine, removing complex weather-based math (ET₀, Kc, Soil Factors):
+
+- **Well-watered** (NDWI > 0.1): Leaf moisture is optimal.
+- **Mild Stress** (-0.1 ≤ NDWI ≤ 0.1): Monitor closely; consider irrigation in 2-3 days.
+- **Moderate Stress** (-0.3 ≤ NDWI < -0.1): Irrigate today.
+- **Severe Stress** (NDWI < -0.3): Immediate irrigation required.
 
 **Important current-state notes**
 
-- BoM station details shown in UI are currently mocked in the service.
-- Multi-depth moisture bars are generated from logic plus some randomization, not from dedicated real sensors.
-- The app includes `bom_stations.json`, but the current irrigation flow does not appear to use that file directly.
+- Weather-based ET₀ and Kc math have been deprecated in favor of direct satellite ground truth.
+- Soil composition and BoM station cards are currently hidden or simplified to focus on satellite metrics.
 
 ---
 
@@ -644,39 +628,38 @@ Once authenticated, the app uses a common layout:
 
 ## What the Backend Currently Does
 
-The backend is a basic FastAPI skeleton.
+The backend is a **FastAPI** service that manages real-world satellite data and AI insights.
 
-### Current endpoints
+### Core Capabilities
 
-- `GET /`
-  - returns welcome message
-- `POST /auth/login`
-  - placeholder login message
-- `POST /scan/`
-  - placeholder scan message
+- **Water API (`/api/water/{block_id}`)**:
+  - Fetches the latest Sentinel-2 NDWI values from the database.
+  - Classifies water stress using the simplified **NDWI-only engine**.
+  - Returns actionable recommendations and data quality metrics.
+- **Grower GPT API (`/api/gpt/{block_id}`)**:
+  - Generates AI-driven agronomic advice using **OpenRouter (LLM)**.
+  - Injects real-time satellite indices (NDVI, NDWI, LAI, etc.) as context.
+  - Provides property-wide summaries for multiple blocks.
+- **Satellite Data Management**:
+  - Stores imagery payloads in a PostgreSQL `satellite_cache` table.
+  - Handles block metadata and user associations via SQLAlchemy.
+- **Authentication**:
+  - Basic login and token-based flows (ready for expansion).
 
 ### Backend files
 
-- app entry:
-  - [`backend/app/main.py`](c:\PromatasDev\AgriTech\backend\app\main.py)
-- route wiring:
-  - [`backend/app/api/routes.py`](c:\PromatasDev\AgriTech\backend\app\api\routes.py)
-- auth route:
-  - [`backend/app/api/auth.py`](c:\PromatasDev\AgriTech\backend\app\api\auth.py)
-- scan route:
-  - [`backend/app/api/scan.py`](c:\PromatasDev\AgriTech\backend\app\api\scan.py)
+- **Main App**: [`backend/app/main.py`](file:///c:/Users/hp/Music/Agritech/backend/app/main.py)
+- **Water API**: [`backend/app/api/water.py`](file:///c:/Users/hp/Music/Agritech/backend/app/api/water.py)
+- **GPT API**: [`backend/app/api/gpt.py`](file:///c:/Users/hp/Music/Agritech/backend/app/api/gpt.py)
+- **LLM Service**: [`backend/app/services/llm_service.py`](file:///c:/Users/hp/Music/Agritech/backend/app/services/llm_service.py)
+- **Database Models**: [`backend/app/db/models.py`](file:///c:/Users/hp/Music/Agritech/backend/app/db/models.py)
 
 ### Current status relative to frontend
 
-- The Angular app is not currently using these backend routes for:
-  - login
-  - dashboard data
-  - irrigation calculations
-  - opportunities
-  - profit/risk analysis
-  - Grower GPT
-
-So from a system perspective, the backend is currently **present but mostly unused by the frontend**.
+- The Angular app is now **actively integrated** with the backend for:
+  - **Water & Irrigation page**: Live NDWI classification.
+  - **Grower GPT page**: Real-time AI chat with block context.
+  - **Dashboard**: Integrated insights (partially).
 
 ---
 

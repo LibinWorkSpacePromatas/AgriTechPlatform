@@ -35,7 +35,7 @@ ALTERNATIVE_CROP_LIBRARY = [
 ]
 
 
-def build_block_insights(block: Block) -> dict[str, Any]:
+def build_block_insights(block: Block, overrides: dict[str, Any] | None = None) -> dict[str, Any]:
     crop_name = block.crop or "Default"
     baselines = CROP_BASELINES.get(crop_name, CROP_BASELINES["Default"])
     identifier = block.lanslu or str(block.id)
@@ -46,27 +46,28 @@ def build_block_insights(block: Block) -> dict[str, Any]:
     fertility_bias = 0.03 if "loam" in soil_text else -0.02 if "sand" in soil_text else 0.0
     canopy_bias = -0.05 if area_ha >= 10 else 0.02 if area_ha <= 6 else 0.0
 
-    ndvi = _bounded(
+    # Use overrides if available, otherwise use simulated values
+    ndvi = overrides.get("ndvi") if overrides and overrides.get("ndvi") is not None else _bounded(
         baselines["ndvi"] + soil_moisture_bias * 0.3 + fertility_bias * 0.4 + canopy_bias * 0.2 + _signed_noise(identifier, "ndvi", 0.06),
         0.28,
         0.9,
     )
-    ndwi = _bounded(
+    ndwi = overrides.get("ndwi") if overrides and overrides.get("ndwi") is not None else _bounded(
         baselines["ndwi"] + soil_moisture_bias + _signed_noise(identifier, "ndwi", 0.05),
         0.05,
         0.62,
     )
-    ndre = _bounded(
+    ndre = overrides.get("ndre") if overrides and overrides.get("ndre") is not None else _bounded(
         baselines["ndre"] + fertility_bias + _signed_noise(identifier, "ndre", 0.05),
         0.2,
         0.82,
     )
-    evi = _bounded(
+    evi = overrides.get("evi") if overrides and overrides.get("evi") is not None else _bounded(
         baselines["evi"] + fertility_bias * 0.5 + canopy_bias + _signed_noise(identifier, "evi", 0.05),
         0.15,
         0.82,
     )
-    lai = _bounded(
+    lai = overrides.get("lai") if overrides and overrides.get("lai") is not None else _bounded(
         baselines["lai"] + fertility_bias * 2.2 + canopy_bias * 3 + _signed_noise(identifier, "lai", 0.5),
         1.1,
         6.0,
@@ -168,6 +169,11 @@ def build_block_insights(block: Block) -> dict[str, Any]:
         "warning": None,
         "composite_date_to": datetime.now(ZoneInfo("Australia/Adelaide")).replace(microsecond=0).isoformat(),
         "metrics": metrics,
+        "ndvi": ndvi,
+        "ndwi": ndwi,
+        "ndre": ndre,
+        "evi": evi,
+        "lai": lai,
         "advisor": {
             "riskScore": risk_score,
             "riskLevel": risk_level,
