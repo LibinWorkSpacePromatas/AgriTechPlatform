@@ -148,6 +148,59 @@
             </div>
         </div>
 
+        <div class="data-quality-card card-box" *ngIf="latestInsights as insights">
+            <div class="trend-card-header">
+                <div>
+                    <div class="section-label trend-section-label">
+                        <i-lucide [img]="CpuIcon" size="16"></i-lucide>
+                        Satellite Data Quality
+                    </div>
+                    <p class="trend-card-subtitle">These values describe which Sentinel-2 composite the dashboard is using and how reliable the current block reading is.</p>
+                </div>
+                <span class="trend-chip" [ngClass]="getDataQualityBadgeClass()">
+                    {{ insights.dataQuality | titlecase }} data
+                </span>
+            </div>
+
+            <div class="data-quality-grid">
+                <div class="reading-tile">
+                    <div class="reading-label">Search window</div>
+                    <div class="reading-text">{{ getSearchWindowSummary() }}</div>
+                    <div class="reading-help">The 14-day Sentinel-2 fetch window requested by the backend</div>
+                </div>
+
+                <div class="reading-tile">
+                    <div class="reading-label">Acquisition span</div>
+                    <div class="reading-text">{{ getAcquisitionSpanSummary() }}</div>
+                    <div class="reading-help">Earliest to latest usable observation date in the current composite</div>
+                </div>
+
+                <div class="reading-tile">
+                    <div class="reading-label">Cloud cover</div>
+                    <div class="reading-text">{{ formatCloudCoverLabel(insights.cloudCoverPct) }}</div>
+                    <div class="reading-help">Values above 50% reduce reliability</div>
+                </div>
+
+                <div class="reading-tile">
+                    <div class="reading-label">Images used</div>
+                    <div class="reading-text">{{ insights.acquisitionMetadata.imageCount }}</div>
+                    <div class="reading-help">Sentinel-2 scenes inside the current composite window</div>
+                </div>
+
+                <div class="reading-tile">
+                    <div class="reading-label">Usable pixels</div>
+                    <div class="reading-text">{{ insights.pixelCount }}</div>
+                    <div class="reading-help">Block pixels contributing to the index mean</div>
+                </div>
+
+                <div class="reading-tile wide">
+                    <div class="reading-label">Acquisition dates</div>
+                    <div class="reading-text">{{ acquisitionDatesSummary }}</div>
+                    <div class="reading-help">Distinct Sentinel-2 observation dates used by the backend</div>
+                </div>
+            </div>
+        </div>
+
         <div class="supporting-section card-box" *ngIf="secondarySensors.length">
             <div class="supporting-header">
                 <div>
@@ -287,6 +340,31 @@
                     Historical block data is still being collected. The full trend chart will appear once at least two refresh cycles are available.
                 </div>
             </ng-template>
+        </div>
+
+        <div class="ndvi-map-card card-box" *ngIf="currentBlock">
+            <div class="trend-card-header">
+                <div>
+                    <div class="section-label trend-section-label">
+                        <i-lucide [img]="LayersIcon" size="16"></i-lucide>
+                        NDVI Map
+                    </div>
+                    <p class="trend-card-subtitle">This block map uses the NDVI tile when imagery is available. If tiles are unavailable, the dashboard still shows the block outline for spatial context.</p>
+                </div>
+                <div class="ndvi-map-meta">
+                    <span class="trend-chip" [ngClass]="isNdviMapAvailable ? 'good' : 'neutral'">
+                        {{ isNdviMapAvailable ? 'NDVI overlay available' : 'Block outline only' }}
+                    </span>
+                    <span class="trend-chip neutral">10 m resolution</span>
+                </div>
+            </div>
+
+            <div class="ndvi-map-shell">
+                <div #ndviMapContainer class="ndvi-map-canvas"></div>
+                <div class="ndvi-map-overlay" *ngIf="!isNdviMapAvailable">
+                    NDVI tiles are not available for this block yet. The dashboard is showing the block footprint until the backend tile URL is available.
+                </div>
+            </div>
         </div>
 
         <div class="advisor-section card-box" *ngIf="dashboardLimitations.length">
@@ -550,104 +628,6 @@
     </div>
 </app-modal>
 
-<!-- RISK ANALYSIS MODAL -->
-<app-modal [isOpen]="isRiskModalOpen" [title]="(currentBlock?.crop || 'Crop') + ' Risk Analysis'"
-    (close)="closeRiskModal()">
-    <div class="risk-analysis-content" style="padding: 1rem;">
-        <div class="risk-overview" style="text-align: center; margin-bottom: 2rem;">
-            <div class="risk-gauge">
-                <div class="gauge-value" style="font-size: 3rem; font-weight: 800;"
-                    [style.color]="advisorData.riskLevel === 'High' ? '#ef4444' : (advisorData.riskLevel === 'Moderate' ? '#f59e0b' : '#10b981')">
-                    {{ advisorData.riskScore ?? '--' }}<span *ngIf="advisorData.riskScore !== null">%</span>
-                </div>
-                <div class="gauge-label" style="font-weight: 700; color: #374151; text-transform: uppercase;">
-                    {{ strictSpecMode ? 'CURRENT INTERPRETATION MODE' : 'CURRENT RISK LEVEL' }}: {{ advisorData.riskLevel }}</div>
-            </div>
-        </div>
-
-        <div class="analysis-details">
-            <h4
-                style="margin-bottom: 1.5rem; color: #1e4d3b; border-bottom: 2px solid #ecfdf5; padding-bottom: 0.5rem;">
-                Detailed Insights</h4>
-            <ul class="explanation-list" style="list-style: none; padding: 0;">
-                <li *ngFor="let msg of riskExplanations"
-                    style="margin-bottom: 1rem; display: flex; gap: 0.75rem; font-size: 0.95rem; color: #4b5563; align-items: flex-start;">
-                    <i-lucide [img]="AlertTriangleIcon" size="18" class="icon-orange"
-                        *ngIf="msg.includes('outside') || msg.includes('CRITICAL')"></i-lucide>
-                    <i-lucide [img]="CheckCircleIcon" size="18" class="icon-green"
-                        *ngIf="!msg.includes('outside') && !msg.includes('CRITICAL')"></i-lucide>
-                    <span>{{ msg }}</span>
-                </li>
-            </ul>
-        </div>
-    </div>
-</app-modal>
-
-<!-- GRANT FUNDING MODAL -->
-<app-modal [isOpen]="isGrantModalOpen" title="" (close)="closeGrantModal()">
-    <div class="grant-modal-content">
-        <div class="grant-header">
-            <div class="grant-icon-wrapper">
-                <span>&#127919;</span>
-            </div>
-            <h3>SA GRAPE GROWER FUNDING</h3>
-        </div>
-        <p class="grant-subtitle">{{ decisionData.switch.area }}ha of your farm is eligible for assistance</p>
-
-        <div class="grant-cards-container">
-            <!-- Card 1 -->
-            <div class="grant-card">
-                <div class="grant-card-icon">
-                    <i-lucide [img]="ExternalLinkIcon" size="24" class="icon-blue-light"></i-lucide>
-                </div>
-                <div class="grant-card-info">
-                    <h4>SA Assistance Guide for Grape Growers</h4>
-                    <p>April 2025 - Complete funding overview and application process</p>
-                </div>
-                <button class="btn-open-pdf"
-                    (click)="openLink('https://www.pir.sa.gov.au/primary_industries/crops_and_pastures/fruit_and_nuts/wine_grapes')">
-                    <i-lucide [img]="ExternalLinkIcon" size="14"></i-lucide> OPEN PDF
-                </button>
-            </div>
-
-            <!-- Card 2 -->
-            <div class="grant-card">
-                <div class="grant-card-icon">
-                    <i-lucide [img]="ExternalLinkIcon" size="24" class="icon-blue-light"></i-lucide>
-                </div>
-                <div class="grant-card-info">
-                    <h4>SA Grape Growers Industry Fund 2025-30</h4>
-                    <p>PIRSA management plan with diversification grants</p>
-                </div>
-                <button class="btn-open-pdf" (click)="openLink('https://www.pir.sa.gov.au/grants_and_assistance')">
-                    <i-lucide [img]="ExternalLinkIcon" size="14"></i-lucide> OPEN PDF
-                </button>
-            </div>
-
-            <!-- Card 3 -->
-            <div class="grant-card">
-                <div class="grant-card-icon">
-                    <i-lucide [img]="SproutIcon" size="24" class="icon-green-light"></i-lucide>
-                </div>
-                <div class="grant-card-info">
-                    <h4>PIRSA Vineyard-to-Olive Conversion</h4>
-                    <p>CCW 2025 Factsheet - Technical conversion guide</p>
-                </div>
-                <button class="btn-open-pdf" (click)="openLink('https://www.pir.sa.gov.au/')">
-                    <i-lucide [img]="ExternalLinkIcon" size="14"></i-lucide> OPEN PDF
-                </button>
-            </div>
-        </div>
-
-        <div class="grant-footer-alert">
-            <div class="check-icon-wrapper">
-                <i-lucide [img]="CheckCircleIcon" size="20"></i-lucide>
-            </div>
-            <span>Covers 50% tree planting + diversification grants</span>
-        </div>
-    </div>
-</app-modal>
-
 <!-- Footer Prototype Notice -->
 <div class="prototype-notice">
     <div class="notice-icon">i</div>
@@ -656,194 +636,3 @@
         {{ dataStatusMessage }}
     </div>
 </div>
-
-<!-- Alternative Crop Detail Modal -->
-<app-modal [isOpen]="isAlternativeCropModalOpen"
-    [title]="selectedAlternativeCrop ? selectedAlternativeCrop.cropName + ' - Detailed Analysis' : 'Crop Analysis'"
-    (close)="closeAlternativeCropModal()">
-    <div class="alt-crop-modal-content" *ngIf="selectedAlternativeCrop">
-        <!-- Suitability Score Header -->
-        <div class="alt-modal-header">
-            <div class="suitability-badge-large"
-                [ngClass]="selectedAlternativeCrop.suitabilityScore > 80 ? 'excellent' : selectedAlternativeCrop.suitabilityScore > 60 ? 'good' : 'fair'">
-                <div class="score-number">{{ selectedAlternativeCrop.suitabilityScore.toFixed(0) }}%</div>
-                <div class="score-label">SUITABILITY MATCH</div>
-            </div>
-            <div class="ph-compatibility-badge"
-                [ngClass]="selectedAlternativeCrop.compatible ? 'compatible' : 'incompatible'">
-                <i-lucide [img]="selectedAlternativeCrop.compatible ? CheckCircleIcon : AlertTriangleIcon"
-                    size="16"></i-lucide>
-                <span>{{ selectedAlternativeCrop.compatible ? 'Block Compatible' : 'Adjustment Needed' }}</span>
-            </div>
-        </div>
-
-        <!-- Key Metrics Grid -->
-        <div class="metrics-grid">
-            <div class="metric-card">
-                <div class="metric-icon water">
-                    <i-lucide [img]="DropletsIcon" size="24"></i-lucide>
-                </div>
-                <div class="metric-info">
-                    <div class="metric-label">Water Requirement</div>
-                    <div class="metric-value">{{ selectedAlternativeCrop.waterRequirement }} ML/ha</div>
-                    <div class="metric-comparison" *ngIf="currentBlock">
-                        <span class="comparison-label">vs Current:</span>
-                        <span [ngClass]="selectedAlternativeCrop.waterRequirement < 6.5 ? 'better' : 'worse'">
-                            {{ selectedAlternativeCrop.waterRequirement < 6.5 ? 'Lower water demand' : 'Higher water demand' }}
-                        </span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="metric-card">
-                <div class="metric-icon profit">
-                    <i-lucide [img]="CheckCircleIcon" size="24"></i-lucide>
-                </div>
-                <div class="metric-info">
-                    <div class="metric-label">Profit Potential</div>
-                    <div class="metric-value">{{ formatCurrency(selectedAlternativeCrop.profitPerHa) }}/ha</div>
-                    <div class="metric-comparison" *ngIf="currentBlock && decisionData.totalArea">
-                        <span class="comparison-label">Total for {{ decisionData.totalArea }}ha:</span>
-                        <span class="total-profit">{{ formatCurrency(selectedAlternativeCrop.profitPerHa *
-                            decisionData.totalArea) }}/year</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Why This Crop Section -->
-        <div class="reasons-section">
-            <h3 class="section-title">
-                <i-lucide [img]="SproutIcon" size="18"></i-lucide>
-                Why {{ selectedAlternativeCrop.cropName }}?
-            </h3>
-            <div class="reasons-list">
-                <div *ngFor="let reason of selectedAlternativeCrop.reasons" class="reason-item-detailed">
-                    <div class="reason-check">
-                        <i-lucide [img]="CheckCircleIcon" size="16"></i-lucide>
-                    </div>
-                    <span>{{ reason }}</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Current Conditions Match -->
-        <div class="conditions-match-section">
-            <h3 class="section-title">
-                <i-lucide [img]="ThermometerIcon" size="18"></i-lucide>
-                Current Conditions Analysis
-            </h3>
-            <div class="conditions-grid">
-                <div class="condition-item" *ngIf="sensors.length > 0">
-                    <div class="condition-label">
-                        <i-lucide [img]="DropletsIcon" size="14"></i-lucide>
-                        Water Stress
-                    </div>
-                    <div class="condition-value">
-                        {{ getSensorValue('Water Stress') }}%
-                    </div>
-                    <div class="condition-status" [ngClass]="selectedAlternativeCrop.moistureCompatible ? 'good' : 'warning'">
-                        <i-lucide [img]="selectedAlternativeCrop.moistureCompatible ? CheckCircleIcon : AlertTriangleIcon" size="12"></i-lucide>
-                        {{ selectedAlternativeCrop.moistureCompatible ? 'Aligned' : 'Needs Review' }}
-                    </div>
-                </div>
-
-                <div class="condition-item">
-                    <div class="condition-label">
-                        <i-lucide [img]="SproutIcon" size="14"></i-lucide>
-                        Nutrient Status
-                    </div>
-                    <div class="condition-value">
-                        {{ getSensorValue('Nutrient Status') }}%
-                    </div>
-                    <div class="condition-status" [ngClass]="selectedAlternativeCrop.compatible ? 'good' : 'warning'">
-                        <i-lucide [img]="selectedAlternativeCrop.compatible ? CheckCircleIcon : AlertTriangleIcon"
-                            size="12"></i-lucide>
-                        {{ selectedAlternativeCrop.compatible ? 'Compatible' : 'Needs Adjustment' }}
-                    </div>
-                </div>
-
-                <div class="condition-item">
-                    <div class="condition-label">
-                        <i-lucide [img]="ThermometerIcon" size="14"></i-lucide>
-                        Vegetation Health
-                    </div>
-                    <div class="condition-value">
-                        {{ getSensorValue('Vegetation Health') }}%
-                    </div>
-                    <div class="condition-status good">
-                        <i-lucide [img]="CheckCircleIcon" size="12"></i-lucide>
-                        Suitable
-                    </div>
-                </div>
-                <div class="condition-item">
-                    <div class="condition-label">
-                        <i-lucide [img]="WindIcon" size="14"></i-lucide>
-                        Canopy Density
-                    </div>
-                    <div class="condition-value">
-                        {{ getSensorValue('Canopy Density') }}%
-                    </div>
-                    <div class="condition-status good">
-                        <i-lucide [img]="CheckCircleIcon" size="12"></i-lucide>
-                        Optimal
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Action Buttons -->
-        <div class="alt-modal-actions">
-            <button class="btn btn-primary-dark" (click)="closeAlternativeCropModal()">
-                <i-lucide [img]="CheckCircleIcon" size="16"></i-lucide>
-                Consider This Option
-            </button>
-            <button class="btn btn-secondary-light" (click)="openGrantModal(); closeAlternativeCropModal()">
-                <i-lucide [img]="ExternalLinkIcon" size="16"></i-lucide>
-                View Conversion Grants
-            </button>
-        </div>
-    </div>
-</app-modal>
-
-<!-- NUTRIENT INDEX MODAL -->
-<app-modal [isOpen]="isNutrientModalOpen" title="Nutrient Index Analysis" (close)="closeNutrientModal()">
-    <div class="nutrient-modal-content" style="padding: 1rem;">
-        <div class="nutrient-score-header" style="text-align: center; margin-bottom: 2rem;">
-            <div class="nutrient-gauge">
-                <div class="gauge-value" style="font-size: 3rem; font-weight: 800;"
-                    [style.color]="nutrientData.status === 'High' ? '#10b981' : (nutrientData.status === 'Medium' ? '#f59e0b' : '#ef4444')">
-                    {{ nutrientData.score }}%
-                </div>
-                <div class="gauge-label" style="font-weight: 700; color: #374151; text-transform: uppercase;">
-                    INDEX STATUS: {{ nutrientData.status }}
-                </div>
-                <div class="gauge-reason" style="margin-top: 0.5rem; font-size: 1.1rem; color: #4b5563;">
-                    {{ nutrientData.reason }}
-                </div>
-            </div>
-        </div>
-
-        <div class="analysis-details">
-            <h4
-                style="margin-bottom: 1.5rem; color: #1e4d3b; border-bottom: 2px solid #ecfdf5; padding-bottom: 0.5rem;">
-                Contributing Factors</h4>
-            <ul class="explanation-list" style="list-style: none; padding: 0;">
-                <li *ngFor="let detail of nutrientData.details"
-                    style="margin-bottom: 1rem; display: flex; gap: 0.75rem; font-size: 0.95rem; color: #4b5563; align-items: center;">
-                    <i-lucide [img]="CheckCircleIcon" size="18" class="icon-green"
-                        *ngIf="detail.includes('Optimal') || detail.includes('optimal') || detail.includes('promotes') || detail.includes('supports')"></i-lucide>
-                    <i-lucide [img]="AlertTriangleIcon" size="18" class="icon-orange"
-                        *ngIf="!(detail.includes('Optimal') || detail.includes('optimal') || detail.includes('promotes') || detail.includes('supports'))"></i-lucide>
-                    <span>{{ detail }}</span>
-                </li>
-            </ul>
-        </div>
-
-        <div
-            style="margin-top: 2rem; padding: 1rem; background-color: #f8fafc; border-radius: 0.5rem; font-size: 0.9rem; color: #64748b;">
-            <p><strong>Note:</strong> This nutrient view is sourced from backend NDRE, NDWI, and LAI intelligence.
-                Reconnect the backend insights service if you need a fresher composite.</p>
-        </div>
-    </div>
-</app-modal>

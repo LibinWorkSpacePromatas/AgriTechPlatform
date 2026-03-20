@@ -1,5 +1,5 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { AfterViewInit, Component, ElementRef, Inject, OnDestroy, OnInit, PLATFORM_ID, ViewChild } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { distinctUntilChanged, filter, interval, Subject, Subscription, takeUntil } from 'rxjs';
 import {
   AlertTriangle,
@@ -27,17 +27,15 @@ import { BlockService } from '../../shared/services/block.service';
 import { Block as SharedBlock } from '../../shared/models';
 import { LineChartComponent, ChartSeries } from '../../shared/components/line-chart.component';
 import { ModalComponent } from '../../shared/components/modal.component';
+import * as L from 'leaflet';
 import {
   DashboardInsightsResponse,
   DashboardActionItem,
-  DashboardAlternativeCrop,
   DashboardApiService,
-  DashboardDecisionData,
   DashboardMetric,
   DashboardMetricKey,
   DashboardTrendDirection,
-  DashboardTrendSummary,
-  DashboardYieldImpact
+  DashboardTrendSummary
 } from '../../core/services/dashboard-api.service';
 import { SatelliteRefreshEvent, SatelliteRefreshEventsService } from '../../core/services/satellite-refresh-events.service';
 
@@ -91,9 +89,9 @@ type SatelliteTrendSeriesKey = keyof Omit<SatelliteTrendChartPoint, 'dateKey'>;
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css', './dashboard-premium.component.css', './dashboard-alt-modal.component.css', './dashboard-action-cards.component.css']
 })
-export class DashboardComponent implements OnInit, OnDestroy {
-  readonly strictSpecMode = true;
+export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('detailPanel') detailPanelRef?: ElementRef<HTMLElement>;
+  @ViewChild('ndviMapContainer') ndviMapContainerRef?: ElementRef<HTMLElement>;
 
   CpuIcon = Cpu;
   DropletsIcon = Droplets;
@@ -136,10 +134,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
   currentBlock: DashboardBlock | null = null;
   latestInsights: DashboardInsightsResponse | null = null;
 
+  private readonly isBrowser: boolean;
+  private ndviMap?: L.Map;
+  private ndviBaseLayer?: L.TileLayer;
+  private ndviTileLayer?: L.TileLayer;
+  private ndviPolygonLayer?: L.GeoJSON;
+  private ndviCentroidMarker?: L.CircleMarker;
+
   sensors: DashboardSensor[] = [];
   advisorData = {
-    riskScore: null as number | null,
-    riskLevel: 'Low' as 'Low' | 'Moderate' | 'High',
     lastUpdated: 'Waiting for backend insight refresh',
     sensorAnalysis: [
       { label: 'CROP HEALTH', value: '--', status: 'PENDING', message: 'Waiting for backend insights', icon: Sprout, colorClass: 'good' },
@@ -150,29 +153,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     ],
     actions: [] as DashboardActionItem[]
   };
-  riskExplanations: string[] = [];
-
-  nutrientData = {
-    status: 'Low' as string,
-    reason: 'Waiting for backend insights',
-    score: 0,
-    details: [] as string[]
-  };
-
-  alternativeCrops: DashboardAlternativeCrop[] = [];
-  yieldImpact: DashboardYieldImpact | null = null;
-  decisionData: DashboardDecisionData = {
-    totalArea: 0,
-    current: { crop: '', lossPerHa: 0, totalLoss: 0, yieldLossDetails: 'Waiting for backend insights' },
-    switch: { crop: 'Olives', area: 0, profitPerHa: 0, totalProfit: 0, allocationMatch: 0, validated: false, validationText: 'Waiting for backend insights' },
-    keep: { crop: '', area: 0, profitPerHa: 0, totalProfit: 0 }
-  };
-
-  isRiskModalOpen = false;
-  isNutrientModalOpen = false;
-  isGrantModalOpen = false;
-  isAlternativeCropModalOpen = false;
-  selectedAlternativeCrop: DashboardAlternativeCrop | null = null;
 
   hoveredSensor: DashboardSensor | null = null;
   lockedSensor: DashboardSensor | null = null;
@@ -183,8 +163,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     public weatherService: WeatherService,
     private blockService: BlockService,
     private dashboardApiService: DashboardApiService,
-    private satelliteRefreshEventsService: SatelliteRefreshEventsService
-  ) { }
+    private satelliteRefreshEventsService: SatelliteRefreshEventsService,
+    @Inject(PLATFORM_ID) platformId: object
+  ) {
+    this.isBrowser = isPlatformBrowser(platformId);
+  }
 
   get insightsStatusLabel(): string {
     if (this.isInsightsLoading && !this.latestInsights) {
@@ -382,6 +365,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return latestDate ? this.formatInsightsTimestamp(latestDate) : 'No historical observations yet';
   }
 
+  get isNdviMapAvailable(): boolean {
+    return !!this.latestInsights?.mapTileUrl;
+  }
+
+  get acquisitionDatesSummary(): string {
+    const dates = this.latestInsights?.acquisitionMetadata.actualDates || [];
+    if (!dates.length) {
+      return 'No acquisition dates reported';
+    }
+
+    return dates.map(date => this.formatInsightsDate(date)).join(', ');
+  }
+
   get currentRainAmount(): number {
     if (!this.weatherData) {
       return 0;
@@ -506,11 +502,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.subscribeToSatelliteRefreshEvents(this.currentBlock);
         this.refreshWeather();
         this.loadBlockInsights(this.currentBlock);
+        this.queueNdviMapSync();
       });
 
     this.weatherInterval = interval(300000)
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => this.refreshWeather());
+  }
+
+  ngAfterViewInit(): void {
+    this.queueNdviMapSync();
   }
 
   ngOnDestroy(): void {
@@ -520,6 +521,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.weatherRequest?.unsubscribe();
     this.insightsRequest?.unsubscribe();
     this.refreshEventsSubscription?.unsubscribe();
+    this.teardownNdviMap();
   }
 
   private mapSharedBlock(block: SharedBlock): DashboardBlock {
@@ -556,7 +558,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: insights => {
-          this.applyInsights(block, insights);
+          this.applyInsights(insights);
           this.isInsightsLoading = false;
           this.isInsightsRefreshing = false;
           this.flushPendingInsightReload(block);
@@ -622,7 +624,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.selectedSensor = null;
   }
 
-  private applyInsights(block: DashboardBlock, insights: DashboardInsightsResponse): void {
+  private applyInsights(insights: DashboardInsightsResponse): void {
     const previousHoveredId = this.hoveredSensor?.id;
     const previousLockedId = this.lockedSensor?.id;
     const previousSelectedId = this.selectedSensor?.id;
@@ -637,8 +639,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.selectedSensor = this.findSensorById(previousSelectedId);
 
     this.advisorData = {
-      riskScore: insights.advisor.riskScore,
-      riskLevel: insights.advisor.riskLevel,
       lastUpdated: this.formatInsightsTimestamp(insights.lastSatelliteUpdate || insights.compositeDateTo || ''),
       sensorAnalysis: insights.advisor.sensorAnalysis.map(item => ({
         ...item,
@@ -646,15 +646,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       })),
       actions: insights.advisor.actions
     };
-
-    this.riskExplanations = [...insights.advisor.riskExplanations];
-    this.nutrientData = { ...insights.nutrient, details: [...insights.nutrient.details] };
-    this.yieldImpact = {
-      ...insights.yieldImpact,
-      factors: insights.yieldImpact.factors.map(factor => ({ ...factor }))
-    };
-    this.alternativeCrops = insights.alternativeCrops.map(crop => ({ ...crop, reasons: [...crop.reasons] }));
-    this.decisionData = this.mapDecisionData(insights.decision, block);
+    this.queueNdviMapSync();
   }
 
   private flushPendingInsightReload(block: DashboardBlock): void {
@@ -664,36 +656,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.pendingInsightReload = false;
     this.loadBlockInsights(block, { preserveState: true, backgroundRefresh: true });
-  }
-
-  private mapDecisionData(decision: DashboardDecisionData, block: DashboardBlock): DashboardDecisionData {
-    const resolveCropName = (value: string | undefined, fallback: string) =>
-      !value || value === 'Current Block' ? fallback : value;
-
-    return {
-      totalArea: decision.totalArea || block.area,
-      current: {
-        crop: resolveCropName(decision.current.crop, block.crop),
-        lossPerHa: decision.current.lossPerHa,
-        totalLoss: decision.current.totalLoss,
-        yieldLossDetails: decision.current.yieldLossDetails
-      },
-      switch: {
-        crop: decision.switch.crop,
-        area: decision.switch.area || block.area,
-        profitPerHa: decision.switch.profitPerHa,
-        totalProfit: decision.switch.totalProfit,
-        allocationMatch: decision.switch.allocationMatch,
-        validated: decision.switch.validated,
-        validationText: decision.switch.validationText
-      },
-      keep: {
-        crop: resolveCropName(decision.keep.crop, block.crop),
-        area: decision.keep.area || block.area,
-        profitPerHa: decision.keep.profitPerHa,
-        totalProfit: decision.keep.totalProfit
-      }
-    };
   }
 
   private mapMetricsToSensors(metrics: Record<DashboardMetricKey, DashboardMetric>): DashboardSensor[] {
@@ -849,40 +811,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
       });
   }
 
-  openRiskModal(): void {
-    this.isRiskModalOpen = true;
-  }
-
-  closeRiskModal(): void {
-    this.isRiskModalOpen = false;
-  }
-
-  openNutrientModal(): void {
-    this.isNutrientModalOpen = true;
-  }
-
-  closeNutrientModal(): void {
-    this.isNutrientModalOpen = false;
-  }
-
-  openGrantModal(): void {
-    this.isGrantModalOpen = true;
-  }
-
-  closeGrantModal(): void {
-    this.isGrantModalOpen = false;
-  }
-
-  openAlternativeCropModal(crop: DashboardAlternativeCrop): void {
-    this.selectedAlternativeCrop = crop;
-    this.isAlternativeCropModalOpen = true;
-  }
-
-  closeAlternativeCropModal(): void {
-    this.selectedAlternativeCrop = null;
-    this.isAlternativeCropModalOpen = false;
-  }
-
   openSensorHistory(sensor: DashboardSensor): void {
     this.selectedSensor = sensor;
     this.isModalOpen = true;
@@ -940,6 +868,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   setActiveTab(tab: 'overview' | 'advisor'): void {
     this.activeTab = tab;
+    if (tab === 'overview') {
+      this.queueNdviMapSync();
+      return;
+    }
+
+    this.teardownNdviMap();
   }
 
   toggleChart(mode: 'hourly' | 'daily'): void {
@@ -950,6 +884,117 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (url) {
       window.open(url, '_blank');
     }
+  }
+
+  private queueNdviMapSync(): void {
+    if (!this.isBrowser) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => this.syncNdviMap());
+    });
+  }
+
+  private syncNdviMap(): void {
+    if (!this.isBrowser || this.activeTab !== 'overview' || !this.currentBlock) {
+      return;
+    }
+
+    const mapHost = this.ndviMapContainerRef?.nativeElement;
+    if (!mapHost) {
+      return;
+    }
+
+    if (!this.ndviMap) {
+      this.ndviMap = L.map(mapHost, {
+        zoomControl: true,
+        attributionControl: true
+      });
+      this.ndviBaseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        minZoom: 3
+      }).addTo(this.ndviMap);
+    }
+
+    this.renderNdviMapLayers();
+    this.ndviMap.invalidateSize();
+  }
+
+  private renderNdviMapLayers(): void {
+    if (!this.ndviMap || !this.currentBlock) {
+      return;
+    }
+
+    if (this.ndviTileLayer) {
+      this.ndviMap.removeLayer(this.ndviTileLayer);
+      this.ndviTileLayer = undefined;
+    }
+    if (this.ndviPolygonLayer) {
+      this.ndviMap.removeLayer(this.ndviPolygonLayer);
+      this.ndviPolygonLayer = undefined;
+    }
+    if (this.ndviCentroidMarker) {
+      this.ndviMap.removeLayer(this.ndviCentroidMarker);
+      this.ndviCentroidMarker = undefined;
+    }
+
+    if (this.currentBlock.polygon) {
+      this.ndviPolygonLayer = L.geoJSON(
+        {
+          type: 'Feature',
+          geometry: this.currentBlock.polygon,
+          properties: {
+            name: this.currentBlock.name
+          }
+        } as any,
+        {
+          style: {
+            color: '#166534',
+            weight: 3,
+            fillColor: '#22c55e',
+            fillOpacity: 0.08
+          }
+        }
+      ).addTo(this.ndviMap);
+
+      const bounds = this.ndviPolygonLayer.getBounds();
+      if (bounds.isValid()) {
+        this.ndviMap.fitBounds(bounds.pad(0.2));
+      }
+    } else {
+      this.ndviMap.setView([this.currentBlock.location.lat, this.currentBlock.location.lon], 16);
+    }
+
+    this.ndviCentroidMarker = L.circleMarker([this.currentBlock.location.lat, this.currentBlock.location.lon], {
+      radius: 6,
+      color: '#14532d',
+      weight: 2,
+      fillColor: '#22c55e',
+      fillOpacity: 0.92
+    })
+      .bindPopup(`${this.currentBlock.name}<br>Block centroid`)
+      .addTo(this.ndviMap);
+
+    if (this.latestInsights?.mapTileUrl) {
+      this.ndviTileLayer = L.tileLayer(this.latestInsights.mapTileUrl, {
+        opacity: 0.68,
+        attribution: 'NDVI overlay © Sentinel-2 / Google Earth Engine'
+      }).addTo(this.ndviMap);
+    }
+  }
+
+  private teardownNdviMap(): void {
+    if (!this.ndviMap) {
+      return;
+    }
+
+    this.ndviMap.remove();
+    this.ndviMap = undefined;
+    this.ndviBaseLayer = undefined;
+    this.ndviTileLayer = undefined;
+    this.ndviPolygonLayer = undefined;
+    this.ndviCentroidMarker = undefined;
   }
 
   downloadPdf(): void {
@@ -1009,7 +1054,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       body: [[dataStatus, this.insightsLatencyLabel, riskText]],
       foot: [[
         this.latestInsights?.warning || 'Backend intelligence active',
-        this.nutrientData.status.toUpperCase(),
+        this.latestInsights?.dataQuality.toUpperCase() || 'UNKNOWN',
         this.latestInsights?.error || 'No blocking backend errors'
       ]],
       theme: 'grid',
@@ -1119,34 +1164,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return sensor?.summaryLabel.toUpperCase() || 'UNKNOWN';
   }
 
-  getSensorValue(label: string): number | string {
-    const aliases: Record<string, string[]> = {
-      'Water Stress': ['Water Stress'],
-      'Nutrient Status': ['Nutrient Status'],
-      'Vegetation Health': ['Vegetation Health'],
-      'Canopy Density': ['Canopy Density'],
-      'Yield Potential': ['Yield Potential']
-    };
-
-    const sensor = this.sensors.find(item => (aliases[label] || [label]).includes(item.label));
-    return sensor?.value ?? 'N/A';
-  }
-
-  formatCurrency(value: number): string {
-    const absValue = Math.abs(value);
-    const prefix = value < 0 ? '-$' : '$';
-
-    if (absValue >= 1000000) {
-      return `${prefix}${(absValue / 1000000).toFixed(1)}M`;
-    }
-
-    if (absValue >= 1000) {
-      return `${prefix}${(absValue / 1000).toFixed(1)}k`;
-    }
-
-    return `${prefix}${Math.round(absValue)}`;
-  }
-
   formatHourlyLabels(times: string[]): string[] {
     return times.map((time, index) => {
       const parsed = this.parseDateValue(time);
@@ -1229,6 +1246,46 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (direction === 'declining') return 'error';
     if (direction === 'stable') return 'warning';
     return 'neutral';
+  }
+
+  getDataQualityBadgeClass(): 'good' | 'warning' | 'error' | 'neutral' {
+    if (!this.latestInsights) {
+      return 'neutral';
+    }
+    if (this.latestInsights.dataQuality === 'good') {
+      return 'good';
+    }
+    if (this.latestInsights.dataQuality === 'degraded') {
+      return 'warning';
+    }
+    if (this.latestInsights.dataQuality === 'no_data') {
+      return 'error';
+    }
+    return 'neutral';
+  }
+
+  getSearchWindowSummary(): string {
+    if (!this.latestInsights?.searchWindowFrom || !this.latestInsights?.searchWindowTo) {
+      return 'Unavailable';
+    }
+
+    return `${this.formatInsightsDate(this.latestInsights.searchWindowFrom)} to ${this.formatInsightsDate(this.latestInsights.searchWindowTo)}`;
+  }
+
+  getAcquisitionSpanSummary(): string {
+    if (!this.latestInsights?.compositeDateFrom || !this.latestInsights?.compositeDateTo) {
+      return 'Unavailable';
+    }
+
+    return `${this.formatInsightsDate(this.latestInsights.compositeDateFrom)} to ${this.formatInsightsDate(this.latestInsights.compositeDateTo)}`;
+  }
+
+  formatCloudCoverLabel(value: number | null | undefined): string {
+    if (typeof value !== 'number') {
+      return 'Unavailable';
+    }
+
+    return `${value.toFixed(1)}%`;
   }
 
   getTrendLabel(direction: DashboardTrendDirection | undefined): string {

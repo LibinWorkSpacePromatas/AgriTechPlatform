@@ -41,6 +41,8 @@ export const satelliteContractSchema = z.object({
   block_id: z.string().min(1),
   source: sourceSchema.default('real'),
   freshness_status: freshnessStatusSchema.default('fresh'),
+  search_window_from: isoDateSchema.default(null),
+  search_window_to: isoDateSchema.default(null),
   composite_date_from: isoDateSchema.default(null),
   composite_date_to: isoDateSchema.default(null),
   last_satellite_update: isoDateSchema.default(null),

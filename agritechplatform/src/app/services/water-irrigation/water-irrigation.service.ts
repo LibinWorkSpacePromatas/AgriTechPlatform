@@ -12,6 +12,10 @@ export interface IrrigationStatus {
   dataQuality: 'good' | 'degraded' | 'no_data';
   lanslu: string;
   blockId: string;
+  searchWindowFrom: string | null;
+  searchWindowTo: string | null;
+  compositeDateFrom: string | null;
+  compositeDateTo: string | null;
   mapTileUrl: string | null;
   mapTileType: 'ndvi' | null;
   pixelCount: number;
@@ -50,6 +54,10 @@ export class WaterIrrigationService {
       dataQuality: data.data_quality,
       lanslu: data.lanslu,
       blockId: data.block_id,
+      searchWindowFrom: data.search_window_from,
+      searchWindowTo: data.search_window_to,
+      compositeDateFrom: data.composite_date_from,
+      compositeDateTo: data.composite_date_to,
       mapTileUrl: data.map_tile_url,
       mapTileType: data.map_tile_type,
       pixelCount: data.pixel_count,
@@ -67,6 +75,10 @@ export class WaterIrrigationService {
       dataQuality: 'no_data',
       lanslu: 'N/A',
       blockId,
+      searchWindowFrom: null,
+      searchWindowTo: null,
+      compositeDateFrom: null,
+      compositeDateTo: null,
       mapTileUrl: null,
       mapTileType: null,
       pixelCount: 0,

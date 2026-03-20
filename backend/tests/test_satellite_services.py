@@ -99,7 +99,7 @@ class SatelliteResponseContractTests(unittest.TestCase):
                 "lai": {"value": 2.4, "status": "Low yield"},
             },
             alerts=[],
-            limitations=["Thresholds may vary by crop and region"],
+            limitations=["Satellite delay — data is not real-time (Sentinel-2 revisit is about 5 days)."],
         )
 
         self.assertEqual(
@@ -108,6 +108,8 @@ class SatelliteResponseContractTests(unittest.TestCase):
                 "block_id",
                 "source",
                 "freshness_status",
+                "search_window_from",
+                "search_window_to",
                 "composite_date_from",
                 "composite_date_to",
                 "last_satellite_update",
@@ -152,6 +154,31 @@ class SatelliteResponseContractTests(unittest.TestCase):
 
         self.assertEqual(cache_payload.source, "real")
         self.assertEqual(gee_payload.source, "real")
+
+    def test_legacy_cache_payload_infers_search_window_from_refresh_time(self) -> None:
+        cache = SatelliteCache(
+            block_id=UUID("11111111-1111-1111-1111-111111111111"),
+            geometry_hash="geom-hash",
+            payload={
+                "block_id": "block-1",
+                "data_quality": "good",
+                "composite_date_from": "2026-03-15",
+                "composite_date_to": "2026-03-19",
+            },
+            data_quality="good",
+            composite_date_from=date(2026, 3, 15),
+            composite_date_to=date(2026, 3, 19),
+            pixel_count=12,
+            map_tile_url=None,
+            last_updated=datetime(2026, 3, 20, 9, 0, tzinfo=timezone.utc),
+            refreshed_at=datetime(2026, 3, 20, 9, 0, tzinfo=timezone.utc),
+            expires_at=datetime(2026, 3, 21, 9, 0, tzinfo=timezone.utc),
+        )
+
+        response = self.service._deserialize_cache_payload(cache)
+
+        self.assertEqual(response.search_window_from, date(2026, 3, 7))
+        self.assertEqual(response.search_window_to, date(2026, 3, 20))
 
     def test_water_and_gpt_schemas_include_shared_satellite_contract(self) -> None:
         water = WaterResponse(
@@ -331,6 +358,15 @@ class SatelliteResponseContractTests(unittest.TestCase):
                 data_quality="good",
             )
 
+    def test_contract_rejects_inverted_search_window(self) -> None:
+        with self.assertRaisesRegex(ValidationError, "search_window_from cannot be after search_window_to"):
+            SatelliteContractResponse(
+                block_id="block-1",
+                search_window_from=date(2026, 3, 20),
+                search_window_to=date(2026, 3, 19),
+                data_quality="good",
+            )
+
     def test_api_schemas_reject_invalid_nested_alerts(self) -> None:
         with self.assertRaisesRegex(ValidationError, "threshold cannot be blank"):
             WaterResponse(
@@ -453,8 +489,8 @@ class SatelliteEndpointSnapshotTests(unittest.TestCase):
                 }
             ],
             limitations=[
-                "LAI is an estimated value, not direct measurement",
-                "Thresholds may vary by crop and region",
+                "Satellite delay — data is not real-time (Sentinel-2 revisit is about 5 days).",
+                "LAI / yield separation — NDVI does not measure yield directly; use LAI as secondary yield context.",
             ],
         )
 
@@ -469,6 +505,8 @@ class SatelliteEndpointSnapshotTests(unittest.TestCase):
                 "block_id": "block-1",
                 "source": "real",
                 "freshness_status": "fresh",
+                "search_window_from": None,
+                "search_window_to": None,
                 "composite_date_from": "2026-03-15",
                 "composite_date_to": "2026-03-19",
                 "last_satellite_update": "2026-03-19",
@@ -506,8 +544,8 @@ class SatelliteEndpointSnapshotTests(unittest.TestCase):
                     }
                 ],
                 "limitations": [
-                    "LAI is an estimated value, not direct measurement",
-                    "Thresholds may vary by crop and region",
+                    "Satellite delay — data is not real-time (Sentinel-2 revisit is about 5 days).",
+                    "LAI / yield separation — NDVI does not measure yield directly; use LAI as secondary yield context.",
                 ],
                 "status": "fresh",
                 "latency_ms": 87,
@@ -557,12 +595,11 @@ class AlertAndLimitationEngineTests(unittest.TestCase):
         self.assertEqual(
             limitations,
             [
-                "Cloud-heavy imagery reduced the reliability of this composite.",
-                "Satellite data is not real-time (5-day revisit cycle)",
-                "Small block size may reduce satellite accuracy",
-                "NDVI saturation — use EVI for accuracy",
-                "LAI is an estimated value, not direct measurement",
-                "Thresholds may vary by crop and region",
+                "Cloud degradation — cloud cover above 50% makes this composite less reliable.",
+                "Satellite delay — data is not real-time (Sentinel-2 revisit is about 5 days).",
+                "Pixel mixing — small blocks can produce less accurate NDVI.",
+                "NDVI saturation — values above 0.8 may hide canopy differences, so use EVI for finer separation.",
+                "LAI / yield separation — NDVI does not measure yield directly; use LAI as secondary yield context.",
             ],
         )
 

@@ -28,6 +28,8 @@ describe('WaterIrrigationService', () => {
       block_id: 'block-123',
       source: 'real',
       freshness_status: 'fresh',
+      search_window_from: '2026-03-06',
+      search_window_to: '2026-03-20',
       composite_date_from: '2026-03-06',
       composite_date_to: '2026-03-20',
       last_satellite_update: '2026-03-20',
@@ -62,6 +64,8 @@ describe('WaterIrrigationService', () => {
     expect(result.ndwi).toBe(0.25);
     expect(result.dataQuality).toBe('good');
     expect(result.blockId).toBe('block-123');
+    expect(result.searchWindowFrom).toBe('2026-03-06');
+    expect(result.searchWindowTo).toBe('2026-03-20');
     expect(result.mapTileType).toBe('ndvi');
     expect(result.limitations).toEqual([]);
   });
