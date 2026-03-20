@@ -201,6 +201,26 @@
     }
 }
 
+@media (max-width: 900px) {
+    .actions-horizontal-grid {
+        flex-wrap: wrap;
+        overflow-x: visible;
+    }
+
+    .actions-horizontal-grid>* {
+        flex: 1 1 100%;
+    }
+
+    .action-card-horizontal {
+        min-width: 0;
+    }
+
+    .action-period-horizontal,
+    .action-item-horizontal .item-text {
+        overflow-wrap: anywhere;
+    }
+}
+
 @media (min-width: 641px) {
     .actions-horizontal-grid {
         flex-wrap: nowrap;

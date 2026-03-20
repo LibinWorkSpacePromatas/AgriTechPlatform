@@ -8,6 +8,8 @@ SATELLITE_CONTRACT_RESPONSE_FIELDS = {
     "block_id",
     "source",
     "freshness_status",
+    "search_window_from",
+    "search_window_to",
     "composite_date_from",
     "composite_date_to",
     "last_satellite_update",

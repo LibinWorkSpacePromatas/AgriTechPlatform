@@ -56,62 +56,9 @@ export interface DashboardActionItem {
   estimatedTime?: string;
 }
 
-export interface DashboardNutrientData {
-  status: string;
-  reason: string;
-  score: number;
-  details: string[];
-}
-
-export interface DashboardYieldImpact {
-  currentYieldPercent: number;
-  projectedLoss: number;
-  baseProfit: number;
-  factors: Array<{ name: string; impact: number; severity: string }>;
-}
-
-export interface DashboardAlternativeCrop {
-  cropName: string;
-  suitabilityScore: number;
-  profitPerHa: number;
-  waterRequirement: number;
-  reasons: string[];
-  compatible: boolean;
-  moistureCompatible: boolean;
-  compatibilityNote: string;
-}
-
-export interface DashboardDecisionData {
-  totalArea: number;
-  current: {
-    crop: string;
-    lossPerHa: number;
-    totalLoss: number;
-    yieldLossDetails: string;
-  };
-  switch: {
-    crop: string;
-    area: number;
-    profitPerHa: number;
-    totalProfit: number;
-    allocationMatch: number;
-    validated: boolean;
-    validationText: string;
-  };
-  keep: {
-    crop: string;
-    area: number;
-    profitPerHa: number;
-    totalProfit: number;
-  };
-}
-
 export interface DashboardAdvisorData {
-  riskScore: number | null;
-  riskLevel: 'Low' | 'Moderate' | 'High';
   sensorAnalysis: DashboardAnalysisItem[];
   actions: DashboardActionItem[];
-  riskExplanations: string[];
 }
 
 export interface DashboardTimeseriesPoint {
@@ -150,9 +97,14 @@ export interface DashboardInsightsResponse {
   error: string | null;
   dataQuality: BackendDataQuality;
   warning: string | null;
+  searchWindowFrom: string | null;
+  searchWindowTo: string | null;
   compositeDateFrom: string | null;
   compositeDateTo: string | null;
   lastSatelliteUpdate: string | null;
+  cloudCoverPct: number | null;
+  pixelCount: number;
+  mapTileUrl: string | null;
   mapTileType: 'ndvi' | 'ndwi' | null;
   limitations: string[];
   acquisitionMetadata: {
@@ -161,10 +113,6 @@ export interface DashboardInsightsResponse {
   };
   metrics: Record<DashboardMetricKey, DashboardMetric>;
   advisor: DashboardAdvisorData;
-  nutrient: DashboardNutrientData;
-  yieldImpact: DashboardYieldImpact;
-  alternativeCrops: DashboardAlternativeCrop[];
-  decision: DashboardDecisionData;
   insights: Array<{ metric: DashboardMetricKey; status: string; value: number | null }>;
   timeseries: DashboardTimeseriesPoint[];
   trends: DashboardTrendSummary;
@@ -270,7 +218,6 @@ export class DashboardApiService {
     const trends = this.buildTrendSummary(timeseries);
     const limitations = [...response.limitations];
     const warning = response.error || response.alerts[0]?.message || limitations[0] || null;
-    const ndreInterpretation = response.interpretations.ndre.status;
 
     return {
       blockId: response.block_id,
@@ -280,9 +227,14 @@ export class DashboardApiService {
       error: response.error,
       dataQuality: response.data_quality,
       warning,
+      searchWindowFrom: response.search_window_from,
+      searchWindowTo: response.search_window_to,
       compositeDateFrom: response.composite_date_from,
       compositeDateTo: response.composite_date_to,
       lastSatelliteUpdate: response.last_satellite_update,
+      cloudCoverPct: response.cloud_cover_pct,
+      pixelCount: response.pixel_count,
+      mapTileUrl: response.map_tile_url,
       mapTileType: response.map_tile_type,
       limitations,
       acquisitionMetadata: {
@@ -291,55 +243,8 @@ export class DashboardApiService {
       },
       metrics,
       advisor: {
-        riskScore: null,
-        riskLevel: 'Low',
         sensorAnalysis: METRIC_ORDER.map(key => this.buildAnalysisItem(metrics[key], key === 'ndvi')),
-        actions: this.buildActionItems(response),
-        riskExplanations: response.alerts.length
-          ? response.alerts.map(alert => `${alert.message} Threshold: ${alert.threshold}.`)
-          : limitations.length
-            ? limitations
-          : [`Primary NDVI interpretation: ${response.interpretations.ndvi.status}.`]
-      },
-      nutrient: {
-        status: ndreInterpretation,
-        reason: `NDRE interpretation: ${ndreInterpretation}.`,
-        score: 0,
-        details: [
-          `NDRE value: ${response.ndre ?? 'N/A'}.`,
-          `Backend interpretation: ${ndreInterpretation}.`
-        ]
-      },
-      yieldImpact: {
-        currentYieldPercent: 0,
-        projectedLoss: 0,
-        baseProfit: 0,
-        factors: []
-      },
-      alternativeCrops: [],
-      decision: {
-        totalArea: 0,
-        current: {
-          crop: 'Current Block',
-          lossPerHa: 0,
-          totalLoss: 0,
-          yieldLossDetails: 'Strict Sentinel-2 mode does not infer financial decisions from satellite data alone.'
-        },
-        switch: {
-          crop: 'Unavailable',
-          area: 0,
-          profitPerHa: 0,
-          totalProfit: 0,
-          allocationMatch: 0,
-          validated: false,
-          validationText: 'Strict Sentinel-2 mode does not generate crop switching advice.'
-        },
-        keep: {
-          crop: 'Current Block',
-          area: 0,
-          profitPerHa: 0,
-          totalProfit: 0
-        }
+        actions: this.buildActionItems(response)
       },
       insights: METRIC_ORDER.map(metric => ({
         metric,
@@ -454,11 +359,11 @@ export class DashboardApiService {
 
   private buildTrendSummary(timeseries: DashboardTimeseriesPoint[]): DashboardTrendSummary {
     const signals = {
-      ndvi: this.buildTrendSignal('NDVI', timeseries.map(point => ({ date: this.getObservationDateValue(point), value: point.ndvi }))),
-      ndwi: this.buildTrendSignal('NDWI', timeseries.map(point => ({ date: this.getObservationDateValue(point), value: point.ndwi }))),
-      ndre: this.buildTrendSignal('NDRE', timeseries.map(point => ({ date: this.getObservationDateValue(point), value: point.ndre }))),
-      evi: this.buildTrendSignal('EVI', timeseries.map(point => ({ date: this.getObservationDateValue(point), value: point.evi }))),
-      lai: this.buildTrendSignal('LAI', timeseries.map(point => ({ date: this.getObservationDateValue(point), value: point.lai })))
+      ndvi: this.buildTrendSignal('ndvi', 'NDVI', timeseries.map(point => ({ date: this.getObservationDateValue(point), value: point.ndvi }))),
+      ndwi: this.buildTrendSignal('ndwi', 'NDWI', timeseries.map(point => ({ date: this.getObservationDateValue(point), value: point.ndwi }))),
+      ndre: this.buildTrendSignal('ndre', 'NDRE', timeseries.map(point => ({ date: this.getObservationDateValue(point), value: point.ndre }))),
+      evi: this.buildTrendSignal('evi', 'EVI', timeseries.map(point => ({ date: this.getObservationDateValue(point), value: point.evi }))),
+      lai: this.buildTrendSignal('lai', 'LAI', timeseries.map(point => ({ date: this.getObservationDateValue(point), value: point.lai })))
     };
 
     const anomalySignals = Object.values(signals).filter(signal => signal.anomaly);
@@ -467,11 +372,16 @@ export class DashboardApiService {
       hasData: timeseries.some(point => METRIC_ORDER.some(metric => point[metric] !== null)),
       latestDate: timeseries.length ? this.getObservationDateValue(timeseries[timeseries.length - 1]) : null,
       ...signals,
-      anomalyMessage: anomalySignals.length ? 'Recent satellite history shows an unusual shift in one or more indices.' : null
+      anomalyMessage: signals.ndvi.anomaly
+        ? 'Recent NDVI history suggests emerging vegetation stress in this block.'
+        : anomalySignals.length
+          ? 'Recent satellite history shows an unusual shift in one or more supporting indices.'
+          : null
     };
   }
 
   private buildTrendSignal(
+    metricKey: DashboardMetricKey,
     metricLabel: string,
     values: Array<{ date: string; value: number | null }>
   ): DashboardTrendSignal {
@@ -485,17 +395,107 @@ export class DashboardApiService {
       };
     }
 
-    const first = numericValues[0].value;
-    const last = numericValues[numericValues.length - 1].value;
-    const delta = Number((last - first).toFixed(4));
-    const direction: DashboardTrendDirection = delta > 0 ? 'improving' : delta < 0 ? 'declining' : 'stable';
+    const analysisWindow = numericValues.slice(-4);
+    const splitIndex = Math.max(1, Math.floor(analysisWindow.length / 2));
+    const baselineWindow = analysisWindow.slice(0, splitIndex);
+    const recentWindow = analysisWindow.slice(splitIndex);
+    const baselineAverage = this.getAverageValue(baselineWindow.map(point => point.value));
+    const recentAverage = this.getAverageValue((recentWindow.length ? recentWindow : analysisWindow.slice(-1)).map(point => point.value));
+    const delta = Number((recentAverage - baselineAverage).toFixed(4));
+    const direction = this.resolveTrendDirection(metricKey, delta);
+    const previousValue = numericValues[numericValues.length - 2].value;
+    const latestValue = numericValues[numericValues.length - 1].value;
+    const anomaly = this.isTrendAnomaly(metricKey, previousValue, latestValue, delta);
 
     return {
       direction,
       delta,
-      anomaly: false,
-      message: `${metricLabel} is ${direction === 'stable' ? 'stable' : direction}.`
+      anomaly,
+      message: this.buildTrendMessage(metricKey, metricLabel, direction, latestValue, previousValue, delta, anomaly)
     };
+  }
+
+  private resolveTrendDirection(metricKey: DashboardMetricKey, delta: number): DashboardTrendDirection {
+    const threshold = this.getTrendDeltaThreshold(metricKey);
+    if (delta > threshold) {
+      return 'improving';
+    }
+    if (delta < -threshold) {
+      return 'declining';
+    }
+    return 'stable';
+  }
+
+  private isTrendAnomaly(
+    metricKey: DashboardMetricKey,
+    previousValue: number,
+    latestValue: number,
+    delta: number
+  ): boolean {
+    if (metricKey === 'ndvi') {
+      return latestValue < 0.35 || (previousValue >= 0.35 && latestValue < 0.35) || delta <= -0.05;
+    }
+
+    return Math.abs(delta) >= this.getTrendDeltaThreshold(metricKey) * 3;
+  }
+
+  private buildTrendMessage(
+    metricKey: DashboardMetricKey,
+    metricLabel: string,
+    direction: DashboardTrendDirection,
+    latestValue: number,
+    previousValue: number,
+    delta: number,
+    anomaly: boolean
+  ): string {
+    if (metricKey === 'ndvi') {
+      if (previousValue >= 0.35 && latestValue < 0.35) {
+        return 'NDVI dropped below the 0.35 health warning threshold in the latest satellite pass.';
+      }
+      if (latestValue < 0.35) {
+        return 'NDVI is below the 0.35 health warning threshold and indicates block stress.';
+      }
+      if (direction === 'declining' && delta <= -0.05) {
+        return 'NDVI is declining across recent satellite passes, which supports early stress detection.';
+      }
+      if (direction === 'declining') {
+        return 'NDVI is trending down and should be monitored for early stress.';
+      }
+      if (direction === 'improving') {
+        return 'NDVI is improving across recent satellite passes.';
+      }
+      return 'NDVI is stable across recent satellite passes.';
+    }
+
+    if (anomaly) {
+      return `${metricLabel} changed sharply in recent satellite passes.`;
+    }
+    if (direction === 'improving') {
+      return `${metricLabel} is improving across recent satellite passes.`;
+    }
+    if (direction === 'declining') {
+      return `${metricLabel} is declining across recent satellite passes.`;
+    }
+    return `${metricLabel} is stable across recent satellite passes.`;
+  }
+
+  private getTrendDeltaThreshold(metricKey: DashboardMetricKey): number {
+    switch (metricKey) {
+      case 'evi':
+        return 0.03;
+      case 'lai':
+        return 0.25;
+      default:
+        return 0.02;
+    }
+  }
+
+  private getAverageValue(values: number[]): number {
+    if (!values.length) {
+      return 0;
+    }
+
+    return values.reduce((total, value) => total + value, 0) / values.length;
   }
 
   private buildWeeklyHistory(points: Array<{ date: string; value: number }>): { labels: string[]; values: number[] } {
@@ -628,6 +628,8 @@ export class DashboardApiService {
       source: 'simulated',
       error: message,
       data_quality: 'no_data',
+      search_window_from: null,
+      search_window_to: null,
       composite_date_from: null,
       composite_date_to: null,
       last_satellite_update: null,

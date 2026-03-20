@@ -320,6 +320,8 @@ class SatelliteInsightsService:
         return self._decorate_response(
             self._enrich_response(BlockInsightsResponse(
                 block_id=str(block.id),
+                search_window_from=date_from,
+                search_window_to=date_to,
                 ndvi=computation.ndvi,
                 ndwi=computation.ndwi,
                 evi=computation.evi,
@@ -427,6 +429,14 @@ class SatelliteInsightsService:
         block_area_ha: float | None = None,
     ) -> BlockInsightsResponse:
         response = BlockInsightsResponse.model_validate(cache.payload)
+        search_window_from, search_window_to = self._infer_cached_search_window(cache)
+        if response.search_window_from is None or response.search_window_to is None:
+            response = response.model_copy(
+                update={
+                    "search_window_from": response.search_window_from or search_window_from,
+                    "search_window_to": response.search_window_to or search_window_to,
+                }
+            )
         needs_enrichment = not response.interpretations or response.last_satellite_update is None
         if needs_enrichment:
             return self._enrich_response(response, block_area_ha=block_area_ha)
@@ -556,6 +566,8 @@ class SatelliteInsightsService:
     ) -> BlockInsightsResponse:
         return self._enrich_response(BlockInsightsResponse(
             block_id=str(block_id),
+            search_window_from=window_from,
+            search_window_to=window_to,
             ndvi=None,
             ndwi=None,
             evi=None,
@@ -685,6 +697,15 @@ class SatelliteInsightsService:
         today = self._utcnow().date()
         # Exactly as requested: start_date = end_date - 14 days
         return today - timedelta(days=self._settings.satellite_composite_window_days), today
+
+    def _infer_cached_search_window(self, cache: SatelliteCache) -> tuple[date | None, date | None]:
+        reference_timestamp = cache.refreshed_at or cache.last_updated
+        if reference_timestamp is None:
+            return None, None
+
+        search_window_to = reference_timestamp.date()
+        search_window_from = search_window_to - timedelta(days=self._settings.satellite_composite_window_days - 1)
+        return search_window_from, search_window_to
 
     @staticmethod
     def _build_backfill_schedule(*, today: date, history_days: int, step_days: int) -> list[date]:

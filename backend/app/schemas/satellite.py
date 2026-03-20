@@ -94,6 +94,8 @@ class SatelliteContractResponse(BaseModel):
     block_id: str
     source: Literal["real", "simulated"] = "real"
     freshness_status: Literal["fresh", "stale", "updating"] = "fresh"
+    search_window_from: date | None = None
+    search_window_to: date | None = None
     composite_date_from: date | None = None
     composite_date_to: date | None = None
     last_satellite_update: date | None = None
@@ -187,6 +189,13 @@ class SatelliteContractResponse(BaseModel):
 
     @model_validator(mode="after")
     def validate_contract(self) -> "SatelliteContractResponse":
+        if (
+            self.search_window_from is not None
+            and self.search_window_to is not None
+            and self.search_window_from > self.search_window_to
+        ):
+            raise ValueError("search_window_from cannot be after search_window_to.")
+
         if (
             self.composite_date_from is not None
             and self.composite_date_to is not None

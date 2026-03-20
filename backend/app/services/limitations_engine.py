@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date
 
 from app.core.config import Settings, get_settings
 
@@ -17,26 +17,22 @@ def build_limitations(
     settings: Settings | None = None,
 ) -> list[str]:
     active_settings = settings or get_settings()
-    reference_day = today or datetime.now(timezone.utc).date()
     limitations: list[str] = []
 
     if data_quality == "degraded" or (
         cloud_cover_pct is not None
         and cloud_cover_pct > active_settings.satellite_degraded_cloud_threshold_pct
     ):
-        limitations.append("Cloud-heavy imagery reduced the reliability of this composite.")
+        limitations.append("Cloud degradation — cloud cover above 50% makes this composite less reliable.")
 
-    if composite_date_to is not None and (reference_day - composite_date_to).days > 3:
-        limitations.append("Satellite data is not real-time (5-day revisit cycle)")
+    limitations.append("Satellite delay — data is not real-time (Sentinel-2 revisit is about 5 days).")
 
     if block_area_ha is not None and block_area_ha < active_settings.satellite_pixel_mixing_block_area_threshold_ha:
-        limitations.append("Small block size may reduce satellite accuracy")
+        limitations.append("Pixel mixing — small blocks can produce less accurate NDVI.")
 
     if ndvi is not None and ndvi > 0.8:
-        limitations.append("NDVI saturation — use EVI for accuracy")
+        limitations.append("NDVI saturation — values above 0.8 may hide canopy differences, so use EVI for finer separation.")
 
-    if lai is not None:
-        limitations.append("LAI is an estimated value, not direct measurement")
+    limitations.append("LAI / yield separation — NDVI does not measure yield directly; use LAI as secondary yield context.")
 
-    limitations.append("Thresholds may vary by crop and region")
     return limitations
