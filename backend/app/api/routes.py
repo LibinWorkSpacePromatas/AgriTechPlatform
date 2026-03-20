@@ -1,19 +1,23 @@
+import json
+from time import sleep
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api import auth, scan
 from app.db.session import SessionLocal
-from app.db.models import Block, User, SatelliteCache
-from app.schemas.satellite import BlockInsightsResponse as GEEInsightsResponse
-from app.schemas.insights import BlockInsightsResponse
+from app.db.models import Block, User
+from app.schemas.opportunities import OpportunitiesResponse
+from app.schemas.satellite import BlockInsightsResponse as GEEInsightsResponse, SatelliteTimeseriesPoint
+from app.services.satellite_events import satellite_event_broker
+from app.services.satellite_access import satellite_access_service
 from app.services.satellite_insights import SatelliteInsightsUnavailableError, satellite_insights_service
-from app.services.insights import generate_insights
-from app.services.utils import calculate_confidence
-from app.services.dashboard_insights import build_block_insights
-from datetime import date
+from app.services.block_lookup import resolve_block
+from app.services.opportunities import build_opportunities_response
 
 router = APIRouter()
 router.include_router(auth.router, prefix="/auth", tags=["auth"])
@@ -52,31 +56,51 @@ def get_users(db: Session = Depends(get_db)):
 @router.get("/blocks/{user_id}")
 def get_blocks(user_id: UUID, db: Session = Depends(get_db)):
     try:
-        blocks = (
-            db.query(
-                Block.id,
-                Block.user_id,
-                Block.lanslu,
-                Block.soil_subgroup,
-                Block.soil_class,
-                Block.description,
-                Block.area_ha,
-                Block.crop,
-            )
-            .filter(Block.user_id == user_id)
-            .all()
-        )
+        blocks = db.execute(
+            text(
+                """
+                SELECT
+                    id,
+                    user_id,
+                    lanslu,
+                    soil_subgroup,
+                    soil_class,
+                    description,
+                    area_ha,
+                    crop,
+                    CASE
+                        WHEN geom IS NULL OR ST_IsEmpty(geom) THEN NULL
+                        ELSE ST_AsGeoJSON(ST_MakeValid(geom))
+                    END AS block_polygon,
+                    CASE
+                        WHEN geom IS NULL OR ST_IsEmpty(geom) THEN NULL
+                        ELSE ST_Y(ST_Centroid(ST_MakeValid(geom)))
+                    END AS centroid_lat,
+                    CASE
+                        WHEN geom IS NULL OR ST_IsEmpty(geom) THEN NULL
+                        ELSE ST_X(ST_Centroid(ST_MakeValid(geom)))
+                    END AS centroid_lon
+                FROM blocks
+                WHERE user_id = :user_id
+                ORDER BY lanslu NULLS LAST, id
+                """
+            ),
+            {"user_id": str(user_id)},
+        ).mappings().all()
 
         return [
             {
-                "id": str(block.id),
-                "user_id": str(block.user_id),
-                "lanslu": block.lanslu,
-                "soil_subgroup": block.soil_subgroup,
-                "soil_class": block.soil_class,
-                "description": block.description,
-                "area_ha": block.area_ha,
-                "crop": block.crop,
+                "id": str(block["id"]),
+                "user_id": str(block["user_id"]),
+                "lanslu": block["lanslu"],
+                "soil_subgroup": block["soil_subgroup"],
+                "soil_class": block["soil_class"],
+                "description": block["description"],
+                "area_ha": block["area_ha"],
+                "crop": block["crop"],
+                "block_polygon": json.loads(block["block_polygon"]) if block["block_polygon"] else None,
+                "centroid_lat": float(block["centroid_lat"]) if block["centroid_lat"] is not None else None,
+                "centroid_lon": float(block["centroid_lon"]) if block["centroid_lon"] is not None else None,
             }
             for block in blocks
         ]
@@ -86,76 +110,97 @@ def get_blocks(user_id: UUID, db: Session = Depends(get_db)):
 
 @router.get("/api/block/{block_identifier}/insights", response_model=GEEInsightsResponse, tags=["satellite"])
 @router.get("/block/{block_identifier}/insights", response_model=GEEInsightsResponse, tags=["satellite"])
-def get_block_insights(block_identifier: str, db: Session = Depends(get_db)):
+def get_block_insights(block_identifier: str):
     try:
-        block = db.query(Block).filter(Block.lanslu == block_identifier).first()
-
-        if block is None:
-            try:
-                block_uuid = UUID(block_identifier)
-            except ValueError:
-                block_uuid = None
-
-            if block_uuid is not None:
-                block = db.query(Block).filter(Block.id == block_uuid).first()
-
-        if block is None:
-            raise HTTPException(status_code=404, detail=f"Block {block_identifier} was not found.")
-
-        return satellite_insights_service.get_block_insights(db, block)
+        return satellite_access_service.get_block_insights(block_identifier)
     except SatelliteInsightsUnavailableError as exc:
         raise HTTPException(status_code=503, detail=f"Satellite insights are temporarily unavailable: {exc}") from exc
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=500, detail=f"Database error while fetching block insights: {exc}") from exc
 
 
-@router.get("/api/blocks/{block_id}/insights", response_model=dict, tags=["satellite-insights"])
-def get_block_dashboard_insights(block_id: str, db: Session = Depends(get_db)):
-    """
-    Enhanced endpoint specifically for the Dashboard.
-    Uses simulated agronomic modeling if real satellite data is missing.
-    """
-    block = None
-    
-    # Try finding by UUID first
+@router.get("/api/block/{block_identifier}/timeseries", response_model=list[SatelliteTimeseriesPoint], tags=["satellite"])
+def get_block_timeseries(block_identifier: str):
     try:
-        block_uuid = UUID(block_id)
-        block = db.query(Block).filter(Block.id == block_uuid).first()
-    except (ValueError, AttributeError):
-        pass
+        return satellite_access_service.get_block_timeseries(block_identifier)
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail=f"Database error while fetching block time series: {exc}") from exc
 
-    # If not found by UUID, try finding by LANSLU
-    if not block:
-        block = db.query(Block).filter(Block.lanslu == block_id).first()
 
-    if not block:
-        raise HTTPException(status_code=404, detail=f"Block {block_id} not found")
+@router.get("/api/blocks/{block_id}/insights", response_model=GEEInsightsResponse, tags=["satellite-insights"])
+def get_block_dashboard_insights(block_id: str):
+    try:
+        return satellite_access_service.get_block_insights(block_id)
+    except SatelliteInsightsUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=f"Satellite insights are temporarily unavailable: {exc}") from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail=f"Database error while fetching dashboard block insights: {exc}") from exc
 
-    # Try to find real satellite data first
-    cache = db.query(SatelliteCache).filter(SatelliteCache.block_id == block.id).first()
-    if cache:
-        p = cache.payload
-        data_age_days = (date.today() - cache.composite_date_to).days if cache.composite_date_to else 0
-        insights = generate_insights(p)
-        confidence = calculate_confidence(cache)
 
-        # Pass the real satellite payload as overrides to get correct status, labels and messages
-        rich_insights = build_block_insights(block, overrides=p)
-        
-        # Ensure flat fields are present for frontend normalization
-        for key in ["ndvi", "ndwi", "ndre", "evi", "lai"]:
-            val = p.get(key)
-            if val is not None:
-                rich_insights[key] = val
+@router.get("/api/blocks/{block_id}/events", tags=["satellite-events"])
+def stream_block_satellite_events(block_id: str):
+    try:
+        block_reference = satellite_access_service.resolve_block_reference(block_id)
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail=f"Database error while preparing satellite events: {exc}") from exc
 
-        rich_insights["insights"] = insights
-        rich_insights["confidence"] = confidence
-        rich_insights["status"] = "fresh"
-        rich_insights["source"] = "gee"
-        rich_insights["data_quality"] = cache.data_quality
-        rich_insights["composite_date_to"] = cache.composite_date_to.isoformat() if cache.composite_date_to else rich_insights["composite_date_to"]
-        
-        return rich_insights
+    def event_stream():
+        last_event_id: int | None = None
+        yield _format_sse_payload(
+            {
+                "block_id": block_reference.block_id,
+                "event": "connected",
+                "reason": "stream_opened",
+            }
+        )
 
-    # If no real data, return the simulated rich insights for the dashboard
-    return build_block_insights(block)
+        while True:
+            refresh_events = satellite_event_broker.list_events(
+                block_id=block_reference.block_id,
+                after_id=last_event_id,
+            )
+
+            if not refresh_events:
+                yield ": keep-alive\n\n"
+                sleep(1)
+                continue
+
+            for refresh_event in refresh_events:
+                last_event_id = refresh_event.id
+                yield _format_sse_payload(
+                    {
+                        "block_id": refresh_event.block_id,
+                        "event": refresh_event.event,
+                        "timestamp": refresh_event.timestamp.isoformat(),
+                        "reason": refresh_event.reason,
+                        "data_quality": refresh_event.data_quality,
+                        "error": refresh_event.error,
+                        "latency_ms": refresh_event.latency_ms,
+                    }
+                )
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.get("/api/opportunities/{block_id}", response_model=OpportunitiesResponse, tags=["opportunities"])
+def get_block_opportunities(block_id: str, db: Session = Depends(get_db)):
+    try:
+        block = resolve_block(db, block_id)
+        satellite_response = satellite_insights_service.get_block_insights(db, block)
+        return build_opportunities_response(block, satellite_response)
+    except SatelliteInsightsUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=f"Satellite opportunities are temporarily unavailable: {exc}") from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail=f"Database error while fetching growth opportunities: {exc}") from exc
+
+
+def _format_sse_payload(payload: dict) -> str:
+    return f"data: {json.dumps(payload)}\n\n"

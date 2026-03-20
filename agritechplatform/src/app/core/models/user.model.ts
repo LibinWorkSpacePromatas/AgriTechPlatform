@@ -12,6 +12,10 @@ export interface UserBlock {
     area: number; // in hectares
     latitude: number;
     longitude: number;
+    polygon?: {
+        type: 'Polygon' | 'MultiPolygon';
+        coordinates: number[][][] | number[][][][];
+    } | null;
 }
 
 export interface User {

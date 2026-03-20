@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import logging
 import json
-import httpx
 from typing import Any, Dict, List
 
 from app.core.config import get_settings
+
+try:
+    import httpx
+except ModuleNotFoundError:
+    httpx = None
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -20,6 +24,10 @@ class LLMService:
         """
         Generates a response from OpenRouter LLM.
         """
+        if httpx is None:
+            logger.warning("httpx is not installed. OpenRouter requests are disabled.")
+            return "I'm sorry, but the AI insights client dependency is not installed on this backend yet."
+
         if not self.api_key:
             logger.warning("OpenRouter API key not configured. Returning fallback message.")
             return "I'm sorry, but my AI insights engine is currently not configured with an API key."
@@ -55,10 +63,10 @@ class LLMService:
                     logger.error(f"Unexpected OpenRouter response format: {data}")
                     return "Error generating AI response: Unexpected format."
 
-        except httpx.HTTPStatusError as e:
-            logger.error(f"OpenRouter HTTP error: {e.response.status_code} - {e.response.text}")
-            return f"Error generating AI response: HTTP {e.response.status_code}."
         except Exception as e:
+            if httpx is not None and isinstance(e, httpx.HTTPStatusError):
+                logger.error(f"OpenRouter HTTP error: {e.response.status_code} - {e.response.text}")
+                return f"Error generating AI response: HTTP {e.response.status_code}."
             logger.error(f"Error calling OpenRouter: {str(e)}")
             return "Error connecting to AI engine."
 

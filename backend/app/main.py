@@ -33,6 +33,7 @@ async def lifespan(_: FastAPI):
         yield
     finally:
         satellite_refresh_scheduler.shutdown()
+        satellite_insights_service.shutdown()
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)

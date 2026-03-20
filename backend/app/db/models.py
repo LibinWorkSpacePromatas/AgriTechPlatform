@@ -72,15 +72,34 @@ class SatelliteRefreshJob(Base):
     last_duration_ms = Column(Integer, nullable=True)
 
 
+class SatelliteRefreshEventRecord(Base):
+    __tablename__ = "satellite_refresh_events"
+    __table_args__ = (
+        Index("ix_satellite_refresh_events_block_id_id", "block_id", "id"),
+        Index("ix_satellite_refresh_events_created_at", "created_at"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    block_id = Column(UUID(as_uuid=True), ForeignKey("blocks.id", ondelete="CASCADE"), nullable=False)
+    event = Column(String(32), nullable=False)
+    reason = Column(String(64), nullable=False)
+    data_quality = Column(String(32), nullable=True)
+    error = Column(Text, nullable=True)
+    latency_ms = Column(Integer, nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+
+
 class SatelliteTimeseries(Base):
     __tablename__ = "satellite_timeseries"
     __table_args__ = (
         Index("ix_satellite_timeseries_block_observed_on", "block_id", "observed_on"),
+        Index("ix_satellite_timeseries_block_recorded_at", "block_id", "recorded_at"),
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     block_id = Column(UUID(as_uuid=True), ForeignKey("blocks.id", ondelete="CASCADE"), nullable=False)
     observed_on = Column(Date, nullable=False)
+    recorded_at = Column(DateTime(timezone=True), nullable=False)
     composite_date_from = Column(Date, nullable=True)
     composite_date_to = Column(Date, nullable=True)
     geometry_hash = Column(String(128), nullable=False)

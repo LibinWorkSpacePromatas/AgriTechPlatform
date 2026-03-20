@@ -16,8 +16,14 @@ from app.core.config import Settings, get_settings
 logger = logging.getLogger(__name__)
 
 DATASET_ID = "COPERNICUS/S2_SR_HARMONIZED"
-SPECTRAL_BANDS = ["B2", "B3", "B4", "B5", "B6", "B8"]
-MASKED_SCL_CLASSES = (1, 3, 8, 9, 10, 11)
+SPECTRAL_BANDS = ["B2", "B3", "B4", "B6", "B8", "B11"]
+NDVI_BANDS = ("B8", "B4")
+NDWI_BANDS = ("B3", "B8")
+NDRE_BANDS = ("B6", "B4")
+EVI_EXPRESSION = "2.5 * ((nir - red) / (nir + 6 * red - 7.5 * blue + 1))"
+LAI_EXPRESSION = "3.618 * exp(2.04 * ndvi) - 2"
+MASKED_SCL_CLASSES = (3, 8, 9, 10)
+DEGRADED_CLOUD_COVER_PCT = get_settings().satellite_degraded_cloud_threshold_pct
 
 
 class EarthEngineConfigurationError(RuntimeError):
@@ -42,6 +48,16 @@ class SatelliteComputation:
     composite_date_to: date | None
     map_tile_url: str | None
     image_count: int
+    actual_dates: list[date]
+    execution_ms: int
+
+
+@dataclass(slots=True)
+class AcquisitionMetadataComputation:
+    image_count: int
+    actual_dates: list[date]
+    composite_date_from: date | None
+    composite_date_to: date | None
     execution_ms: int
 
 
@@ -50,6 +66,10 @@ class EarthEngineClient:
         self._settings = settings or get_settings()
         self._lock = Lock()
         self._initialized = False
+        self._executor = ThreadPoolExecutor(
+            max_workers=max(1, self._settings.satellite_worker_count),
+            thread_name_prefix="satellite-gee",
+        )
 
         try:
             import ee  # type: ignore
@@ -113,25 +133,44 @@ class EarthEngineClient:
         date_to: date,
         generate_tile_url: bool | None = None,
     ) -> SatelliteComputation:
-        executor = ThreadPoolExecutor(max_workers=1)
-        future = executor.submit(
+        future = self._executor.submit(
             self._compute_block_insights_impl,
             geometry_geojson,
             date_from=date_from,
             date_to=date_to,
             generate_tile_url=generate_tile_url,
         )
-        cancel_futures = False
         try:
             return future.result(timeout=self._settings.satellite_gee_timeout_seconds)
         except FuturesTimeoutError as exc:
-            cancel_futures = True
             future.cancel()
             raise EarthEngineExecutionError(
                 f"Earth Engine computation timed out after {self._settings.satellite_gee_timeout_seconds} seconds."
             ) from exc
-        finally:
-            executor.shutdown(wait=False, cancel_futures=cancel_futures)
+
+    def get_acquisition_metadata(
+        self,
+        geometry_geojson: dict[str, Any],
+        *,
+        date_from: date,
+        date_to: date,
+    ) -> AcquisitionMetadataComputation:
+        future = self._executor.submit(
+            self._get_acquisition_metadata_impl,
+            geometry_geojson,
+            date_from=date_from,
+            date_to=date_to,
+        )
+        try:
+            return future.result(timeout=self._settings.satellite_gee_timeout_seconds)
+        except FuturesTimeoutError as exc:
+            future.cancel()
+            raise EarthEngineExecutionError(
+                f"Earth Engine acquisition lookup timed out after {self._settings.satellite_gee_timeout_seconds} seconds."
+            ) from exc
+
+    def shutdown(self) -> None:
+        self._executor.shutdown(wait=False, cancel_futures=True)
 
     def _compute_block_insights_impl(
         self,
@@ -149,23 +188,10 @@ class EarthEngineClient:
 
         try:
             geometry = ee.Geometry(geometry_geojson)
-            collection = (
-                ee.ImageCollection(DATASET_ID)
-                .filterDate(date_from.isoformat(), (date_to + timedelta(days=1)).isoformat())
-                .filterBounds(geometry)
-                .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", self._settings.satellite_cloud_filter_pct))
-            )
-
-            # Debugging requested by user
-            logger.info("Start Date: %s", date_from)
-            logger.info("End Date: %s", date_to)
-
-            image_count = int(collection.size().getInfo())
-            logger.info("Image count: %s", image_count)
-
-            cloud_values = collection.aggregate_array("CLOUDY_PIXEL_PERCENTAGE").getInfo()
-            logger.info("Cloud values: %s", cloud_values)
-
+            collection = self._build_collection(geometry, date_from=date_from, date_to=date_to)
+            metadata_summary = self._build_collection_metadata_summary(collection).getInfo()
+            image_count = int(metadata_summary.get("image_count") or 0)
+            actual_dates = self._parse_iso_dates(metadata_summary.get("actual_dates"))
             if image_count == 0:
                 return SatelliteComputation(
                     ndvi=None,
@@ -180,13 +206,13 @@ class EarthEngineClient:
                     composite_date_to=date_to,
                     map_tile_url=None,
                     image_count=0,
+                    actual_dates=[],
                     execution_ms=int((perf_counter() - started_at) * 1000),
                 )
 
             prepared_collection = collection.map(self._prepare_image)
             composite = prepared_collection.select(SPECTRAL_BANDS).median()
             indices = self._build_indices(composite).clip(geometry)
-
             summary = self._build_summary(collection, prepared_collection, indices, geometry).getInfo()
             stats = summary.get("stats", {})
             pixel_count = int(stats.get("ndvi_count") or 0)
@@ -204,24 +230,66 @@ class EarthEngineClient:
                 map_tile_url = self._build_ndwi_tile_url(indices.select("ndwi").clip(geometry))
 
             return SatelliteComputation(
-                ndvi=self._maybe_round(stats.get("ndvi_mean")),
-                ndwi=self._maybe_round(stats.get("ndwi_mean")),
+                ndvi=self._validate_ratio_index(stats.get("ndvi_mean"), index_name="ndvi"),
+                ndwi=self._validate_ratio_index(stats.get("ndwi_mean"), index_name="ndwi"),
                 evi=self._maybe_round(stats.get("evi_mean")),
-                ndre=self._maybe_round(stats.get("ndre_mean")),
+                ndre=self._validate_ratio_index(stats.get("ndre_mean"), index_name="ndre"),
                 lai=self._maybe_round(stats.get("lai_mean")),
                 cloud_cover_pct=cloud_cover_pct,
                 pixel_count=pixel_count,
                 data_quality="no_data" if pixel_count == 0 else data_quality,
-                composite_date_from=date_from,
-                composite_date_to=date_to,
+                composite_date_from=self._parse_iso_date(metadata_summary.get("composite_date_from")) or date_from,
+                composite_date_to=self._parse_iso_date(metadata_summary.get("composite_date_to")) or date_to,
                 map_tile_url=map_tile_url,
                 image_count=image_count,
+                actual_dates=actual_dates,
                 execution_ms=int((perf_counter() - started_at) * 1000),
             )
         except EarthEngineConfigurationError:
             raise
         except Exception as exc:
             raise EarthEngineExecutionError(f"Earth Engine computation failed: {exc}") from exc
+
+    def _get_acquisition_metadata_impl(
+        self,
+        geometry_geojson: dict[str, Any],
+        *,
+        date_from: date,
+        date_to: date,
+    ) -> AcquisitionMetadataComputation:
+        self.initialize()
+        ee = self._ee
+        assert ee is not None
+
+        started_at = perf_counter()
+
+        try:
+            geometry = ee.Geometry(geometry_geojson)
+            collection = self._build_collection(geometry, date_from=date_from, date_to=date_to)
+            summary = self._build_collection_metadata_summary(collection).getInfo()
+
+            return AcquisitionMetadataComputation(
+                image_count=int(summary.get("image_count") or 0),
+                actual_dates=self._parse_iso_dates(summary.get("actual_dates")),
+                composite_date_from=self._parse_iso_date(summary.get("composite_date_from")) or date_from,
+                composite_date_to=self._parse_iso_date(summary.get("composite_date_to")) or date_to,
+                execution_ms=int((perf_counter() - started_at) * 1000),
+            )
+        except EarthEngineConfigurationError:
+            raise
+        except Exception as exc:
+            raise EarthEngineExecutionError(f"Earth Engine acquisition lookup failed: {exc}") from exc
+
+    def _build_collection(self, geometry: Any, *, date_from: date, date_to: date) -> Any:
+        ee = self._ee
+        assert ee is not None
+
+        return (
+            ee.ImageCollection(DATASET_ID)
+            .filterDate(date_from.isoformat(), (date_to + timedelta(days=1)).isoformat())
+            .filterBounds(geometry)
+            .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", self._settings.satellite_cloud_filter_pct))
+        )
 
     def _prepare_image(self, image: Any) -> Any:
         ee = self._ee
@@ -240,45 +308,19 @@ class EarthEngineClient:
         return clear_mask
 
     def _build_indices(self, composite: Any) -> Any:
-        """
-        Builds the five core indices (NDVI, NDWI, NDRE, EVI, LAI) from the median composite.
-        """
-        # 1. NDVI (Health): (NIR - Red) / (NIR + Red)
-        ndvi = composite.normalizedDifference(["B8", "B4"]).rename("ndvi")
-
-        # 2. NDWI (Water): (Green - NIR) / (Green + NIR)
-        ndwi = composite.normalizedDifference(["B3", "B8"]).rename("ndwi")
-
-        # 3. NDRE (Nutrient): (RedEdge2 - Red) / (RedEdge2 + Red)
-        # PDF FIX: (B6 - B4) / (B6 + B4)
-        ndre = composite.normalizedDifference(["B6", "B4"]).rename("ndre")
-
-        # 4. EVI (Canopy): 2.5 * ((NIR - Red) / (NIR + 6 * Red - 7.5 * Blue + 1))
-        evi = (
-            composite.expression(
-                "2.5 * ((B8 - B4) / (B8 + 6 * B4 - 7.5 * B2 + 1))",
-                {
-                    "B8": composite.select("B8"),
-                    "B4": composite.select("B4"),
-                    "B2": composite.select("B2"),
-                },
-            )
-            .rename("evi")
-        )
-
-        # 5. LAI (Yield): 3.618 * exp(2.04 * NDVI) - 2
-        lai = (
-            ndvi.expression("3.618 * exp(2.04 * ndvi) - 2", {"ndvi": ndvi})
-            .rename("lai")
-        )
-
-        return (
-            composite.addBands(ndvi)
-            .addBands(ndwi)
-            .addBands(ndre)
-            .addBands(evi)
-            .addBands(lai)
-        )
+        ndvi = composite.normalizedDifference(list(NDVI_BANDS)).rename("ndvi")
+        ndwi = composite.normalizedDifference(list(NDWI_BANDS)).rename("ndwi")
+        evi = composite.expression(
+            EVI_EXPRESSION,
+            {
+                "nir": composite.select("B8"),
+                "red": composite.select("B4"),
+                "blue": composite.select("B2"),
+            },
+        ).rename("evi")
+        ndre = composite.normalizedDifference(list(NDRE_BANDS)).rename("ndre")
+        lai = ndvi.expression(LAI_EXPRESSION, {"ndvi": ndvi}).rename("lai")
+        return ndvi.addBands(ndwi).addBands(evi).addBands(ndre).addBands(lai)
 
     def _build_summary(self, collection: Any, prepared_collection: Any, indices: Any, geometry: Any) -> Any:
         ee = self._ee
@@ -304,14 +346,35 @@ class EarthEngineClient:
             None,
         )
 
-        chronological = collection.sort("system:time_start")
-        newest_first = collection.sort("system:time_start", False)
         return ee.Dictionary(
             {
                 "stats": stats,
                 "cloud_cover_pct": cloud_cover_pct,
-                "composite_date_from": ee.Date(chronological.first().get("system:time_start")).format("YYYY-MM-dd"),
-                "composite_date_to": ee.Date(newest_first.first().get("system:time_start")).format("YYYY-MM-dd"),
+            }
+        )
+
+    def _build_collection_metadata_summary(self, collection: Any) -> Any:
+        ee = self._ee
+        assert ee is not None
+
+        actual_dates = ee.List(collection.aggregate_array("system:time_start")).map(
+            lambda time_start: ee.Date(time_start).format("YYYY-MM-dd")
+        )
+
+        return ee.Dictionary(
+            {
+                "image_count": collection.size(),
+                "actual_dates": actual_dates.distinct().sort(),
+                "composite_date_from": ee.Algorithms.If(
+                    collection.size().gt(0),
+                    ee.Date(collection.aggregate_min("system:time_start")).format("YYYY-MM-dd"),
+                    None,
+                ),
+                "composite_date_to": ee.Algorithms.If(
+                    collection.size().gt(0),
+                    ee.Date(collection.aggregate_max("system:time_start")).format("YYYY-MM-dd"),
+                    None,
+                ),
             }
         )
 
@@ -321,13 +384,12 @@ class EarthEngineClient:
         Palette: red (severe), orange (moderate), yellow (mild), green (optimal)
         """
         try:
-            map_id = ndwi_image.getMapId(
-                {
-                    "min": -0.5,
-                    "max": 0.5,
-                    "palette": ["red", "orange", "yellow", "green"],
-                }
+            ndwi_vis = ndwi_image.visualize(
+                min=-0.5,
+                max=0.5,
+                palette=["red", "orange", "yellow", "green"],
             )
+            map_id = ndwi_vis.getMapId()
         except Exception as exc:
             logger.warning("Unable to generate NDWI tile URL: %s", exc)
             return None
@@ -354,11 +416,26 @@ class EarthEngineClient:
     def _classify_quality(self, *, pixel_count: int, cloud_cover_pct: float | None, image_count: int) -> str:
         if pixel_count <= 0:
             return "no_data"
-        if image_count < 2:
+        if pixel_count < 10:
             return "degraded"
-        if cloud_cover_pct is not None and cloud_cover_pct >= self._settings.satellite_degraded_cloud_threshold_pct:
+        if cloud_cover_pct is not None and cloud_cover_pct > 50:
             return "degraded"
         return "good"
+
+    @classmethod
+    def _validate_ratio_index(cls, value: Any, *, index_name: str) -> float | None:
+        rounded = cls._maybe_round(value)
+        if rounded is None:
+            return None
+        if not cls._is_ratio_index_in_range(rounded):
+            raise EarthEngineExecutionError(f"{index_name.upper()} mean {rounded} fell outside the expected [-1, 1] range.")
+        return rounded
+
+    @staticmethod
+    def _is_ratio_index_in_range(value: float | None) -> bool:
+        if value is None:
+            return False
+        return -1.0 <= float(value) <= 1.0
 
     @staticmethod
     def _maybe_round(value: Any, digits: int = 4) -> float | None:
@@ -371,6 +448,12 @@ class EarthEngineClient:
         if not value:
             return None
         return date.fromisoformat(str(value))
+
+    @classmethod
+    def _parse_iso_dates(cls, values: Any) -> list[date]:
+        if not values:
+            return []
+        return [parsed for parsed in (cls._parse_iso_date(value) for value in values) if parsed is not None]
 
 
 earth_engine_client = EarthEngineClient()

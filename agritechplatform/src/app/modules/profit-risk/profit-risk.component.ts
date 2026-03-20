@@ -1,9 +1,11 @@
-import { Component, OnInit, computed, signal, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { Subject, distinctUntilChanged, filter, takeUntil } from 'rxjs';
 import { AdelaideTimePipe } from '../../shared/pipes/adelaide-time.pipe';
 import { BlockService } from '../../shared/services/block.service';
+import { DashboardApiService, DashboardInsightsResponse } from '../../core/services/dashboard-api.service';
 import { 
   LucideAngularModule, 
   TrendingUp, 
@@ -28,6 +30,7 @@ import { User } from '../../core/models/user.model';
 export interface Crop {
   name: string;
   yieldPerHa: number;
+  adjustedYieldPerHa?: number;
   pricePerTon: number;
   waterMLPerHa: number;
   variableCosts: number;
@@ -55,7 +58,7 @@ export interface Crop {
   templateUrl: './profit-risk.component.html',
   styleUrls: ['./profit-risk.component.css']
 })
-export class ProfitRiskComponent implements OnInit {
+export class ProfitRiskComponent implements OnInit, OnDestroy {
   // Icons
   readonly TrendingUp = TrendingUp;
   readonly AlertTriangle = AlertTriangle;
@@ -80,8 +83,10 @@ export class ProfitRiskComponent implements OnInit {
   ShieldIcon = ShieldCheck;
 
   user: User | undefined;
+  private readonly destroy$ = new Subject<void>();
   private blockService = inject(BlockService);
   selectedBlock = toSignal(this.blockService.selectedBlock$);
+  private dashboardApiService = inject(DashboardApiService);
 
   // State
   waterAllocation = signal<number>(100); // Default 100% as requested
@@ -92,6 +97,9 @@ export class ProfitRiskComponent implements OnInit {
   hoveredRevenueCrop = signal<string | null>(null);
   hoveredCrop = signal<any>(null); // For quadrant tooltip
   selectedQuadrantCrop = signal<any>(null); // For detail modal
+  liveInsights = signal<DashboardInsightsResponse | null>(null);
+  isSatelliteLoading = signal<boolean>(false);
+  satelliteError = signal<string | null>(null);
 
   // Constants
   readonly WATER_PRICE_PER_ML = 150; // Assumed temporary value, adjust if needed
@@ -184,32 +192,46 @@ export class ProfitRiskComponent implements OnInit {
 
   ngOnInit() {
     this.user = this.authService.getCurrentUser() || this.userDataService.getUsers()[0];
+
+    this.blockService.block$
+      .pipe(
+        takeUntil(this.destroy$),
+        filter(block => !!block),
+        distinctUntilChanged((previous, current) => previous.lan === current.lan)
+      )
+      .subscribe(block => {
+        this.loadSatelliteYield(block.lan || block.id);
+      });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   // Computed Values
   cropMetrics = computed(() => {
       const allocation = this.waterAllocation() / 100;
+      const yieldFactor = 1;
 
       return this.crops.map(crop => {
-          // Logic for Revenue Chart (Standard)
           const effectiveWaterProportion = allocation;
-          const adjustedYield = crop.yieldPerHa * effectiveWaterProportion;
+          const adjustedYield = crop.yieldPerHa * effectiveWaterProportion * yieldFactor;
           const revenuePerHaStandard = adjustedYield * crop.pricePerTon;
           const revenuePerML = crop.waterMLPerHa > 0 ? revenuePerHaStandard / crop.waterMLPerHa : 0;
           const riskAdjustedRevenuePerML = revenuePerML * (1 - crop.volatilityFactor);
 
-          // Logic for Net Margin Chart (Specific Targets)
-          // Revenue scales with allocation, Costs stay fixed
-          const marginRevenue = (crop.marginParams?.revenueAt100 || 0) * allocation;
-          const marginCosts = crop.marginParams?.costsAt100 || 0;
+          const marginRevenue = revenuePerHaStandard;
+          const marginCosts = crop.variableCosts + crop.fixedCosts;
           const netMarginPerHa = marginRevenue - marginCosts;
 
           const yearsToProfit = netMarginPerHa > 0 ? Math.ceil(30000 / netMarginPerHa) : 'Ongoing losses';
 
           return {
               ...crop,
-              revenuePerHa: marginRevenue, // Use margin revenue for tooltip
-              totalCostsPerHa: marginCosts, // Use margin costs for tooltip
+              adjustedYieldPerHa: adjustedYield,
+              revenuePerHa: marginRevenue,
+              totalCostsPerHa: marginCosts,
               netMarginPerHa,
               revenuePerML,
               riskAdjustedRevenuePerML,
@@ -277,6 +299,18 @@ export class ProfitRiskComponent implements OnInit {
   }
 
   readonly WINE_GRAPE_BASELINE = 493.44512195121956;
+
+  liveLai = computed(() => this.liveInsights()?.metrics.lai.raw ?? null);
+  liveLaiStatus = computed(() => this.liveInsights()?.metrics.lai.label ?? 'No data');
+
+  currentYieldMode = computed(() => {
+      const insights = this.liveInsights();
+      if (!insights || insights.source !== 'real' || insights.dataQuality === 'no_data' || this.liveLai() === null) {
+          return 'Baseline market assumptions (live LAI unavailable)';
+      }
+
+      return `Live LAI ${this.liveLai()!.toFixed(2)} (${this.liveLaiStatus()}) shown for yield context`;
+  });
 
   wineGrapeMetrics = computed(() => {
       return this.cropMetrics().find(c => c.name === 'Wine Grapes');
@@ -389,6 +423,10 @@ export class ProfitRiskComponent implements OnInit {
       return ((cropRevenue - wineGrapesRevenue) / wineGrapesRevenue) * 100;
   }
 
+  getProjectedYieldForCrop(cropName: string): number {
+      return this.cropMetrics().find(c => c.name === cropName)?.adjustedYieldPerHa ?? 0;
+  }
+
     // Quadrant positioning for Global Market Quadrant view
     readonly quadrantCrops = (() => {
         const wineGrapesRevenue = 759;
@@ -499,4 +537,24 @@ export class ProfitRiskComponent implements OnInit {
             }
         ];
     })();
+
+  private loadSatelliteYield(blockId: string): void {
+      this.isSatelliteLoading.set(true);
+      this.satelliteError.set(null);
+
+      this.dashboardApiService.getBlockInsights(blockId)
+          .pipe(takeUntil(this.destroy$))
+          .subscribe({
+              next: response => {
+                  this.liveInsights.set(response);
+                  this.isSatelliteLoading.set(false);
+              },
+              error: error => {
+                  console.error('Profit & Risk satellite load failed.', error);
+                  this.liveInsights.set(null);
+                  this.satelliteError.set('Unable to load live LAI for this block.');
+                  this.isSatelliteLoading.set(false);
+              }
+          });
+  }
 }

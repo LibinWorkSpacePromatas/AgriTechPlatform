@@ -1,46 +1,51 @@
 from __future__ import annotations
 
-from datetime import date
-from typing import List, Optional
+from datetime import date as date_type
+from typing import List, Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-
-class Insight(BaseModel):
-    type: Optional[str] = None
-    severity: Optional[str] = None
-    message: Optional[str] = None
-    reason: Optional[str] = None
-    action_window: Optional[str] = None
+from app.schemas.satellite import SatelliteContractResponse
 
 
-class BlockInsightsResponse(BaseModel):
-    block_id: str
+class MetricInsight(BaseModel):
+    metric: Literal["ndvi", "ndwi", "ndre", "evi", "lai"]
+    value: float | None = None
+    status: str
+
+
+class DashboardBlockInsightsResponse(SatelliteContractResponse):
     crop: Optional[str] = None
-    ndvi: Optional[float] = None
-    ndwi: Optional[float] = None
-    ndre: Optional[float] = None
-    evi: Optional[float] = None
-    lai: Optional[float] = None
-    cloud_cover: Optional[float] = None
-    date: Optional[date] = None
     data_age_days: int = 0
     confidence: str = "high"
-    data_quality: str
-    insights: List[Insight] = []
+    insights: List[MetricInsight] = Field(default_factory=list)
 
 
-class GrowerGPTResponse(BaseModel):
-    block_id: str
+class WaterResponse(SatelliteContractResponse):
+    lanslu: str
+    date: Optional[date_type] = None
+    status: Literal["Well-watered", "Mild stress", "Moderate stress", "Severe stress", "No data"]
+    recommendation: str
+
+
+class GrowerGPTResponse(SatelliteContractResponse):
     crop: Optional[str] = None
-    date: Optional[date] = None
+    date: Optional[date_type] = None
     data_age_days: int = 0
     confidence: str = "high"
-    insights: List[Insight]
+    insights: List[MetricInsight] = Field(default_factory=list)
     message: Optional[str] = None
+
+
+class UserGPTInsight(BaseModel):
+    block_id: str
+    block_name: str
+    crop: Optional[str] = None
+    freshness_status: Literal["fresh", "stale", "updating"] = "fresh"
+    insight: MetricInsight
 
 
 class UserGPTResponse(BaseModel):
     user_id: str
     summary: str
-    blocks: List[GrowerGPTResponse]
+    insights: List[UserGPTInsight] = Field(default_factory=list)
