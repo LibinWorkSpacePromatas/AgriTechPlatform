@@ -48,6 +48,16 @@
 
     <!-- OVERVIEW TAB CONTENT -->
     <div *ngIf="activeTab === 'overview'" class="fade-in">
+        <div class="advisor-section card-box" *ngIf="showNoRealDataState">
+            <div class="section-title warning-title">
+                <i-lucide [img]="AlertTriangleIcon" size="20" class="icon-orange"></i-lucide>
+                {{ dataStatusTitle }}
+            </div>
+            <p class="warning-text">{{ dataStatusMessage }}</p>
+            <p class="warning-text">Satellite-derived dashboard signals will appear here once a usable real composite is available.</p>
+        </div>
+
+        <ng-container *ngIf="!showNoRealDataState">
         <!-- SENSORS SECTION -->
         <div class="section-label">
             <i-lucide [img]="SproutIcon" size="16"></i-lucide>
@@ -91,32 +101,82 @@
 
                     <!-- TABS -->
                     <div class="popup-tabs">
-                        <button class="popup-tab" [class.active]="activeSensorTab === 'hours'"
-                            (click)="setSensorTab('hours')">Hours</button>
-                        <button class="popup-tab" [class.active]="activeSensorTab === 'days'"
-                            (click)="setSensorTab('days')">Days</button>
-                        <button class="popup-tab" [class.active]="activeSensorTab === 'weeks'"
-                            (click)="setSensorTab('weeks')">Weeks</button>
+                        <button class="popup-tab" [class.active]="activeSensorTab === 'recent'"
+                            (click)="setSensorTab('recent')">Recent</button>
+                        <button class="popup-tab" [class.active]="activeSensorTab === 'daily'"
+                            (click)="setSensorTab('daily')">Daily</button>
+                        <button class="popup-tab" [class.active]="activeSensorTab === 'weekly'"
+                            (click)="setSensorTab('weekly')">Weekly Avg</button>
                     </div>
 
                     <!-- CHART -->
                     <div class="popup-chart-container">
-                        <app-line-chart [data]="currentSensorData" [labels]="currentSensorLabels" [height]="180"
-                            color="#10b981" [showAxes]="true"
-                            [minY]="hoveredSensor?.suggestedMin ?? lockedSensor?.suggestedMin"
+                        <app-line-chart *ngIf="currentSensorData.length; else noSensorHistory"
+                            [data]="currentSensorData" [labels]="currentSensorLabels" [height]="180" color="#10b981"
+                            [showAxes]="true" [minY]="hoveredSensor?.suggestedMin ?? lockedSensor?.suggestedMin"
                             [maxY]="hoveredSensor?.suggestedMax ?? lockedSensor?.suggestedMax">
                         </app-line-chart>
+                        <ng-template #noSensorHistory>
+                            <div class="trend-empty-state">
+                                Historical samples are not available for this metric yet.
+                            </div>
+                        </ng-template>
                     </div>
 
                     <div class="popup-footer">
-                        <span class="trend-indicator">
-                            <i-lucide [img]="CheckCircleIcon" size="12"></i-lucide> Stable
-                        </span>
+                        <span class="trend-indicator">{{ getSensorTrendSummary(hoveredSensor || lockedSensor) }}</span>
                         <span class="average-value">Avg: {{ getAverage(currentSensorData) | number:'1.1-1' }}</span>
                     </div>
                 </div>
 
             </div>
+        </div>
+
+        <div class="satellite-trend-card">
+            <div class="trend-card-header">
+                <div>
+                    <div class="section-label" style="margin-bottom: 0.35rem;">
+                        <i-lucide [img]="LeafIcon" size="16"></i-lucide>
+                        Historical Satellite Trends
+                    </div>
+                    <p class="trend-card-subtitle">NDVI and NDWI time-series from immutable refresh-cycle history.</p>
+                </div>
+                <div class="trend-card-meta">Latest observation: {{ satelliteTrendLastUpdated }}</div>
+            </div>
+
+            <div class="trend-chip-row" *ngIf="satelliteTrendSummary as summary">
+                <span class="trend-chip" [ngClass]="getTrendBadgeClass(summary.ndvi.direction)">
+                    NDVI {{ getTrendLabel(summary.ndvi.direction) }}
+                </span>
+                <span class="trend-chip" [ngClass]="getTrendBadgeClass(summary.ndwi.direction)">
+                    NDWI {{ getTrendLabel(summary.ndwi.direction) }}
+                </span>
+                <span class="trend-chip neutral" *ngIf="summary.anomalyMessage">{{ summary.anomalyMessage }}</span>
+            </div>
+
+            <div class="trend-summary-grid" *ngIf="satelliteTrendSummary as summary">
+                <div class="trend-summary-item">
+                    <div class="trend-summary-label">NDVI trend</div>
+                    <div class="trend-summary-text">{{ summary.ndvi.message }}</div>
+                </div>
+                <div class="trend-summary-item">
+                    <div class="trend-summary-label">NDWI trend</div>
+                    <div class="trend-summary-text">{{ summary.ndwi.message }}</div>
+                </div>
+            </div>
+
+            <div class="trend-chart-shell" *ngIf="hasSatelliteTrendData; else emptyTrendState">
+                <app-line-chart [series]="satelliteTrendSeries" [labels]="satelliteTrendLabels" [height]="240"
+                    [showAxes]="true" [minY]="-1" [maxY]="1">
+                </app-line-chart>
+            </div>
+
+            <ng-template #emptyTrendState>
+                <div class="trend-empty-state">
+                    Historical NDVI/NDWI data is still being collected for this block. The trend chart will appear once at
+                    least two refresh cycles are available.
+                </div>
+            </ng-template>
         </div>
 
         <!-- NUTRIENT SECTION -->
@@ -131,6 +191,7 @@
                 <i-lucide [img]="ExternalLinkIcon" size="12" class="icon-hint"></i-lucide>
             </div>
         </div>
+        </ng-container>
 
         <!-- LIVE WEATHER SECTION -->
         <div class="weather-card">
@@ -241,7 +302,7 @@
                 <div class="sub-text">
                     Powered by backend block insights -
                     <span class="refresh-indicator">
-                        <i-lucide [img]="RefreshCwIcon" size="12" [class.refresh-spinner]="isInsightsLoading"></i-lucide>
+                        <i-lucide [img]="RefreshCwIcon" size="12" [class.refresh-spinner]="isInsightsLoading || isInsightsRefreshing"></i-lucide>
                         {{ insightsStatusLabel }}
                     </span>
                     <span class="refresh-indicator"> {{ insightsLatencyLabel }} </span>
@@ -260,6 +321,17 @@
                 </button>
             </div>
         </div>
+
+        <div class="advisor-section card-box" *ngIf="showNoRealDataState">
+            <div class="section-title warning-title">
+                <i-lucide [img]="AlertTriangleIcon" size="20" class="icon-orange"></i-lucide>
+                {{ dataStatusTitle }}
+            </div>
+            <p class="warning-text">{{ dataStatusMessage }}</p>
+            <p class="warning-text">Action plans, yield estimates, and crop decisions are hidden until real satellite intelligence is available.</p>
+        </div>
+
+        <ng-container *ngIf="!showNoRealDataState">
 
         <!-- Sensor Analysis Section -->
         <div class="advisor-section card-box">
@@ -565,6 +637,7 @@
             Data Sources: Backend block insights, selected block metadata, and live weather observations. Consult
             professional advisors before making decisions.
         </div>
+        </ng-container>
     </div>
     <!-- END CROP ADVISOR TAB -->
 
@@ -573,12 +646,15 @@
 <!-- SENSOR HISTORY MODAL -->
 <app-modal [isOpen]="isModalOpen" [title]="selectedSensor?.label + ' History'" (close)="closeModal()">
     <div *ngIf="selectedSensor">
-        <p class="modal-subtitle">Last 5 Hours Trend</p>
-        <div class="modal-chart-wrapper">
+        <p class="modal-subtitle">Historical trend for the selected metric</p>
+        <div class="modal-chart-wrapper" *ngIf="selectedSensor.history.length; else noModalHistory">
             <app-line-chart [data]="selectedSensor.history" [labels]="selectedSensor.historyLabels" color="#10b981"
                 [height]="250" [showAxes]="true">
             </app-line-chart>
         </div>
+        <ng-template #noModalHistory>
+            <div class="trend-empty-state">Historical samples are not available for this metric yet.</div>
+        </ng-template>
         <div class="modal-stats">
             <div class="stat-box">
                 <span class="label">Current</span>

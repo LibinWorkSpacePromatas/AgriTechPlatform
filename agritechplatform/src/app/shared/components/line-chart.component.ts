@@ -241,7 +241,7 @@ export class LineChartComponent implements OnChanges, AfterViewInit {
   onResize() { }
 
   getY(value: number): number {
-    const allData = this.series.flatMap(s => s.data);
+    const allData = this.getAllDataPoints();
     let min = this.minY !== undefined ? this.minY : Math.min(...allData) * 0.9;
     let max = this.maxY !== undefined ? this.maxY : Math.max(...allData) * 1.1;
 
@@ -287,14 +287,24 @@ export class LineChartComponent implements OnChanges, AfterViewInit {
   }
 
   drawChart() {
-    if (!this.series.length || !this.series[0].data.length) return;
+    this.handleLegacyData();
+
+    const allData = this.getAllDataPoints();
+    const dataLen = Math.max(...this.series.map(series => series.data.length), 0);
+
+    if (!this.series.length || !dataLen || !allData.length) {
+      this.computedSeries = [];
+      this.points = [];
+      this.yTicks = [];
+      this.hoverIndex = null;
+      return;
+    }
 
     // Calculate label step dynamically based on current width
     // Use 45px per label estimate for better density on small charts
     const maxLabels = Math.floor(this.width / 45);
     this.labelStep = Math.ceil(this.labels.length / maxLabels) || 1;
 
-    const dataLen = this.series[0].data.length;
     const stepX = dataLen > 1 ? (this.width - 2 * this.padding) / (dataLen - 1) : 0;
 
     this.points = Array.from({ length: dataLen }, (_, i) => ({
@@ -302,7 +312,6 @@ export class LineChartComponent implements OnChanges, AfterViewInit {
       y: 0
     }));
 
-    const allData = this.series.flatMap(s => s.data);
     let min = this.minY !== undefined ? this.minY : Math.min(...allData);
     let max = this.maxY !== undefined ? this.maxY : Math.max(...allData);
 
@@ -313,9 +322,7 @@ export class LineChartComponent implements OnChanges, AfterViewInit {
     const range = max - min || 1;
 
     // Generate 5 ticks
-    this.yTicks = Array.from({ length: 5 }, (_, i) =>
-      Math.round(min + (range * i) / 4)
-    );
+    this.yTicks = Array.from({ length: 5 }, (_, i) => this.roundTick(min + (range * i) / 4));
 
     this.computedSeries = this.series.map(s => {
       const points = s.data.map((val, i) => ({
@@ -342,6 +349,18 @@ export class LineChartComponent implements OnChanges, AfterViewInit {
 
       return { ...s, points, linePath, areaPath };
     });
+  }
+
+  private getAllDataPoints(): number[] {
+    return this.series.flatMap(series => series.data).filter(value => Number.isFinite(value));
+  }
+
+  private roundTick(value: number): number {
+    if (Math.abs(value) >= 10) {
+      return Math.round(value * 10) / 10;
+    }
+
+    return Math.round(value * 100) / 100;
   }
 }
 

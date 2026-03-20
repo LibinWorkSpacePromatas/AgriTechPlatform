@@ -9,6 +9,15 @@
             selectedBlock()?.location }}</p>
     </div>
 
+    <div class="modal-disclaimer">
+        <h5>Yield Driver</h5>
+        <p>
+            {{ currentYieldMode() }}
+            <span *ngIf="liveLai() !== null"> • Yield factor {{ liveYieldFactor() }}</span>
+        </p>
+        <p *ngIf="satelliteError()">{{ satelliteError() }}</p>
+    </div>
+
     <!-- Crisis Alert -->
     <div class="crisis-alert">
         <div class="alert-icon-wrapper">
@@ -248,11 +257,11 @@
                 <div>
                     <h4 class="insight-title">Key Insight</h4>
                     <p class="insight-text">
-                        Wine grapes: -$1,775/ha annual losses with 35% price volatility
+                        Wine grapes now project {{ getProjectedYieldForCrop('Wine Grapes') | number:'1.1-1' }} t/ha under the current LAI-adjusted yield factor.
                     </p>
                     <p class="insight-warning">
                         <i-lucide [img]="AlertTriangle" class="icon-sm"></i-lucide>
-                        Showing impact at {{ waterAllocation() }}% water allocation — grapes suffer most from water cuts
+                        Showing impact at {{ waterAllocation() }}% water allocation using {{ currentYieldMode() }}
                     </p>
                 </div>
             </div>
@@ -267,7 +276,7 @@
                     <i-lucide [img]="BarChart2" class="icon-blue"></i-lucide>
                     <h3>Revenue per ML Water</h3>
                 </div>
-                <p class="chart-subtitle">Click bars to select crop • Hover for details</p>
+                <p class="chart-subtitle">Click bars to select crop • Hover for details • Live yield scaled from LAI</p>
 
                 <div class="revenue-chart-container">
                     <div *ngFor="let crop of cropMetricsFixedOrder()" class="revenue-row"
@@ -337,7 +346,7 @@
                     <i-lucide [img]="DollarSign" class="icon-green"></i-lucide>
                     <h3>Net Margin per Hectare</h3>
                 </div>
-                <p class="chart-subtitle">Revenue minus input costs • Zero line shown</p>
+                <p class="chart-subtitle">Revenue minus input costs • Zero line shown • Yield driven by LAI</p>
 
                 <div class="margin-chart-container">
                     <!-- Y Axis -->

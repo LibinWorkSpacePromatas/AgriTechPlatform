@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, AfterViewInit, Inject, PLATFORM_ID, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LucideAngularModule, Droplet, Waves, Calendar, Activity, AlertCircle, MapPin, Search, Layers } from 'lucide-angular';
+import { LucideAngularModule, Droplet, Waves, Calendar, Activity, AlertCircle, MapPin, Layers } from 'lucide-angular';
 import { WaterIrrigationService, IrrigationStatus } from '../../services/water-irrigation/water-irrigation.service';
 import { BlockService } from '../../shared/services/block.service';
 import { Block } from '../../shared/models';
@@ -22,7 +22,6 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
   ActivityIcon = Activity;
   AlertIcon = AlertCircle;
   MapPinIcon = MapPin;
-  SearchIcon = Search;
   LayersIcon = Layers;
 
   irrigationStatus: IrrigationStatus | null = null;
@@ -35,17 +34,13 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
   currentLan = '';
   selectedBlockName = '';
   selectedBlockLan = '';
+  selectedBlock: Block | null = null;
 
   private map!: L.Map;
-  private marker!: L.Marker;
+  private centroidMarker?: L.CircleMarker;
+  private polygonLayer?: L.GeoJSON;
+  private ndviTileLayer?: L.TileLayer;
   private isBrowser: boolean;
-
-  private readonly AUS_BOUNDS = {
-    latMin: -44,
-    latMax: -10,
-    lngMin: 112,
-    lngMax: 154
-  };
 
   private destroy$ = new Subject<void>();
 
@@ -82,9 +77,8 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
         this.applyBlockSelection(block);
         this.cdr.detectChanges();
 
-        if (this.map && this.marker) {
-          this.map.setView([this.latitude, this.longitude], 16);
-          this.marker.setLatLng([this.latitude, this.longitude]);
+        if (this.map) {
+          this.renderSpatialLayers();
           this.map.invalidateSize();
         }
 
@@ -112,18 +106,12 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
   }
 
   private applyBlockSelection(block: Block): void {
+    this.selectedBlock = block;
     this.latitude = block.lat;
     this.longitude = block.lon;
     this.currentLan = block.lan;
     this.selectedBlockName = block.name;
     this.selectedBlockLan = block.lan;
-  }
-
-  private isInsideAustralia(lat: number, lng: number): boolean {
-    return lat >= this.AUS_BOUNDS.latMin &&
-      lat <= this.AUS_BOUNDS.latMax &&
-      lng >= this.AUS_BOUNDS.lngMin &&
-      lng <= this.AUS_BOUNDS.lngMax;
   }
 
   private initMap(): void {
@@ -141,67 +129,17 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
 
     this.map = L.map('map').setView([this.latitude, this.longitude], 16);
 
-    const corner1 = L.latLng(this.AUS_BOUNDS.latMin - 5, this.AUS_BOUNDS.lngMin - 5);
-    const corner2 = L.latLng(this.AUS_BOUNDS.latMax + 5, this.AUS_BOUNDS.lngMax + 5);
-    const bounds = L.latLngBounds(corner1, corner2);
-    this.map.setMaxBounds(bounds);
-    this.map.on('drag', () => {
-      this.map.panInsideBounds(bounds, { animate: false });
-    });
-
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       minZoom: 3
     }).addTo(this.map);
-
-    this.marker = L.marker([this.latitude, this.longitude], { draggable: true }).addTo(this.map);
-
-    this.map.on('click', (e: L.LeafletMouseEvent) => {
-      const lat = Number(e.latlng.lat.toFixed(4));
-      const lng = Number(e.latlng.lng.toFixed(4));
-
-      if (this.isInsideAustralia(lat, lng)) {
-        this.latitude = lat;
-        this.longitude = lng;
-        this.marker.setLatLng([this.latitude, this.longitude]);
-        this.refreshData(false);
-      } else {
-        this.error = 'Please select a location within Australia.';
-      }
-    });
-
-    this.marker.on('dragend', () => {
-      const position = this.marker.getLatLng();
-      const lat = Number(position.lat.toFixed(4));
-      const lng = Number(position.lng.toFixed(4));
-
-      if (this.isInsideAustralia(lat, lng)) {
-        this.latitude = lat;
-        this.longitude = lng;
-        this.refreshData(false);
-      } else {
-        this.marker.setLatLng([this.latitude, this.longitude]);
-        this.error = 'Please drag the marker to a location within Australia.';
-      }
-    });
+    this.renderSpatialLayers();
   }
 
   onBlockChange(blockLan: string): void {
     const block = this.blocks.find(b => b.lan === blockLan);
     if (block) {
       this.blockService.setBlock(block);
-    }
-  }
-
-  updateLocationOnMap(): void {
-    if (!this.isInsideAustralia(this.latitude, this.longitude)) {
-      this.error = 'Please enter coordinates within Australia (Lat: -44 to -10, Lon: 112 to 154).';
-      return;
-    }
-    if (this.map && this.marker) {
-      this.map.setView([this.latitude, this.longitude]);
-      this.marker.setLatLng([this.latitude, this.longitude]);
-      this.refreshData(false);
     }
   }
 
@@ -228,8 +166,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
           if (!this.map) {
             this.initMap();
           } else if (updateMapView) {
-            this.map.setView([this.latitude, this.longitude], 16);
-            this.marker.setLatLng([this.latitude, this.longitude]);
+            this.renderSpatialLayers();
             this.map.invalidateSize();
           }
         }
@@ -247,19 +184,37 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
   }
 
   getStatusColor(status: string): string {
-    if (status.includes('severe_stress')) return 'text-red-600';
-    if (status.includes('moderate_stress')) return 'text-orange-600';
-    if (status.includes('mild_stress')) return 'text-yellow-600';
-    if (status.includes('well_watered')) return 'text-blue-600';
+    if (status.includes('urgent_irrigation')) return 'text-red-600';
+    if (status.includes('irrigation_alert')) return 'text-orange-600';
+    if (status.includes('normal')) return 'text-blue-600';
     return 'text-gray-600';
   }
 
   getStatusBgColor(status: string): string {
-    if (status.includes('severe_stress')) return 'bg-red-100 border-red-200';
-    if (status.includes('moderate_stress')) return 'bg-orange-100 border-orange-200';
-    if (status.includes('mild_stress')) return 'bg-yellow-100 border-yellow-200';
-    if (status.includes('well_watered')) return 'bg-blue-100 border-blue-200';
+    if (status.includes('urgent_irrigation')) return 'bg-red-100 border-red-200';
+    if (status.includes('irrigation_alert')) return 'bg-orange-100 border-orange-200';
+    if (status.includes('normal')) return 'bg-blue-100 border-blue-200';
     return 'bg-gray-100 border-gray-200';
+  }
+
+  getStatusIndicatorClass(status: string): string {
+    if (status.includes('urgent_irrigation')) return 'urgent';
+    if (status.includes('irrigation_alert')) return 'monitor';
+    if (status.includes('normal')) return 'saturated';
+    return '';
+  }
+
+  formatStatusLabel(status: string): string {
+    switch (status) {
+      case 'urgent_irrigation':
+        return 'Urgent Irrigation';
+      case 'irrigation_alert':
+        return 'Irrigation Alert';
+      case 'normal':
+        return 'Normal';
+      default:
+        return 'No Data';
+    }
   }
 
   getInsightTone(status: string): string {
@@ -286,12 +241,77 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
 
   getRecommendationLabel(level: string): string {
     switch (level) {
-      case 'high':
-        return 'High irrigation';
-      case 'low':
-        return 'Low irrigation';
+      case 'urgent_irrigation':
+        return 'Urgent irrigation';
+      case 'irrigation_alert':
+        return 'Irrigation alert';
       default:
-        return 'Moderate irrigation';
+        return 'Normal';
+    }
+  }
+
+  private renderSpatialLayers(): void {
+    if (!this.map || !this.selectedBlock) {
+      return;
+    }
+
+    if (this.ndviTileLayer) {
+      this.map.removeLayer(this.ndviTileLayer);
+      this.ndviTileLayer = undefined;
+    }
+    if (this.polygonLayer) {
+      this.map.removeLayer(this.polygonLayer);
+      this.polygonLayer = undefined;
+    }
+    if (this.centroidMarker) {
+      this.map.removeLayer(this.centroidMarker);
+      this.centroidMarker = undefined;
+    }
+
+    if (this.selectedBlock.polygon) {
+      this.polygonLayer = L.geoJSON(
+        {
+          type: 'Feature',
+          geometry: this.selectedBlock.polygon,
+          properties: {
+            name: this.selectedBlock.name
+          }
+        } as any,
+        {
+          style: {
+            color: '#16a34a',
+            weight: 3,
+            fillColor: '#22c55e',
+            fillOpacity: 0.08
+          }
+        }
+      ).addTo(this.map);
+
+      const bounds = this.polygonLayer.getBounds();
+      if (bounds.isValid()) {
+        this.map.fitBounds(bounds.pad(0.25));
+      }
+    } else if (this.latitude && this.longitude) {
+      this.map.setView([this.latitude, this.longitude], 16);
+    }
+
+    if (this.latitude && this.longitude) {
+      this.centroidMarker = L.circleMarker([this.latitude, this.longitude], {
+        radius: 7,
+        color: '#14532d',
+        weight: 2,
+        fillColor: '#22c55e',
+        fillOpacity: 0.95
+      })
+        .bindPopup(`${this.selectedBlock.name}<br>Centroid`)
+        .addTo(this.map);
+    }
+
+    if (this.irrigationStatus?.mapTileUrl) {
+      this.ndviTileLayer = L.tileLayer(this.irrigationStatus.mapTileUrl, {
+        opacity: 0.65,
+        attribution: 'NDVI © Sentinel-2 / Google Earth Engine'
+      }).addTo(this.map);
     }
   }
 }

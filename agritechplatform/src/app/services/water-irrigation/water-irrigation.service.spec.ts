@@ -25,13 +25,14 @@ describe('WaterIrrigationService', () => {
 
   it('fetches irrigation status from the backend', async () => {
     const mockResponse = {
-      status: 'well_watered',
+      status: 'normal',
       ndwi: 0.25,
       recommendation: 'Field looks good',
       date: '2026-03-20',
       data_quality: 'good',
       lanslu: 'BCPKFB',
-      block_id: 'block-123'
+      block_id: 'block-123',
+      alerts: []
     };
 
     const statusPromise = firstValueFrom(service.getIrrigationStatus('block-123'));
@@ -41,10 +42,11 @@ describe('WaterIrrigationService', () => {
     req.flush(mockResponse);
 
     const result = await statusPromise;
-    expect(result.status).toBe('well_watered');
+    expect(result.status).toBe('normal');
     expect(result.ndwi).toBe(0.25);
     expect(result.dataQuality).toBe('good');
     expect(result.blockId).toBe('block-123');
+    expect(result.alerts).toEqual([]);
   });
 
   it('returns fallback status on error', async () => {

@@ -87,7 +87,8 @@ export const MOCK_BLOCKS = [
         soilType: 'Mallee Sand',
         lat: -34.1747,
         lon: 140.7472,
-        lan: "BCPKFB"
+        lan: "BCPKFB",
+        polygon: null
     },
     {
         id: 'block-2-cabernet',
@@ -101,7 +102,8 @@ export const MOCK_BLOCKS = [
         soilType: 'Red Brown Earth',
         lat: -34.5267,
         lon: 138.9600,
-        lan: "WOGJLp"
+        lan: "WOGJLp",
+        polygon: null
     },
     {
         id: 'block-3-chardonnay',
@@ -115,7 +117,8 @@ export const MOCK_BLOCKS = [
         soilType: 'Loamy Sand',
         lat: -35.2733,
         lon: 138.5500,
-        lan: "EUVJLU"
+        lan: "EUVJLU",
+        polygon: null
     },
     {
         id: 'block-4-merlot',
@@ -129,7 +132,8 @@ export const MOCK_BLOCKS = [
         soilType: 'Calcareous Loam',
         lat: -34.1833,
         lon: 139.9833,
-        lan: "BCPKKE"
+        lan: "BCPKKE",
+        polygon: null
     }
 ];
 

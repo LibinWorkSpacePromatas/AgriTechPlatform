@@ -1,65 +1,56 @@
 from __future__ import annotations
 
-from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, HTTPException
+from sqlalchemy.exc import SQLAlchemyError
 
-from app.db.models import Block, SatelliteCache
-from app.db.session import SessionLocal
-from app.services.insights import classify_ndwi
+from app.schemas.insights import WaterResponse
+from app.services.satellite_access import satellite_access_service
+from app.services.satellite_insights import SatelliteInsightsUnavailableError
+from app.services.utils import build_satellite_contract_payload
 
 router = APIRouter()
 
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-@router.get("/{block_id}")
-def get_water_data(block_id: str, db: Session = Depends(get_db)):
+@router.get("/{block_id}", response_model=WaterResponse)
+def get_water_data(block_id: str):
     """
     Returns water-specific satellite data (NDWI) and recommendations.
     Matches PDF logic for water stress classification.
     """
-    block = None
-    
-    # Try finding by UUID first
     try:
-        block_uuid = UUID(block_id)
-        block = db.query(Block).filter(Block.id == block_uuid).first()
-    except (ValueError, AttributeError):
-        pass
+        snapshot = satellite_access_service.get_block_snapshot(block_id)
+        satellite_response = snapshot.insights
+        is_fresh = satellite_response.freshness_status == "fresh"
+        water_alerts = [alert for alert in satellite_response.alerts if alert.metric == "ndwi"] if is_fresh else []
+        water_status = satellite_response.ndwi_status if is_fresh and satellite_response.ndwi_status != "no_data" else "no_data"
 
-    # If not found by UUID, try finding by LANSLU
-    if not block:
-        block = db.query(Block).filter(Block.lanslu == block_id).first()
+        return WaterResponse(
+            **build_satellite_contract_payload(satellite_response),
+            lanslu=snapshot.lanslu or snapshot.block_id,
+            date=satellite_response.composite_date_to,
+            status=water_status,
+            recommendation=_build_water_recommendation(satellite_response, water_status, water_alerts),
+            alerts=water_alerts,
+        )
+    except SatelliteInsightsUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=f"Satellite insights are temporarily unavailable: {exc}") from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail=f"Database error while fetching water data: {exc}") from exc
 
-    if not block:
-        raise HTTPException(status_code=404, detail=f"Block {block_id} not found")
 
-    cache = db.query(SatelliteCache).filter(
-        SatelliteCache.block_id == block.id
-    ).first()
+def _build_water_recommendation(satellite_response, status: str, alerts: list) -> str:
+    if satellite_response.freshness_status != "fresh":
+        return _build_stale_water_message(satellite_response.freshness_status, satellite_response.error)
+    if alerts:
+        return alerts[0].message
+    if status == "normal":
+        return "NDWI is within the expected irrigation range."
+    return "No irrigation recommendation is available until satellite data is ready."
 
-    if not cache:
-        return {"message": "No data available for this block"}
 
-    payload = cache.payload
-    ndwi = payload.get("ndwi")
-
-    # Use centralized classification logic
-    status, recommendation = classify_ndwi(ndwi)
-
-    return {
-        "block_id": str(block.id),
-        "lanslu": block.lanslu,
-        "ndwi": ndwi,
-        "status": status,
-        "recommendation": recommendation,
-        "date": cache.composite_date_to,
-        "data_quality": cache.data_quality
-    }
+def _build_stale_water_message(freshness_status: str, error: str | None) -> str:
+    if freshness_status == "updating":
+        return "A fresh satellite composite is being prepared for this block. Irrigation guidance will resume when the refresh completes."
+    if error:
+        return f"Cached irrigation data is older than the 5-day TTL and should not be actioned until refresh completes: {error}"
+    return "Cached irrigation data is older than the 5-day TTL and should not be actioned until refresh completes."

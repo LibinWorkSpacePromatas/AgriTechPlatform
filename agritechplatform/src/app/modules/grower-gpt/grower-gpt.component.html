@@ -78,26 +78,52 @@
         <i-lucide [img]="SparklesIcon" class="badge-icon"></i-lucide>
         <span>Live Insights</span>
       </div>
-      <div class="insight-list">
-        <div class="insight-item">
-          <div class="insight-icon warn">
-            <i-lucide [img]="MessageIcon" class="icon-sm"></i-lucide>
-          </div>
-          <div class="insight-content">
-            <h4>Water Stress Peak</h4>
-            <p>Block C likely to hit critical stress levels by Thursday.</p>
-          </div>
-        </div>
+      <div class="insight-list" *ngIf="blockSummary; else noLiveInsights">
         <div class="insight-item">
           <div class="insight-icon info">
             <i-lucide [img]="SparklesIcon" class="icon-sm"></i-lucide>
           </div>
           <div class="insight-content">
-            <h4>Harvest Window</h4>
-            <p>Shiraz blocks trending 3 days earlier. Window: March 12-15.</p>
+            <h4>Satellite Summary</h4>
+            <p>{{ blockSummary.message || 'No summary available yet.' }}</p>
+          </div>
+        </div>
+        <div class="insight-item">
+          <div class="insight-icon info">
+            <i-lucide [img]="MessageIcon" class="icon-sm"></i-lucide>
+          </div>
+          <div class="insight-content">
+            <h4>Indices</h4>
+            <p>
+              NDVI {{ blockSummary.ndvi ?? 'N/A' }} • NDWI {{ blockSummary.ndwi ?? 'N/A' }} •
+              NDRE {{ blockSummary.ndre ?? 'N/A' }} • EVI {{ blockSummary.evi ?? 'N/A' }} •
+              LAI {{ blockSummary.lai ?? 'N/A' }}
+            </p>
+          </div>
+        </div>
+        <div class="insight-item" *ngFor="let insight of blockSummary.insights">
+          <div class="insight-icon" [ngClass]="insight.severity === 'critical' ? 'warn' : 'info'">
+            <i-lucide [img]="MessageIcon" class="icon-sm"></i-lucide>
+          </div>
+          <div class="insight-content">
+            <h4>{{ insight.metric.toUpperCase() }} • {{ insight.code }}</h4>
+            <p>{{ insight.message }}</p>
           </div>
         </div>
       </div>
+      <ng-template #noLiveInsights>
+        <div class="insight-list">
+          <div class="insight-item">
+            <div class="insight-icon info">
+              <i-lucide [img]="SparklesIcon" class="icon-sm"></i-lucide>
+            </div>
+            <div class="insight-content">
+              <h4>Waiting For Satellite Context</h4>
+              <p>Grower GPT will show NDVI, NDWI, NDRE, EVI, and LAI here once the latest block summary loads.</p>
+            </div>
+          </div>
+        </div>
+      </ng-template>
     </div>
   </div>
 </div>

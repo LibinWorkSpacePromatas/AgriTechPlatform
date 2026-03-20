@@ -23,6 +23,12 @@ export interface ApiBlockResponse {
     description: string;
     area_ha: number;
     crop: string;
+    block_polygon: {
+        type: 'Polygon' | 'MultiPolygon';
+        coordinates: number[][][] | number[][][][];
+    } | null;
+    centroid_lat: number | null;
+    centroid_lon: number | null;
 }
 
 @Injectable({

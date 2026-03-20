@@ -37,19 +37,18 @@
             <div class="location-picker">
               <div class="coords-input">
                 <div class="field">
-                  <span class="label">LAT</span>
-                  <input type="number" [(ngModel)]="latitude" step="0.001">
+                  <span class="label">CENTROID LAT</span>
+                  <input type="text" [ngModel]="latitude | number:'1.4-4'" readonly>
                 </div>
                 <div class="field">
-                  <span class="label">LON</span>
-                  <input type="number" [(ngModel)]="longitude" step="0.001">
+                  <span class="label">CENTROID LON</span>
+                  <input type="text" [ngModel]="longitude | number:'1.4-4'" readonly>
                 </div>
               </div>
-              <button class="action-btn primary" (click)="updateLocationOnMap()" [disabled]="isLoading">
-                <i-lucide [img]="SearchIcon" *ngIf="!isLoading"></i-lucide>
-                <div class="spinner-sm" *ngIf="isLoading"></div>
-                <span>Update</span>
-              </button>
+              <div class="block-selector">
+                <span class="label">MAP MODE</span>
+                <span class="summary-chip">{{ irrigationStatus?.mapTileUrl ? 'Block + NDVI Overlay' : 'Block Polygon' }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -76,20 +75,32 @@
             
             <div class="status-summary card shadow-sm" [ngClass]="getStatusBgColor(irrigationStatus.status)">
               <div class="summary-header">
-                <div class="status-indicator-large" [ngClass]="irrigationStatus.status"></div>
+                <div class="status-indicator-large" [ngClass]="getStatusIndicatorClass(irrigationStatus.status)"></div>
                 <div>
                   <span class="tag">Water Status:</span>
-                  <h2 class="uppercase">{{ irrigationStatus.status }}</h2>
+                  <h2 class="uppercase">{{ formatStatusLabel(irrigationStatus.status) }}</h2>
                 </div>
               </div>
               <div class="summary-meta">
+                <span class="summary-chip" *ngIf="irrigationStatus.ndvi !== null">
+                  NDVI: {{ irrigationStatus.ndvi | number:'1.4-4' }}
+                </span>
                 <span class="summary-chip" *ngIf="irrigationStatus.ndwi !== null">
                   NDWI (Satellite Ground Truth): {{ irrigationStatus.ndwi | number:'1.4-4' }}
+                </span>
+                <span class="summary-chip">
+                  Pixels: {{ irrigationStatus.pixelCount }}
                 </span>
               </div>
               <div class="recommendation-section">
                 <span class="tag">Recommendation:</span>
                 <p class="recommendation-msg bold">{{ irrigationStatus.recommendation }}</p>
+              </div>
+              <div class="recommendation-section" *ngIf="irrigationStatus.alerts.length">
+                <span class="tag">Alerts:</span>
+                <p class="recommendation-msg" *ngFor="let alert of irrigationStatus.alerts">
+                  {{ alert.message }} ({{ alert.threshold }})
+                </p>
               </div>
               <div class="about-section">
                 <span class="tag">About:</span>
@@ -116,7 +127,7 @@
               </span>
             </div>
             <p *ngIf="irrigationStatus.status === 'no_data'">Satellite NDWI unavailable. Using ground observations recommended.</p>
-            <p *ngIf="irrigationStatus.status !== 'no_data'">NDWI ground truth from satellite imagery.</p>
+            <p *ngIf="irrigationStatus.status !== 'no_data'">Block polygon and centroid are shown with NDVI overlay when imagery tiles are available.</p>
           </div>
 
           <div class="logic-card card shadow-sm">
@@ -126,10 +137,9 @@
             </div>
             <div class="formula-container">
               <div class="formula-box">
-                <code>NDWI > 0.1 -> Well-watered</code>
-                <code>-0.1 to 0.1 -> Mild Stress</code>
-                <code>-0.3 to -0.1 -> Moderate Stress</code>
-                <code>NDWI < -0.3 -> Severe Stress</code>
+                <code>NDWI &lt; -0.15 -&gt; Irrigation Alert</code>
+                <code>NDWI &lt; -0.30 -&gt; Urgent Irrigation</code>
+                <code>NDWI &gt;= -0.15 -&gt; Normal</code>
                 <div class="formula-result">
                   <span class="final-label">Current Index:</span>
                   <span class="final-value">{{ irrigationStatus.ndwi ?? 'N/A' }}</span>

@@ -1,14 +1,25 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, map, of } from 'rxjs';
+import { Observable, catchError, forkJoin, map, of } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export type DashboardMetricKey = 'ndvi' | 'ndwi' | 'ndre' | 'evi' | 'lai';
 export type DashboardMetricStatus = 'Normal' | 'Low' | 'High';
 export type DashboardMetricColor = 'good' | 'warning' | 'error';
 export type BackendInsightStatus = 'fresh' | 'stale' | 'updating';
-export type BackendInsightSource = 'cache' | 'gee';
+export type BackendInsightSource = 'real' | 'simulated';
 export type BackendDataQuality = 'good' | 'degraded' | 'no_data';
+export type DashboardTrendDirection = 'improving' | 'declining' | 'stable' | 'insufficient_data';
+export type MetricStatusCode =
+  | 'no_data'
+  | 'normal'
+  | 'warning'
+  | 'irrigation_alert'
+  | 'urgent_irrigation'
+  | 'nutrient_issue'
+  | 'canopy_alert'
+  | 'high_yield'
+  | 'low_yield';
 
 export interface DashboardMetricHistory {
   hours: number[];
@@ -30,6 +41,7 @@ export interface DashboardMetric {
   message: string;
   colorClass: DashboardMetricColor;
   history: DashboardMetricHistory;
+  statusCode?: MetricStatusCode;
 }
 
 export interface DashboardAnalysisItem {
@@ -107,6 +119,37 @@ export interface DashboardAdvisorData {
   riskExplanations: string[];
 }
 
+export interface DashboardTimeseriesPoint {
+  date: string;
+  observedOn?: string | null;
+  ndvi: number | null;
+  ndwi: number | null;
+}
+
+export interface DashboardTrendSignal {
+  direction: DashboardTrendDirection;
+  delta: number | null;
+  message: string;
+  anomaly: boolean;
+}
+
+export interface DashboardTrendSummary {
+  hasData: boolean;
+  latestDate: string | null;
+  ndvi: DashboardTrendSignal;
+  ndwi: DashboardTrendSignal;
+  anomalyMessage: string | null;
+}
+
+export interface BackendSatelliteAlert {
+  metric: DashboardMetricKey;
+  code: MetricStatusCode;
+  severity: 'info' | 'warning' | 'critical';
+  message: string;
+  value: number;
+  threshold: string;
+}
+
 export interface BackendBlockInsightsResponse {
   block_id: string;
   ndvi: number | null;
@@ -125,6 +168,14 @@ export interface BackendBlockInsightsResponse {
   confidence?: string;
   reason?: string;
   insights?: any[];
+  warning?: string | null;
+  metrics?: Record<DashboardMetricKey, DashboardMetric>;
+  ndvi_status?: MetricStatusCode;
+  ndwi_status?: MetricStatusCode;
+  ndre_status?: MetricStatusCode;
+  evi_status?: MetricStatusCode;
+  lai_status?: MetricStatusCode;
+  alerts?: BackendSatelliteAlert[];
 }
 
 export interface DashboardInsightsResponse {
@@ -144,6 +195,8 @@ export interface DashboardInsightsResponse {
   alternativeCrops: DashboardAlternativeCrop[];
   decision: DashboardDecisionData;
   insights: any[];
+  timeseries: DashboardTimeseriesPoint[];
+  trends: DashboardTrendSummary;
 }
 
 interface MetricPresentation {
@@ -151,65 +204,43 @@ interface MetricPresentation {
   analysisLabel: string;
   unit: string;
   display: (value: number) => number;
-  messageSuffix: string;
-  ranges: {
-    low: number;
-    high: number;
-  };
-  labels: {
-    low: string;
-    medium: string;
-    high: string;
-  };
 }
 
 const SNAPSHOT_LABEL = 'Latest';
+const HISTORY_RECENT_LIMIT = 7;
+const TREND_DELTA_THRESHOLD = 0.03;
+const TREND_ANOMALY_THRESHOLD = 0.12;
 
 const METRIC_PRESENTATION: Record<DashboardMetricKey, MetricPresentation> = {
   ndvi: {
     title: 'Crop Health',
     analysisLabel: 'CROP HEALTH',
     unit: '%',
-    display: value => Math.round(value * 100),
-    messageSuffix: 'crop vigor',
-    ranges: { low: 0.4, high: 0.7 },
-    labels: { low: 'Poor', medium: 'Moderate', high: 'Healthy' }
+    display: value => Math.round(value * 100)
   },
   ndwi: {
     title: 'Water Status',
     analysisLabel: 'WATER STATUS',
     unit: '%',
-    display: value => Math.round(value * 100),
-    messageSuffix: 'water availability',
-    ranges: { low: 0.22, high: 0.35 },
-    labels: { low: 'Dry', medium: 'Watch', high: 'Adequate' }
+    display: value => Math.round(value * 100)
   },
   ndre: {
     title: 'Nutrient Status',
     analysisLabel: 'NUTRIENT STATUS',
     unit: '%',
-    display: value => Math.round(value * 100),
-    messageSuffix: 'nutrient activity',
-    ranges: { low: 0.45, high: 0.58 },
-    labels: { low: 'Constrained', medium: 'Moderate', high: 'Strong' }
+    display: value => Math.round(value * 100)
   },
   evi: {
     title: 'Vegetation Strength',
     analysisLabel: 'VEGETATION STRENGTH',
     unit: '%',
-    display: value => Math.round(value * 100),
-    messageSuffix: 'vegetation strength',
-    ranges: { low: 0.4, high: 0.55 },
-    labels: { low: 'Weak', medium: 'Building', high: 'Strong' }
+    display: value => Math.round(value * 100)
   },
   lai: {
     title: 'Growth Density',
     analysisLabel: 'GROWTH DENSITY',
     unit: ' LAI',
-    display: value => Number(value.toFixed(1)),
-    messageSuffix: 'growth density',
-    ranges: { low: 2.3, high: 3.8 },
-    labels: { low: 'Sparse', medium: 'Steady', high: 'Dense' }
+    display: value => Number(value.toFixed(1))
   }
 };
 
@@ -224,20 +255,39 @@ export class DashboardApiService {
   constructor(private http: HttpClient) { }
 
   getBlockInsights(blockId: string): Observable<DashboardInsightsResponse> {
+    return forkJoin({
+      insights: this.fetchBlockInsights(blockId),
+      timeseries: this.fetchBlockTimeseries(blockId)
+    }).pipe(
+      map(({ insights, timeseries }) => this.mapToDashboardInsights(insights, timeseries))
+    );
+  }
+
+  private fetchBlockInsights(blockId: string): Observable<BackendBlockInsightsResponse> {
     return this.http.get<unknown>(`${this.baseUrl}/api/blocks/${blockId}/insights`).pipe(
-      map(payload => this.mapToDashboardInsights(this.normalizeResponse(payload))),
+      map(payload => this.normalizeResponse(payload)),
       catchError(primaryError =>
         this.http.get<unknown>(`${this.baseUrl}/api/block/${blockId}/insights`).pipe(
-          map(payload => this.mapToDashboardInsights(this.normalizeResponse(payload))),
+          map(payload => this.normalizeResponse(payload)),
           catchError(legacyError => {
-            console.warn('Satellite insights API unavailable. Showing placeholder intelligence state.', {
+            console.warn('Satellite insights API unavailable. Showing an explicit simulated empty state.', {
               primaryError,
               legacyError
             });
-            return of(this.mapToDashboardInsights(this.buildUnavailableResponse(blockId, legacyError)));
+            return of(this.buildUnavailableResponse(blockId, legacyError));
           })
         )
       )
+    );
+  }
+
+  private fetchBlockTimeseries(blockId: string): Observable<DashboardTimeseriesPoint[]> {
+    return this.http.get<unknown>(`${this.baseUrl}/api/block/${blockId}/timeseries`).pipe(
+      map(payload => this.normalizeTimeseries(payload)),
+      catchError(error => {
+        console.warn('Satellite time-series API unavailable. Continuing without historical trends.', error);
+        return of([]);
+      })
     );
   }
 
@@ -253,6 +303,7 @@ export class DashboardApiService {
       compositeDateFrom?: string | null;
       compositeDateTo?: string | null;
       insights?: any[];
+      warning?: string | null;
     };
 
     const blockId = this.asString(candidate.block_id ?? candidate.blockId);
@@ -269,7 +320,7 @@ export class DashboardApiService {
       lai: this.asNullableNumber(candidate.lai),
       status: this.normalizeStatus(candidate.status),
       latency_ms: this.asNumber(candidate.latency_ms ?? candidate.latencyMs, 0),
-      source: candidate.source === 'gee' ? 'gee' : 'cache',
+      source: candidate.source === 'simulated' ? 'simulated' : 'real',
       error: this.asNullableString(candidate.error),
       data_quality: this.normalizeDataQuality(candidate.data_quality ?? candidate.dataQuality),
       composite_date_from: this.asNullableString(candidate.composite_date_from ?? candidate.compositeDateFrom),
@@ -277,14 +328,60 @@ export class DashboardApiService {
       insights: candidate.insights || [],
       data_age_days: candidate.data_age_days ?? 0,
       confidence: candidate.confidence || 'high',
-      reason: candidate.reason || ''
+      reason: candidate.reason || '',
+      warning: this.asNullableString(candidate.warning),
+      metrics: this.normalizeMetrics(candidate.metrics),
+      ndvi_status: this.normalizeMetricStatus(candidate.ndvi_status),
+      ndwi_status: this.normalizeMetricStatus(candidate.ndwi_status),
+      ndre_status: this.normalizeMetricStatus(candidate.ndre_status),
+      evi_status: this.normalizeMetricStatus(candidate.evi_status),
+      lai_status: this.normalizeMetricStatus(candidate.lai_status),
+      alerts: this.normalizeAlerts(candidate.alerts)
     };
   }
 
-  private mapToDashboardInsights(response: BackendBlockInsightsResponse): DashboardInsightsResponse {
-    const metrics = this.buildMetrics(response);
-    const warning = this.buildWarning(response);
-    const advisor = this.buildAdvisor(response, metrics);
+  private normalizeTimeseries(payload: unknown): DashboardTimeseriesPoint[] {
+    if (!Array.isArray(payload)) {
+      throw new Error('Satellite time-series payload was not an array.');
+    }
+
+    const normalized = payload
+      .map(entry => {
+        if (!entry || typeof entry !== 'object') {
+          return null;
+        }
+
+        const candidate = entry as Partial<DashboardTimeseriesPoint> & { observed_on?: string | null; recorded_at?: string | null };
+        const date = this.asNullableString(candidate.date ?? candidate.recorded_at ?? candidate.observed_on);
+        if (!date) {
+          return null;
+        }
+
+        return {
+          date,
+          observedOn: this.asNullableString(candidate.observedOn ?? candidate.observed_on),
+          ndvi: this.asNullableNumber(candidate.ndvi),
+          ndwi: this.asNullableNumber(candidate.ndwi)
+        };
+      });
+
+    return normalized
+      .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+      .sort((left, right) => this.parseDateValue(left.date).getTime() - this.parseDateValue(right.date).getTime());
+  }
+
+  private mapToDashboardInsights(
+    response: BackendBlockInsightsResponse,
+    timeseries: DashboardTimeseriesPoint[]
+  ): DashboardInsightsResponse {
+    if (!this.hasUsableRealData(response)) {
+      return this.buildNoRealDataInsights(response, timeseries);
+    }
+
+    const trends = this.buildTrendSummary(timeseries);
+    const metrics = response.metrics ? this.cloneMetrics(response.metrics) : this.buildMetrics(response, timeseries);
+    const warning = this.buildWarning(response, trends);
+    const advisor = this.buildAdvisor(response, metrics, trends);
     const nutrient = this.buildNutrient(metrics.ndre, response);
     const vitality = this.computeVitalityScore(metrics);
     const yieldImpact = this.buildYieldImpact(vitality, metrics);
@@ -304,6 +401,8 @@ export class DashboardApiService {
       nutrient,
       yieldImpact,
       alternativeCrops: [],
+      timeseries,
+      trends,
       decision: {
         totalArea: 0,
         current: {
@@ -319,7 +418,7 @@ export class DashboardApiService {
           totalProfit: vitality,
           allocationMatch: Math.max(35, 100 - advisor.riskScore),
           validated: response.data_quality !== 'no_data',
-          validationText: `Source ${response.source.toUpperCase()} with ${response.data_quality.toUpperCase()} data quality.`
+          validationText: `Data source ${response.source.toUpperCase()} with ${response.data_quality.toUpperCase()} quality.`
         },
         keep: {
           crop: 'Current Program',
@@ -332,9 +431,12 @@ export class DashboardApiService {
     };
   }
 
-  private buildMetrics(response: BackendBlockInsightsResponse): Record<DashboardMetricKey, DashboardMetric> {
+  private buildMetrics(
+    response: BackendBlockInsightsResponse,
+    timeseries: DashboardTimeseriesPoint[]
+  ): Record<DashboardMetricKey, DashboardMetric> {
     return METRIC_ORDER.reduce((accumulator, key) => {
-      accumulator[key] = this.buildMetric(key, response[key], response);
+      accumulator[key] = this.buildMetric(key, response[key], response, timeseries);
       return accumulator;
     }, {} as Record<DashboardMetricKey, DashboardMetric>);
   }
@@ -342,63 +444,62 @@ export class DashboardApiService {
   private buildMetric(
     key: DashboardMetricKey,
     rawValue: number | null,
-    response: BackendBlockInsightsResponse
+    response: BackendBlockInsightsResponse,
+    timeseries: DashboardTimeseriesPoint[]
   ): DashboardMetric {
     const presentation = METRIC_PRESENTATION[key];
+    const statusCode = this.getMetricStatusCode(response, key);
+    const statusMeta = this.getMetricStatusMeta(key, statusCode);
+    const matchingAlert = response.alerts?.find(alert => alert.metric === key && alert.code === statusCode) || null;
 
     if (rawValue === null) {
       return {
         key,
         title: presentation.title,
         raw: null,
-        label: response.status === 'updating' ? 'Updating' : 'Unavailable',
+        label: response.status === 'updating' ? 'Updating' : statusMeta.label,
         value: '--',
         unit: presentation.unit,
-        status: 'Low',
-        message: response.error || 'No satellite value is available for this metric yet.',
-        colorClass: response.status === 'updating' ? 'warning' : 'error',
-        history: this.buildSnapshotHistory(null)
+        status: response.status === 'updating' ? 'Low' : statusMeta.status,
+        message: response.error || matchingAlert?.message || statusMeta.message,
+        colorClass: response.status === 'updating' ? 'warning' : statusMeta.colorClass,
+        statusCode,
+        history: this.buildMetricHistory(key, null, timeseries)
       };
     }
 
     const displayValue = presentation.display(rawValue);
-    const band = this.resolveMetricBand(rawValue, presentation.ranges);
-    const label = band === 'good'
-      ? presentation.labels.high
-      : band === 'warning'
-        ? presentation.labels.medium
-        : presentation.labels.low;
-    const status: DashboardMetricStatus = band === 'good' ? 'Normal' : 'Low';
-    const message = this.buildMetricMessage(response, presentation.messageSuffix, label, band);
 
     return {
       key,
       title: presentation.title,
       raw: Number(rawValue.toFixed(4)),
-      label,
+      label: statusMeta.label,
       value: displayValue,
       unit: presentation.unit,
-      status,
-      message,
-      colorClass: band,
-      history: this.buildSnapshotHistory(typeof displayValue === 'number' ? displayValue : null)
+      status: statusMeta.status,
+      message: this.buildMetricMessage(response, statusMeta.message, matchingAlert?.message),
+      colorClass: statusMeta.colorClass,
+      statusCode,
+      history: this.buildMetricHistory(key, typeof displayValue === 'number' ? displayValue : null, timeseries)
     };
   }
 
   private buildAdvisor(
     response: BackendBlockInsightsResponse,
-    metrics: Record<DashboardMetricKey, DashboardMetric>
+    metrics: Record<DashboardMetricKey, DashboardMetric>,
+    trends: DashboardTrendSummary
   ): DashboardAdvisorData {
-    const riskScore = this.computeRiskScore(response, metrics);
+    const riskScore = this.computeRiskScore(response, metrics, trends);
     const riskLevel = riskScore >= 70 ? 'High' : riskScore >= 35 ? 'Moderate' : 'Low';
     const sensorAnalysis = METRIC_ORDER.map(key => this.buildAnalysisItem(metrics[key]));
-    const riskExplanations = this.buildRiskExplanations(response, metrics);
+    const riskExplanations = this.buildRiskExplanations(response, metrics, trends);
 
     return {
       riskScore,
       riskLevel,
       sensorAnalysis,
-      actions: this.buildActions(response, metrics),
+      actions: this.buildActions(response, metrics, trends),
       riskExplanations
     };
   }
@@ -485,7 +586,8 @@ export class DashboardApiService {
 
   private buildActions(
     response: BackendBlockInsightsResponse,
-    metrics: Record<DashboardMetricKey, DashboardMetric>
+    metrics: Record<DashboardMetricKey, DashboardMetric>,
+    trends: DashboardTrendSummary
   ): DashboardActionItem[] {
     const actions: DashboardActionItem[] = [];
 
@@ -504,7 +606,7 @@ export class DashboardApiService {
       });
     }
 
-    if (response.status === 'stale' || response.source === 'gee') {
+    if (response.status === 'stale') {
       actions.push({
         priority: actions.length + 1,
         label: 'CACHE REVIEW',
@@ -516,6 +618,41 @@ export class DashboardApiService {
         severity: 'high',
         estimatedCost: '$0',
         estimatedTime: '5 min'
+      });
+    }
+
+    if (trends.anomalyMessage) {
+      actions.push({
+        priority: actions.length + 1,
+        label: 'TREND ANOMALY',
+        items: [
+          trends.anomalyMessage,
+          'Compare this movement against weather, irrigation, and field notes before making a major change.',
+          'Use the next refresh cycle to confirm whether the anomaly persists or corrects.'
+        ],
+        severity: 'high',
+        estimatedCost: '$0',
+        estimatedTime: '20 min'
+      });
+    }
+
+    if (trends.ndvi.direction === 'declining' || trends.ndwi.direction === 'declining') {
+      const decliningMetrics = [
+        trends.ndvi.direction === 'declining' ? 'NDVI' : null,
+        trends.ndwi.direction === 'declining' ? 'NDWI' : null
+      ].filter((metric): metric is string => !!metric);
+
+      actions.push({
+        priority: actions.length + 1,
+        label: 'TREND REVIEW',
+        items: [
+          `${decliningMetrics.join(' and ')} are trending downward over the recent historical series.`,
+          'Inspect irrigation coverage, plant stress, and recent management changes in the affected block.',
+          'Escalate only if the next satellite refresh confirms the same direction of change.'
+        ],
+        severity: 'critical',
+        estimatedCost: '$0',
+        estimatedTime: '30 min'
       });
     }
 
@@ -556,11 +693,24 @@ export class DashboardApiService {
 
   private buildRiskExplanations(
     response: BackendBlockInsightsResponse,
-    metrics: Record<DashboardMetricKey, DashboardMetric>
+    metrics: Record<DashboardMetricKey, DashboardMetric>,
+    trends: DashboardTrendSummary
   ): string[] {
     const explanations = METRIC_ORDER
       .filter(key => metrics[key].colorClass !== 'good')
       .map(key => `${metrics[key].title}: ${metrics[key].message}`);
+
+    if (trends.ndvi.direction !== 'insufficient_data') {
+      explanations.unshift(trends.ndvi.message);
+    }
+
+    if (trends.ndwi.direction !== 'insufficient_data') {
+      explanations.unshift(trends.ndwi.message);
+    }
+
+    if (trends.anomalyMessage) {
+      explanations.unshift(trends.anomalyMessage);
+    }
 
     if (response.status === 'stale') {
       explanations.unshift('This response is coming from stale cache data while a refresh is requested in the background.');
@@ -585,9 +735,21 @@ export class DashboardApiService {
     return explanations;
   }
 
-  private buildWarning(response: BackendBlockInsightsResponse): string | null {
+  private buildWarning(response: BackendBlockInsightsResponse, trends: DashboardTrendSummary): string | null {
+    if (response.source === 'simulated') {
+      return 'Simulated Data: backend intelligence is unavailable. No real satellite values are being shown.';
+    }
+
+    if (response.warning) {
+      return response.warning;
+    }
+
     if (response.error) {
       return response.error;
+    }
+
+    if (trends.anomalyMessage) {
+      return trends.anomalyMessage;
     }
 
     if (response.status === 'updating') {
@@ -598,10 +760,6 @@ export class DashboardApiService {
       return 'Showing stale cache while the backend refreshes this block.';
     }
 
-    if (response.source === 'gee') {
-      return 'This response was refreshed directly from Google Earth Engine.';
-    }
-
     if (response.data_quality === 'degraded') {
       return 'Cloud-heavy imagery reduced confidence in the latest composite.';
     }
@@ -610,7 +768,49 @@ export class DashboardApiService {
       return 'No usable pixels were available for this composite window.';
     }
 
+    const actionableAlert = response.alerts?.find(alert => alert.severity !== 'info');
+    if (actionableAlert) {
+      return actionableAlert.message;
+    }
+
+    if (response.source === 'real') {
+      return 'This response is based on real satellite pipeline output.';
+    }
+
     return null;
+  }
+
+  private buildMetricHistory(
+    key: DashboardMetricKey,
+    value: number | null,
+    timeseries: DashboardTimeseriesPoint[]
+  ): DashboardMetricHistory {
+    if (key !== 'ndvi' && key !== 'ndwi') {
+      return this.buildSnapshotHistory(value);
+    }
+
+    const points = timeseries
+      .map(point => ({
+        date: point.date,
+        value: key === 'ndvi' ? point.ndvi : point.ndwi
+      }))
+      .filter((point): point is { date: string; value: number } => point.value !== null);
+
+    if (!points.length) {
+      return this.buildSnapshotHistory(value);
+    }
+
+    const recent = points.slice(-HISTORY_RECENT_LIMIT);
+    const weekly = this.buildWeeklyHistory(points);
+
+    return {
+      hours: recent.map(point => this.toDisplayHistoryValue(key, point.value)),
+      days: points.map(point => this.toDisplayHistoryValue(key, point.value)),
+      weeks: weekly.values.map(point => this.toDisplayHistoryValue(key, point.value)),
+      labelsHours: recent.map(point => this.formatChartDate(point.date)),
+      labelsDays: points.map(point => this.formatChartDate(point.date)),
+      labelsWeeks: weekly.labels
+    };
   }
 
   private buildSnapshotHistory(value: number | null): DashboardMetricHistory {
@@ -647,17 +847,124 @@ export class DashboardApiService {
       lai: null,
       status: 'updating',
       latency_ms: 0,
-      source: 'cache',
+      source: 'simulated',
       error: message,
       data_quality: 'no_data',
       composite_date_from: null,
-      composite_date_to: null
+      composite_date_to: null,
+      ndvi_status: 'no_data',
+      ndwi_status: 'no_data',
+      ndre_status: 'no_data',
+      evi_status: 'no_data',
+      lai_status: 'no_data',
+      alerts: []
     };
+  }
+
+  private buildNoRealDataInsights(
+    response: BackendBlockInsightsResponse,
+    timeseries: DashboardTimeseriesPoint[]
+  ): DashboardInsightsResponse {
+    const trends = this.buildTrendSummary(timeseries);
+    const metrics = this.buildMetrics(response, timeseries);
+    const warning = this.buildWarning(response, trends)
+      || 'No real satellite intelligence is available for this block yet.';
+    const sensorAnalysis = METRIC_ORDER.map(key => ({
+      label: METRIC_PRESENTATION[key].analysisLabel,
+      value: '--',
+      status: 'WARNING' as const,
+      message: 'Awaiting real satellite intelligence.',
+      colorClass: 'warning' as const
+    }));
+
+    return {
+      blockId: response.block_id,
+      status: response.status,
+      latencyMs: response.latency_ms,
+      source: response.source,
+      error: response.error,
+      dataQuality: response.data_quality,
+      warning,
+      compositeDateFrom: response.composite_date_from,
+      compositeDateTo: response.composite_date_to,
+      metrics,
+      advisor: {
+        riskScore: 0,
+        riskLevel: 'Low',
+        sensorAnalysis,
+        actions: [
+          {
+            priority: 1,
+            label: response.source === 'simulated' ? 'SIMULATED DATA' : 'WAIT FOR REAL DATA',
+            items: [
+              warning,
+              'No agronomic recommendations are being inferred from placeholder or missing values.',
+              'Return after the next successful satellite refresh to view real block intelligence.'
+            ],
+            severity: 'low'
+          }
+        ],
+        riskExplanations: [warning]
+      },
+      nutrient: {
+        status: 'Low',
+        reason: 'Nutrient intelligence is unavailable until real satellite data is returned.',
+        score: 0,
+        details: ['No real NDRE, NDWI, or LAI values are available for this block yet.']
+      },
+      yieldImpact: {
+        currentYieldPercent: 0,
+        projectedLoss: 0,
+        baseProfit: 0,
+        factors: []
+      },
+      alternativeCrops: [],
+      decision: {
+        totalArea: 0,
+        current: {
+          crop: 'Current Block',
+          lossPerHa: 0,
+          totalLoss: 0,
+          yieldLossDetails: 'Waiting for real satellite intelligence.'
+        },
+        switch: {
+          crop: 'Await Real Data',
+          area: 0,
+          profitPerHa: 0,
+          totalProfit: 0,
+          allocationMatch: 0,
+          validated: false,
+          validationText: 'Real satellite intelligence is required before decision support is shown.'
+        },
+        keep: {
+          crop: 'Current Program',
+          area: 0,
+          profitPerHa: 0,
+          totalProfit: 0
+        }
+      },
+      insights: response.alerts || [],
+      timeseries,
+      trends
+    };
+  }
+
+  private hasUsableRealData(response: BackendBlockInsightsResponse): boolean {
+    if (response.source !== 'real') {
+      return false;
+    }
+
+    if (response.data_quality === 'no_data') {
+      return false;
+    }
+
+    return METRIC_ORDER.some(key => response[key] !== null);
   }
 
   private computeRiskScore(
     response: BackendBlockInsightsResponse,
-    metrics: Record<DashboardMetricKey, DashboardMetric>
+    metrics: Record<DashboardMetricKey, DashboardMetric>,
+    trends: DashboardTrendSummary
   ): number {
     const metricScore = METRIC_ORDER.reduce((total, key) => {
       if (metrics[key].colorClass === 'error') {
@@ -672,8 +979,14 @@ export class DashboardApiService {
     const freshnessPenalty = response.status === 'fresh' ? 0 : response.status === 'stale' ? 12 : 20;
     const qualityPenalty = response.data_quality === 'good' ? 0 : response.data_quality === 'degraded' ? 12 : 18;
     const errorPenalty = response.error ? 14 : 0;
+    const trendPenalty = [trends.ndvi, trends.ndwi].reduce((total, trend) => {
+      if (trend.direction === 'declining') {
+        return total + 8;
+      }
+      return trend.anomaly ? total + 10 : total;
+    }, 0);
 
-    return Math.min(100, metricScore + freshnessPenalty + qualityPenalty + errorPenalty);
+    return Math.min(100, metricScore + freshnessPenalty + qualityPenalty + errorPenalty + trendPenalty);
   }
 
   private computeVitalityScore(metrics: Record<DashboardMetricKey, DashboardMetric>): number {
@@ -691,39 +1004,173 @@ export class DashboardApiService {
     return Math.max(0, Math.min(100, Math.round(numericValues.reduce((sum, value) => sum + value, 0) / numericValues.length)));
   }
 
-  private resolveMetricBand(value: number, ranges: { low: number; high: number }): DashboardMetricColor {
-    if (value < ranges.low) {
-      return 'error';
-    }
-    if (value < ranges.high) {
-      return 'warning';
-    }
-    return 'good';
-  }
-
   private buildMetricMessage(
     response: BackendBlockInsightsResponse,
-    messageSuffix: string,
-    label: string,
-    band: DashboardMetricColor
+    defaultMessage: string,
+    alertMessage?: string | null
   ): string {
     if (response.status === 'updating') {
-      return `Latest ${messageSuffix} is still being prepared by the backend.`;
+      return 'Latest interpretation is still being prepared by the backend.';
     }
 
     if (response.status === 'stale') {
-      return `Showing stale cache for ${messageSuffix} while a fresh refresh is queued.`;
+      return 'Showing stale cache while a fresh refresh is queued.';
     }
 
     if (response.data_quality === 'degraded') {
-      return `${label} ${messageSuffix}, but cloud-heavy imagery reduced confidence.`;
+      return alertMessage || `${defaultMessage} Cloud-heavy imagery reduced confidence.`;
     }
 
-    if (band === 'good') {
-      return `${label} ${messageSuffix} from the latest backend composite.`;
+    return alertMessage || defaultMessage;
+  }
+
+  private buildTrendSummary(timeseries: DashboardTimeseriesPoint[]): DashboardTrendSummary {
+    const ndviSignal = this.buildTrendSignal(
+      'NDVI',
+      timeseries
+        .filter(point => point.ndvi !== null)
+        .map(point => ({ date: point.date, value: point.ndvi as number }))
+    );
+    const ndwiSignal = this.buildTrendSignal(
+      'NDWI',
+      timeseries
+        .filter(point => point.ndwi !== null)
+        .map(point => ({ date: point.date, value: point.ndwi as number }))
+    );
+
+    const anomalySignals = [ndviSignal, ndwiSignal].filter(signal => signal.anomaly);
+    const anomalyMessage = anomalySignals.length
+      ? `Recent satellite history shows an unusual shift in ${anomalySignals.map(signal => signal.message.split(' ')[0]).join(' and ')}.`
+      : null;
+    const hasData = timeseries.some(point => point.ndvi !== null || point.ndwi !== null);
+
+    return {
+      hasData,
+      latestDate: timeseries.length ? timeseries[timeseries.length - 1].date : null,
+      ndvi: ndviSignal,
+      ndwi: ndwiSignal,
+      anomalyMessage
+    };
+  }
+
+  private buildTrendSignal(
+    metricLabel: 'NDVI' | 'NDWI',
+    values: Array<{ date: string; value: number }>
+  ): DashboardTrendSignal {
+    if (values.length < 2) {
+      return {
+        direction: 'insufficient_data',
+        delta: null,
+        message: `${metricLabel} is collecting history. At least two refresh cycles are needed before a trend can be shown.`,
+        anomaly: false
+      };
     }
 
-    return `${label} ${messageSuffix} from the latest backend composite.`;
+    const baselineWindow = values.slice(0, Math.min(3, values.length - 1));
+    const recentWindow = values.slice(-Math.min(3, values.length));
+    const baseline = this.average(baselineWindow.map(point => point.value));
+    const recent = this.average(recentWindow.map(point => point.value));
+    const delta = Number((recent - baseline).toFixed(4));
+    const previousWindow = values.slice(0, -1).slice(-Math.min(5, values.length - 1));
+    const anomalyBaseline = previousWindow.length ? this.average(previousWindow.map(point => point.value)) : baseline;
+    const anomaly = Math.abs(values[values.length - 1].value - anomalyBaseline) >= TREND_ANOMALY_THRESHOLD;
+
+    let direction: DashboardTrendDirection = 'stable';
+    if (delta >= TREND_DELTA_THRESHOLD) {
+      direction = 'improving';
+    } else if (delta <= -TREND_DELTA_THRESHOLD) {
+      direction = 'declining';
+    }
+
+    const directionText = direction === 'stable'
+      ? 'is stable'
+      : direction === 'improving'
+        ? 'is improving'
+        : 'is declining';
+    const deltaText = direction === 'stable' ? '' : ` (${delta >= 0 ? '+' : ''}${delta.toFixed(2)})`;
+
+    return {
+      direction,
+      delta,
+      anomaly,
+      message: `${metricLabel} ${directionText} across the recent time series${deltaText}.${anomaly ? ' Latest reading is outside its recent baseline.' : ''}`
+    };
+  }
+
+  private buildWeeklyHistory(points: Array<{ date: string; value: number }>): { labels: string[]; values: Array<{ key: string; value: number }> } {
+    const weeklyMap = new Map<string, { label: string; total: number; count: number }>();
+
+    points.forEach(point => {
+      const weekKey = this.getWeekKey(point.date);
+      const existing = weeklyMap.get(weekKey);
+      if (existing) {
+        existing.total += point.value;
+        existing.count += 1;
+        return;
+      }
+
+      weeklyMap.set(weekKey, {
+        label: this.formatWeekLabel(point.date),
+        total: point.value,
+        count: 1
+      });
+    });
+
+    const sortedEntries = Array.from(weeklyMap.entries()).sort(([left], [right]) => left.localeCompare(right));
+
+    return {
+      labels: sortedEntries.map(([, value]) => value.label),
+      values: sortedEntries.map(([key, value]) => ({
+        key,
+        value: Number((value.total / value.count).toFixed(4))
+      }))
+    };
+  }
+
+  private toDisplayHistoryValue(key: DashboardMetricKey, value: number): number {
+    return key === 'lai' ? Number(value.toFixed(1)) : Math.round(value * 100);
+  }
+
+  private formatChartDate(dateValue: string): string {
+    const parsed = this.parseDateValue(dateValue);
+    if (Number.isNaN(parsed.getTime())) {
+      return dateValue;
+    }
+
+    return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  private formatWeekLabel(dateValue: string): string {
+    const parsed = this.parseDateValue(dateValue);
+    if (Number.isNaN(parsed.getTime())) {
+      return dateValue;
+    }
+
+    return `Week of ${parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+  }
+
+  private getWeekKey(dateValue: string): string {
+    const parsed = this.parseDateValue(dateValue);
+    if (Number.isNaN(parsed.getTime())) {
+      return dateValue;
+    }
+
+    const utcDate = new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate()));
+    const day = utcDate.getUTCDay() || 7;
+    utcDate.setUTCDate(utcDate.getUTCDate() + 1 - day);
+    return utcDate.toISOString().slice(0, 10);
+  }
+
+  private average(values: number[]): number {
+    if (!values.length) {
+      return 0;
+    }
+
+    return values.reduce((total, value) => total + value, 0) / values.length;
+  }
+
+  private parseDateValue(value: string): Date {
+    return new Date(value.includes('T') ? value : `${value}T00:00:00`);
   }
 
   private normalizeStatus(status: unknown): BackendInsightStatus {
@@ -732,6 +1179,135 @@ export class DashboardApiService {
 
   private normalizeDataQuality(dataQuality: unknown): BackendDataQuality {
     return dataQuality === 'degraded' || dataQuality === 'no_data' ? dataQuality : 'good';
+  }
+
+  private normalizeMetricStatus(status: unknown): MetricStatusCode {
+    switch (status) {
+      case 'normal':
+      case 'warning':
+      case 'irrigation_alert':
+      case 'urgent_irrigation':
+      case 'nutrient_issue':
+      case 'canopy_alert':
+      case 'high_yield':
+      case 'low_yield':
+      case 'no_data':
+        return status;
+      default:
+        return 'no_data';
+    }
+  }
+
+  private normalizeAlerts(alerts: unknown): BackendSatelliteAlert[] {
+    if (!Array.isArray(alerts)) {
+      return [];
+    }
+
+    return alerts
+      .map(alert => {
+        if (!alert || typeof alert !== 'object') {
+          return null;
+        }
+
+        const candidate = alert as Partial<BackendSatelliteAlert>;
+        if (!candidate.metric || !candidate.code || !candidate.message || typeof candidate.value !== 'number' || !candidate.threshold) {
+          return null;
+        }
+
+        return {
+          metric: candidate.metric,
+          code: this.normalizeMetricStatus(candidate.code),
+          severity: candidate.severity === 'critical' ? 'critical' : candidate.severity === 'warning' ? 'warning' : 'info',
+          message: candidate.message,
+          value: candidate.value,
+          threshold: candidate.threshold
+        } as BackendSatelliteAlert;
+      })
+      .filter((alert): alert is BackendSatelliteAlert => alert !== null);
+  }
+
+  private normalizeMetrics(metrics: unknown): Record<DashboardMetricKey, DashboardMetric> | undefined {
+    if (!metrics || typeof metrics !== 'object' || Array.isArray(metrics)) {
+      return undefined;
+    }
+
+    const candidate = metrics as Partial<Record<DashboardMetricKey, DashboardMetric>>;
+    const normalized = {} as Record<DashboardMetricKey, DashboardMetric>;
+
+    for (const key of METRIC_ORDER) {
+      const metric = candidate[key];
+      if (!metric) {
+        return undefined;
+      }
+
+      normalized[key] = {
+        key,
+        title: this.asString(metric.title) || METRIC_PRESENTATION[key].title,
+        raw: this.asNullableNumber(metric.raw),
+        label: this.asString(metric.label) || 'No Data',
+        value: typeof metric.value === 'number' || typeof metric.value === 'string' ? metric.value : '--',
+        unit: this.asString(metric.unit) || METRIC_PRESENTATION[key].unit,
+        status: metric.status === 'High' ? 'High' : metric.status === 'Normal' ? 'Normal' : 'Low',
+        message: this.asString(metric.message) || 'No interpretation available.',
+        colorClass: metric.colorClass === 'good' || metric.colorClass === 'warning' ? metric.colorClass : 'error',
+        statusCode: this.normalizeMetricStatus(metric.statusCode),
+        history: metric.history || { hours: [], days: [], weeks: [], labelsHours: [], labelsDays: [], labelsWeeks: [] }
+      };
+    }
+
+    return normalized;
+  }
+
+  private cloneMetrics(metrics: Record<DashboardMetricKey, DashboardMetric>): Record<DashboardMetricKey, DashboardMetric> {
+    return METRIC_ORDER.reduce((copy, key) => {
+      const metric = metrics[key];
+      copy[key] = {
+        ...metric,
+        history: {
+          hours: [...metric.history.hours],
+          days: [...metric.history.days],
+          weeks: [...metric.history.weeks],
+          labelsHours: [...metric.history.labelsHours],
+          labelsDays: [...metric.history.labelsDays],
+          labelsWeeks: [...metric.history.labelsWeeks]
+        }
+      };
+      return copy;
+    }, {} as Record<DashboardMetricKey, DashboardMetric>);
+  }
+
+  private getMetricStatusCode(response: BackendBlockInsightsResponse, key: DashboardMetricKey): MetricStatusCode {
+    switch (key) {
+      case 'ndvi':
+        return response.ndvi_status || 'no_data';
+      case 'ndwi':
+        return response.ndwi_status || 'no_data';
+      case 'ndre':
+        return response.ndre_status || 'no_data';
+      case 'evi':
+        return response.evi_status || 'no_data';
+      case 'lai':
+        return response.lai_status || 'no_data';
+    }
+  }
+
+  private getMetricStatusMeta(
+    key: DashboardMetricKey,
+    statusCode: MetricStatusCode
+  ): { label: string; colorClass: DashboardMetricColor; status: DashboardMetricStatus; message: string } {
+    const labels: Record<MetricStatusCode, { label: string; colorClass: DashboardMetricColor; status: DashboardMetricStatus; message: string }> = {
+      no_data: { label: 'No Data', colorClass: 'error', status: 'Low', message: 'No satellite value is available for this metric yet.' },
+      normal: { label: 'Normal', colorClass: 'good', status: 'Normal', message: `${METRIC_PRESENTATION[key].title} is within the canonical range.` },
+      warning: { label: 'Warning', colorClass: 'warning', status: 'Low', message: 'Canonical backend warning triggered.' },
+      irrigation_alert: { label: 'Irrigation Alert', colorClass: 'warning', status: 'Low', message: 'Canonical irrigation alert triggered.' },
+      urgent_irrigation: { label: 'Urgent Irrigation', colorClass: 'error', status: 'Low', message: 'Canonical urgent irrigation alert triggered.' },
+      nutrient_issue: { label: 'Nutrient Issue', colorClass: 'warning', status: 'Low', message: 'Canonical nutrient issue triggered.' },
+      canopy_alert: { label: 'Canopy Alert', colorClass: 'warning', status: 'High', message: 'Canonical canopy alert triggered.' },
+      high_yield: { label: 'High Yield', colorClass: 'good', status: 'High', message: 'Canonical high-yield signal detected.' },
+      low_yield: { label: 'Low Yield', colorClass: 'error', status: 'Low', message: 'Canonical low-yield warning triggered.' }
+    };
+
+    return labels[statusCode];
   }
 
   private extractErrorMessage(error: unknown): string {

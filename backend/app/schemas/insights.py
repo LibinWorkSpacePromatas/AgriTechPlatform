@@ -1,46 +1,50 @@
 from __future__ import annotations
 
-from datetime import date
-from typing import List, Optional
+from datetime import date as date_type
+from typing import List, Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-
-class Insight(BaseModel):
-    type: Optional[str] = None
-    severity: Optional[str] = None
-    message: Optional[str] = None
-    reason: Optional[str] = None
-    action_window: Optional[str] = None
+from app.schemas.satellite import SatelliteAlert, SatelliteContractResponse
 
 
-class BlockInsightsResponse(BaseModel):
-    block_id: str
+class BlockInsightAlert(SatelliteAlert):
+    pass
+
+
+class DashboardBlockInsightsResponse(SatelliteContractResponse):
     crop: Optional[str] = None
-    ndvi: Optional[float] = None
-    ndwi: Optional[float] = None
-    ndre: Optional[float] = None
-    evi: Optional[float] = None
-    lai: Optional[float] = None
-    cloud_cover: Optional[float] = None
-    date: Optional[date] = None
     data_age_days: int = 0
     confidence: str = "high"
-    data_quality: str
-    insights: List[Insight] = []
+    insights: List[BlockInsightAlert] = Field(default_factory=list)
 
 
-class GrowerGPTResponse(BaseModel):
-    block_id: str
+class WaterResponse(SatelliteContractResponse):
+    lanslu: str
+    date: Optional[date_type] = None
+    status: Literal["normal", "irrigation_alert", "urgent_irrigation", "no_data"]
+    recommendation: str
+    alerts: List[SatelliteAlert] = Field(default_factory=list)
+
+
+class GrowerGPTResponse(SatelliteContractResponse):
     crop: Optional[str] = None
-    date: Optional[date] = None
+    date: Optional[date_type] = None
     data_age_days: int = 0
     confidence: str = "high"
-    insights: List[Insight]
+    insights: List[SatelliteAlert] = Field(default_factory=list)
     message: Optional[str] = None
+
+
+class UserGPTInsight(BaseModel):
+    block_id: str
+    block_name: str
+    crop: Optional[str] = None
+    freshness_status: Literal["fresh", "stale", "updating"] = "fresh"
+    insight: SatelliteAlert
 
 
 class UserGPTResponse(BaseModel):
     user_id: str
     summary: str
-    blocks: List[GrowerGPTResponse]
+    insights: List[UserGPTInsight] = Field(default_factory=list)

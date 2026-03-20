@@ -7,6 +7,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from app.db.models import Block
+from app.services.interpretation_engine import interpret_metric, interpret_satellite_payload
 
 
 METRIC_ORDER = ("ndvi", "ndwi", "ndre", "evi", "lai")
@@ -36,6 +37,13 @@ ALTERNATIVE_CROP_LIBRARY = [
 
 
 def build_block_insights(block: Block, overrides: dict[str, Any] | None = None) -> dict[str, Any]:
+    if not overrides:
+        raise ValueError("Dashboard insights require cache-backed satellite metrics from satellite_insights_service.")
+    missing_metrics = [metric for metric in METRIC_ORDER if overrides.get(metric) is None]
+    if missing_metrics:
+        missing_list = ", ".join(metric.upper() for metric in missing_metrics)
+        raise ValueError(f"Dashboard insights require cache-backed satellite metrics for: {missing_list}.")
+
     crop_name = block.crop or "Default"
     baselines = CROP_BASELINES.get(crop_name, CROP_BASELINES["Default"])
     identifier = block.lanslu or str(block.id)
@@ -46,7 +54,6 @@ def build_block_insights(block: Block, overrides: dict[str, Any] | None = None) 
     fertility_bias = 0.03 if "loam" in soil_text else -0.02 if "sand" in soil_text else 0.0
     canopy_bias = -0.05 if area_ha >= 10 else 0.02 if area_ha <= 6 else 0.0
 
-    # Use overrides if available, otherwise use simulated values
     ndvi = overrides.get("ndvi") if overrides and overrides.get("ndvi") is not None else _bounded(
         baselines["ndvi"] + soil_moisture_bias * 0.3 + fertility_bias * 0.4 + canopy_bias * 0.2 + _signed_noise(identifier, "ndvi", 0.06),
         0.28,
@@ -73,6 +80,23 @@ def build_block_insights(block: Block, overrides: dict[str, Any] | None = None) 
         6.0,
     )
 
+    interpretation = interpret_satellite_payload(
+        {
+            "ndvi": ndvi,
+            "ndwi": ndwi,
+            "ndre": ndre,
+            "evi": evi,
+            "lai": lai,
+        }
+    )
+    metric_interpretations = {
+        "ndvi": interpret_metric("ndvi", ndvi),
+        "ndwi": interpret_metric("ndwi", ndwi),
+        "ndre": interpret_metric("ndre", ndre),
+        "evi": interpret_metric("evi", evi),
+        "lai": interpret_metric("lai", lai),
+    }
+
     metrics = {
         "ndvi": _build_metric_payload(
             identifier=identifier,
@@ -80,12 +104,7 @@ def build_block_insights(block: Block, overrides: dict[str, Any] | None = None) 
             title="Crop Health",
             raw_value=ndvi,
             percent=True,
-            status_thresholds=(0.52, 0.67),
-            label_map=(
-                ("Stressed", "error", "Low", "Vegetative vigor is below the seasonal benchmark."),
-                ("Watch", "warning", "Low", "Vigor is uneven and needs monitoring."),
-                ("Healthy", "good", "Normal", "Canopy vigor is holding steady across the block."),
-            ),
+            interpretation=metric_interpretations["ndvi"],
         ),
         "ndwi": _build_metric_payload(
             identifier=identifier,
@@ -93,12 +112,7 @@ def build_block_insights(block: Block, overrides: dict[str, Any] | None = None) 
             title="Water Status",
             raw_value=ndwi,
             percent=True,
-            status_thresholds=(0.22, 0.35),
-            label_map=(
-                ("Dry", "error", "Low", "Water stress is visible in the latest composite."),
-                ("Watch", "warning", "Low", "Moisture reserves are thinning."),
-                ("Adequate", "good", "Normal", "Water availability is aligned with target range."),
-            ),
+            interpretation=metric_interpretations["ndwi"],
         ),
         "ndre": _build_metric_payload(
             identifier=identifier,
@@ -106,40 +120,25 @@ def build_block_insights(block: Block, overrides: dict[str, Any] | None = None) 
             title="Nutrient Status",
             raw_value=ndre,
             percent=True,
-            status_thresholds=(0.45, 0.58),
-            label_map=(
-                ("Constrained", "error", "Low", "Nitrogen uptake signal is materially constrained."),
-                ("Moderate", "warning", "Low", "Nutrient activity is acceptable but not ideal."),
-                ("Strong", "good", "Normal", "Leaf chlorophyll signal is supportive of growth."),
-            ),
+            interpretation=metric_interpretations["ndre"],
         ),
         "evi": _build_metric_payload(
             identifier=identifier,
             key="evi",
-            title="Canopy Density",
+            title="Vegetation Strength",
             raw_value=evi,
             percent=True,
-            status_thresholds=(0.4, 0.55),
-            label_map=(
-                ("Sparse", "error", "Low", "Canopy density is lagging the crop target."),
-                ("Building", "warning", "Low", "Canopy growth is progressing but still patchy."),
-                ("Dense", "good", "Normal", "Canopy density is tracking well."),
-            ),
+            interpretation=metric_interpretations["evi"],
         ),
         "lai": _build_metric_payload(
             identifier=identifier,
             key="lai",
-            title="Yield Estimate",
+            title="Growth Density",
             raw_value=lai,
             percent=False,
             display_value=round(lai, 1),
             unit=" LAI",
-            status_thresholds=(2.3, 3.8),
-            label_map=(
-                ("Reduced", "error", "Low", "Leaf area suggests reduced yield potential."),
-                ("Steady", "warning", "Low", "Yield potential is serviceable but below peak."),
-                ("High", "good", "Normal", "Leaf area supports a strong yield outlook."),
-            ),
+            interpretation=metric_interpretations["lai"],
         ),
     }
 
@@ -147,8 +146,8 @@ def build_block_insights(block: Block, overrides: dict[str, Any] | None = None) 
         _analysis_item("CROP HEALTH", metrics["ndvi"]),
         _analysis_item("WATER STATUS", metrics["ndwi"]),
         _analysis_item("NUTRIENT STATUS", metrics["ndre"]),
-        _analysis_item("CANOPY DENSITY", metrics["evi"]),
-        _analysis_item("YIELD ESTIMATE", metrics["lai"]),
+        _analysis_item("VEGETATION STRENGTH", metrics["evi"]),
+        _analysis_item("GROWTH DENSITY", metrics["lai"]),
     ]
 
     risk_score = _compute_risk_score(metrics)
@@ -165,8 +164,8 @@ def build_block_insights(block: Block, overrides: dict[str, Any] | None = None) 
         "lanslu": block.lanslu,
         "crop": crop_name,
         "areaHa": area_ha,
-        "source": "api",
-        "warning": None,
+        "source": "real",
+        "warning": _build_warning(interpretation["alerts"]),
         "composite_date_to": datetime.now(ZoneInfo("Australia/Adelaide")).replace(microsecond=0).isoformat(),
         "metrics": metrics,
         "ndvi": ndvi,
@@ -174,6 +173,12 @@ def build_block_insights(block: Block, overrides: dict[str, Any] | None = None) 
         "ndre": ndre,
         "evi": evi,
         "lai": lai,
+        "ndvi_status": interpretation["ndvi_status"],
+        "ndwi_status": interpretation["ndwi_status"],
+        "ndre_status": interpretation["ndre_status"],
+        "evi_status": interpretation["evi_status"],
+        "lai_status": interpretation["lai_status"],
+        "alerts": interpretation["alerts"],
         "advisor": {
             "riskScore": risk_score,
             "riskLevel": risk_level,
@@ -195,18 +200,10 @@ def _build_metric_payload(
     title: str,
     raw_value: float,
     percent: bool,
-    status_thresholds: tuple[float, float],
-    label_map: tuple[tuple[str, str, str, str], tuple[str, str, str, str], tuple[str, str, str, str]],
+    interpretation: dict[str, Any],
     display_value: float | None = None,
     unit: str | None = None,
 ) -> dict[str, Any]:
-    if raw_value < status_thresholds[0]:
-        label, color_class, status, message = label_map[0]
-    elif raw_value < status_thresholds[1]:
-        label, color_class, status, message = label_map[1]
-    else:
-        label, color_class, status, message = label_map[2]
-
     final_display_value = round(raw_value * 100) if percent else (display_value if display_value is not None else round(raw_value, 1))
     final_unit = "%" if percent else (unit or "")
     history_min = 0 if percent else 0.5
@@ -217,12 +214,13 @@ def _build_metric_payload(
         "key": key,
         "title": title,
         "raw": round(raw_value, 3),
-        "label": label,
+        "label": interpretation["label"],
         "value": final_display_value,
         "unit": final_unit,
-        "status": status,
-        "message": message,
-        "colorClass": color_class,
+        "status": interpretation["dashboardStatus"],
+        "statusCode": interpretation["code"],
+        "message": interpretation["message"],
+        "colorClass": interpretation["colorClass"],
         "history": {
             "hours": _build_history_series(identifier, key, center, 24, history_min, history_max, 4.2 if percent else 0.35, 1 if percent else 1),
             "days": _build_history_series(identifier, f"{key}-days", center, 7, history_min, history_max, 7.5 if percent else 0.6, 1 if percent else 1),
@@ -246,11 +244,15 @@ def _analysis_item(label: str, metric: dict[str, Any]) -> dict[str, Any]:
 
 
 def _compute_risk_score(metrics: dict[str, dict[str, Any]]) -> int:
+    evi_risk = 0.0
+    if metrics["evi"].get("statusCode") == "canopy_alert":
+        evi_risk = max(0, metrics["evi"]["value"] - 50) * 0.45
+
     risk_components = [
         max(0, 70 - metrics["ndvi"]["value"]) * 0.6,
         max(0, 40 - metrics["ndwi"]["value"]) * 0.8,
         max(0, 60 - metrics["ndre"]["value"]) * 0.5,
-        max(0, 58 - metrics["evi"]["value"]) * 0.45,
+        evi_risk,
         max(0, 4.1 - float(metrics["lai"]["value"])) * 11,
     ]
     return max(0, min(100, round(sum(risk_components))))
@@ -266,7 +268,7 @@ def _build_risk_explanations(crop_name: str, metrics: dict[str, dict[str, Any]])
     if metrics["ndvi"]["colorClass"] != "good":
         explanations.append("Crop vigor is trailing the seasonal benchmark and could suppress productivity.")
     if metrics["evi"]["colorClass"] != "good":
-        explanations.append("Canopy density is uneven, which can lower fruit protection and uniformity.")
+        explanations.append("Vegetation strength is above the canopy alert threshold, so canopy pressure should be reviewed.")
     if metrics["lai"]["colorClass"] != "good":
         explanations.append("Leaf area index is below target, reducing projected yield potential.")
 
@@ -317,9 +319,9 @@ def _build_yield_impact(crop_name: str, area_ha: float, metrics: dict[str, dict[
     if metrics["ndvi"]["colorClass"] != "good":
         impact = max(3, round((70 - metrics["ndvi"]["value"]) * 0.3))
         factors.append({"name": "Reduced Vigor", "impact": impact, "severity": "high" if impact >= 12 else "medium"})
-    if metrics["evi"]["colorClass"] != "good":
-        impact = max(2, round((58 - metrics["evi"]["value"]) * 0.22))
-        factors.append({"name": "Thin Canopy", "impact": impact, "severity": "medium"})
+    if metrics["evi"].get("statusCode") == "canopy_alert":
+        impact = max(2, round((metrics["evi"]["value"] - 50) * 0.22))
+        factors.append({"name": "Dense Canopy", "impact": impact, "severity": "medium"})
 
     total_impact = min(65, sum(factor["impact"] for factor in factors))
     current_yield_percent = max(35, 100 - total_impact)
@@ -358,8 +360,8 @@ def _build_alternative_crops(crop_name: str, metrics: dict[str, dict[str, Any]])
             reasons.append("Stronger gross margin potential")
         if ndre_value >= 55:
             reasons.append("Current nutrient signal can support establishment")
-        if metrics["evi"]["value"] < 55:
-            reasons.append("Can work with a lighter canopy structure")
+        if metrics["evi"].get("statusCode") == "canopy_alert":
+            reasons.append("Current vegetative vigor suggests strong canopy growth capacity")
 
         alternatives.append(
             {
@@ -463,8 +465,8 @@ def _build_actions(crop_name: str, metrics: dict[str, dict[str, Any]], nutrient_
                 "priority": 3,
                 "label": "NEXT 7 DAYS",
                 "items": [
-                    "Walk the lighter canopy zones identified by the latest composite.",
-                    "Compare vigor variability against pruning, disease, and irrigation records.",
+                    "Walk the zones flagged by the latest composite for vigor or canopy review.",
+                    "Compare vigor variability and canopy pressure against pruning, disease, and irrigation records.",
                     "Capture follow-up imagery to confirm recovery after intervention.",
                 ],
                 "severity": "medium",
@@ -490,6 +492,13 @@ def _build_actions(crop_name: str, metrics: dict[str, dict[str, Any]], nutrient_
         )
 
     return actions[:3]
+
+
+def _build_warning(alerts: list[dict[str, Any]]) -> str | None:
+    for alert in alerts:
+        if alert.get("severity") in {"warning", "critical"}:
+            return str(alert.get("message"))
+    return None
 
 
 def _build_history_series(

@@ -76,11 +76,13 @@ class SatelliteTimeseries(Base):
     __tablename__ = "satellite_timeseries"
     __table_args__ = (
         Index("ix_satellite_timeseries_block_observed_on", "block_id", "observed_on"),
+        Index("ix_satellite_timeseries_block_recorded_at", "block_id", "recorded_at"),
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     block_id = Column(UUID(as_uuid=True), ForeignKey("blocks.id", ondelete="CASCADE"), nullable=False)
     observed_on = Column(Date, nullable=False)
+    recorded_at = Column(DateTime(timezone=True), nullable=False)
     composite_date_from = Column(Date, nullable=True)
     composite_date_to = Column(Date, nullable=True)
     geometry_hash = Column(String(128), nullable=False)

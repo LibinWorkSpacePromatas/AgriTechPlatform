@@ -35,8 +35,11 @@ import {
   DashboardDecisionData,
   DashboardMetric,
   DashboardMetricKey,
+  DashboardTrendDirection,
+  DashboardTrendSummary,
   DashboardYieldImpact
 } from '../../core/services/dashboard-api.service';
+import { SatelliteRefreshEvent, SatelliteRefreshEventsService } from '../../core/services/satellite-refresh-events.service';
 
 interface DashboardBlock extends Omit<SharedBlock, 'location'> {
   crop: string;
@@ -102,15 +105,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private weatherInterval?: Subscription;
   private weatherRequest?: Subscription;
   private insightsRequest?: Subscription;
+  private refreshEventsSubscription?: Subscription;
+  private pendingInsightReload = false;
 
   activeTab: 'overview' | 'advisor' = 'overview';
   chartMode: 'hourly' | 'daily' = 'hourly';
-  activeSensorTab: 'hours' | 'days' | 'weeks' = 'hours';
+  activeSensorTab: 'recent' | 'daily' | 'weekly' = 'recent';
 
   weatherData: WeatherData | null = null;
   isDaytime = true;
   isLoading = false;
   isInsightsLoading = false;
+  isInsightsRefreshing = false;
   isUsingFallbackData = false;
   dashboardWarningMessage: string | null = null;
 
@@ -163,7 +169,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   constructor(
     public weatherService: WeatherService,
     private blockService: BlockService,
-    private dashboardApiService: DashboardApiService
+    private dashboardApiService: DashboardApiService,
+    private satelliteRefreshEventsService: SatelliteRefreshEventsService
   ) { }
 
   get insightsStatusLabel(): string {
@@ -171,8 +178,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return 'Loading latest block intelligence';
     }
 
+    if (this.isInsightsRefreshing) {
+      return 'Checking for newly refreshed satellite data';
+    }
+
     if (!this.latestInsights) {
       return 'Waiting for backend intelligence';
+    }
+
+    if (this.latestInsights.source === 'simulated') {
+      return 'Simulated Data';
+    }
+
+    if (this.latestInsights.dataQuality === 'no_data') {
+      return 'No real satellite data yet';
     }
 
     if (this.latestInsights.status === 'updating') {
@@ -183,7 +202,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return 'Showing stale cache while refresh runs';
     }
 
-    return this.latestInsights.source === 'gee' ? 'Freshly refreshed from GEE' : 'Fresh cache intelligence';
+    return 'Real satellite intelligence';
   }
 
   get insightsLatencyLabel(): string {
@@ -197,6 +216,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
   get dataStatusTitle(): string {
     if (!this.latestInsights) {
       return 'Data Status';
+    }
+
+    if (this.latestInsights.source === 'simulated') {
+      return 'Simulated Data';
+    }
+
+    if (this.latestInsights.dataQuality === 'no_data') {
+      return 'No Real Data';
     }
 
     if (this.latestInsights.error || this.latestInsights.status !== 'fresh' || this.latestInsights.dataQuality !== 'good') {
@@ -215,7 +242,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return 'Satellite intelligence is loading for the selected block.';
     }
 
-    return `This dashboard is using ${this.latestInsights.source.toUpperCase()}-backed block intelligence for the selected block.`;
+    if (this.latestInsights.source === 'simulated') {
+      return 'Simulated Data: the backend was unavailable, so no real satellite intelligence is being shown.';
+    }
+
+    if (this.latestInsights.dataQuality === 'no_data') {
+      return 'No real satellite intelligence is available for the selected block yet. The dashboard is showing an empty state until a usable composite arrives.';
+    }
+
+    return 'This dashboard is using real satellite-backed block intelligence for the selected block.';
+  }
+
+  get showNoRealDataState(): boolean {
+    if (!this.latestInsights) {
+      return false;
+    }
+
+    return this.latestInsights.source === 'simulated' || this.latestInsights.dataQuality === 'no_data';
   }
 
   get currentSensorLabels(): string[] {
@@ -223,11 +266,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (!sensor) return [];
 
     switch (this.activeSensorTab) {
-      case 'hours':
+      case 'recent':
         return [...sensor.labelsHours];
-      case 'days':
+      case 'daily':
         return [...sensor.labelsDays];
-      case 'weeks':
+      case 'weekly':
         return [...sensor.labelsWeeks];
       default:
         return [...sensor.labelsHours];
@@ -239,15 +282,66 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (!sensor) return [];
 
     switch (this.activeSensorTab) {
-      case 'hours':
+      case 'recent':
         return [...sensor.historyHours];
-      case 'days':
+      case 'daily':
         return [...sensor.historyDays];
-      case 'weeks':
+      case 'weekly':
         return [...sensor.historyWeeks];
       default:
         return [...sensor.historyHours];
     }
+  }
+
+  get hasSatelliteTrendData(): boolean {
+    const populatedPoints = (this.latestInsights?.timeseries || []).filter(point => point.ndvi !== null || point.ndwi !== null);
+    return populatedPoints.length >= 2;
+  }
+
+  get satelliteTrendLabels(): string[] {
+    return (this.latestInsights?.timeseries || []).map(point => this.formatTimeseriesLabel(point.date));
+  }
+
+  get satelliteTrendSeries(): ChartSeries[] {
+    if (!this.latestInsights) {
+      return [];
+    }
+
+    const ndviPoints = this.latestInsights.timeseries.map(point => point.ndvi);
+    const ndwiPoints = this.latestInsights.timeseries.map(point => point.ndwi);
+    const hasNdvi = ndviPoints.some(point => point !== null);
+    const hasNdwi = ndwiPoints.some(point => point !== null);
+
+    const series: ChartSeries[] = [];
+
+    if (hasNdvi) {
+      series.push({
+        name: 'NDVI',
+        data: ndviPoints.map(point => point ?? 0),
+        color: '#16a34a',
+        unit: ''
+      });
+    }
+
+    if (hasNdwi) {
+      series.push({
+        name: 'NDWI',
+        data: ndwiPoints.map(point => point ?? 0),
+        color: '#0284c7',
+        unit: ''
+      });
+    }
+
+    return series;
+  }
+
+  get satelliteTrendSummary(): DashboardTrendSummary | null {
+    return this.latestInsights?.trends || null;
+  }
+
+  get satelliteTrendLastUpdated(): string {
+    const latestDate = this.latestInsights?.trends.latestDate;
+    return latestDate ? this.formatInsightsTimestamp(latestDate) : 'No historical observations yet';
   }
 
   get currentBlockPrefix(): string {
@@ -313,6 +407,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
       )
       .subscribe(block => {
         this.currentBlock = this.mapSharedBlock(block);
+        this.pendingInsightReload = false;
+        this.subscribeToSatelliteRefreshEvents(this.currentBlock);
         this.refreshWeather();
         this.loadBlockInsights(this.currentBlock);
       });
@@ -328,6 +424,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.weatherInterval?.unsubscribe();
     this.weatherRequest?.unsubscribe();
     this.insightsRequest?.unsubscribe();
+    this.refreshEventsSubscription?.unsubscribe();
   }
 
   private mapSharedBlock(block: SharedBlock): DashboardBlock {
@@ -344,9 +441,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
     };
   }
 
-  private loadBlockInsights(block: DashboardBlock): void {
-    this.isInsightsLoading = true;
-    this.prepareInsightsLoadState();
+  private loadBlockInsights(
+    block: DashboardBlock,
+    options: { preserveState?: boolean; backgroundRefresh?: boolean } = {}
+  ): void {
+    const preserveState = options.preserveState ?? false;
+    const backgroundRefresh = options.backgroundRefresh ?? false;
+
+    if (preserveState) {
+      this.isInsightsRefreshing = true;
+    } else {
+      this.isInsightsLoading = true;
+      this.prepareInsightsLoadState();
+    }
+
     this.insightsRequest?.unsubscribe();
 
     this.insightsRequest = this.dashboardApiService.getBlockInsights(block.lan || block.id)
@@ -355,20 +463,64 @@ export class DashboardComponent implements OnInit, OnDestroy {
         next: insights => {
           this.applyInsights(block, insights);
           this.isInsightsLoading = false;
+          this.isInsightsRefreshing = false;
+          this.flushPendingInsightReload(block);
         },
         error: error => {
           console.error('Dashboard insights request failed unexpectedly.', error);
-          this.dashboardWarningMessage = 'Unable to load backend dashboard insights.';
-          this.isUsingFallbackData = true;
+          if (!preserveState) {
+            this.dashboardWarningMessage = 'Unable to load backend dashboard insights.';
+            this.isUsingFallbackData = true;
+          } else if (backgroundRefresh && !this.dashboardWarningMessage) {
+            this.dashboardWarningMessage = 'Unable to check for a newer satellite refresh. Showing the latest successful result.';
+          }
           this.isInsightsLoading = false;
+          this.isInsightsRefreshing = false;
+          this.flushPendingInsightReload(block);
         }
       });
+  }
+
+  private subscribeToSatelliteRefreshEvents(block: DashboardBlock): void {
+    this.refreshEventsSubscription?.unsubscribe();
+    this.refreshEventsSubscription = this.satelliteRefreshEventsService.watchBlock(block.lan || block.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(event => this.handleSatelliteRefreshEvent(block, event));
+  }
+
+  private handleSatelliteRefreshEvent(block: DashboardBlock, event: SatelliteRefreshEvent): void {
+    if (!this.currentBlock || this.currentBlock.lan !== block.lan) {
+      return;
+    }
+
+    if (event.event === 'connected') {
+      return;
+    }
+
+    if (event.event === 'queued' || event.event === 'running') {
+      if (!this.isInsightsLoading) {
+        this.isInsightsRefreshing = true;
+      }
+      return;
+    }
+
+    if (event.event === 'failed') {
+      this.dashboardWarningMessage = event.error || 'Satellite refresh failed. Showing the latest successful result.';
+    }
+
+    if (this.isInsightsLoading) {
+      this.pendingInsightReload = true;
+      return;
+    }
+
+    this.loadBlockInsights(block, { preserveState: true, backgroundRefresh: true });
   }
 
   private prepareInsightsLoadState(): void {
     this.latestInsights = null;
     this.dashboardWarningMessage = null;
     this.isUsingFallbackData = false;
+    this.isInsightsRefreshing = false;
     this.sensors = [];
     this.hoveredSensor = null;
     this.lockedSensor = null;
@@ -381,7 +533,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const previousSelectedId = this.selectedSensor?.id;
 
     this.latestInsights = insights;
-    this.isUsingFallbackData = !!insights.error || insights.status !== 'fresh' || insights.dataQuality !== 'good';
+    this.isUsingFallbackData = insights.source === 'simulated' || insights.dataQuality === 'no_data' || !!insights.error || insights.status !== 'fresh' || insights.dataQuality !== 'good';
     this.dashboardWarningMessage = insights.warning;
 
     this.sensors = this.mapMetricsToSensors(insights.metrics);
@@ -408,6 +560,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
     };
     this.alternativeCrops = insights.alternativeCrops.map(crop => ({ ...crop, reasons: [...crop.reasons] }));
     this.decisionData = this.mapDecisionData(insights.decision, block);
+  }
+
+  private flushPendingInsightReload(block: DashboardBlock): void {
+    if (!this.pendingInsightReload) {
+      return;
+    }
+
+    this.pendingInsightReload = false;
+    this.loadBlockInsights(block, { preserveState: true, backgroundRefresh: true });
   }
 
   private mapDecisionData(decision: DashboardDecisionData, block: DashboardBlock): DashboardDecisionData {
@@ -469,7 +630,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         labelsDays: [...metric.history.labelsDays],
         historyWeeks: [...metric.history.weeks],
         labelsWeeks: [...metric.history.labelsWeeks],
-        suggestedMin: key === 'lai' ? 0 : 0,
+        suggestedMin: key === 'ndwi' ? -100 : 0,
         suggestedMax: key === 'lai' ? 6.5 : 100
       };
     });
@@ -489,7 +650,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   private formatInsightsTimestamp(timestamp: string): string {
-    const date = new Date(timestamp);
+    const date = this.parseDateValue(timestamp);
     if (Number.isNaN(date.getTime())) {
       return timestamp;
     }
@@ -592,7 +753,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.lockedSensor = sensor;
     this.hoveredSensor = sensor;
-    this.activeSensorTab = 'hours';
+    this.activeSensorTab = 'recent';
   }
 
   closePopup(event?: Event): void {
@@ -601,7 +762,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.hoveredSensor = null;
   }
 
-  setSensorTab(tab: 'hours' | 'days' | 'weeks'): void {
+  setSensorTab(tab: 'recent' | 'daily' | 'weekly'): void {
     this.activeSensorTab = tab;
   }
 
@@ -818,7 +979,46 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   formatDailyLabels(dates: string[]): string[] {
-    return dates.map(dateValue => new Date(dateValue).toLocaleDateString('en-US', { weekday: 'short' }));
+    return dates.map(dateValue => {
+      const parsed = this.parseDateValue(dateValue);
+      if (Number.isNaN(parsed.getTime())) {
+        return dateValue;
+      }
+
+      return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    });
+  }
+
+  formatTimeseriesLabel(dateValue: string): string {
+    const parsed = this.parseDateValue(dateValue);
+    if (Number.isNaN(parsed.getTime())) {
+      return dateValue;
+    }
+
+    if (dateValue.includes('T')) {
+      return parsed.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    }
+
+    return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  formatInsightsDate(timestamp: string): string {
+    const date = this.parseDateValue(timestamp);
+    if (Number.isNaN(date.getTime())) {
+      return timestamp;
+    }
+
+    return date.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    });
   }
 
   getAverage(values: number[]): number {
@@ -829,5 +1029,48 @@ export class DashboardComponent implements OnInit, OnDestroy {
   getMax(values: number[]): number {
     if (!values.length) return 0;
     return Math.max(...values);
+  }
+
+  getTrendBadgeClass(direction: DashboardTrendDirection | undefined): string {
+    if (direction === 'improving') return 'good';
+    if (direction === 'declining') return 'error';
+    if (direction === 'stable') return 'warning';
+    return 'neutral';
+  }
+
+  getTrendLabel(direction: DashboardTrendDirection | undefined): string {
+    if (direction === 'improving') return 'Improving';
+    if (direction === 'declining') return 'Declining';
+    if (direction === 'stable') return 'Stable';
+    return 'Collecting';
+  }
+
+  getSensorTrendSummary(sensor: DashboardSensor | null): string {
+    if (!sensor) {
+      return 'No metric selected';
+    }
+
+    if (sensor.id === 'ndvi' && this.latestInsights?.trends) {
+      return this.latestInsights.trends.ndvi.message;
+    }
+
+    if (sensor.id === 'ndwi' && this.latestInsights?.trends) {
+      return this.latestInsights.trends.ndwi.message;
+    }
+
+    if (sensor.historyDays.length <= 1) {
+      return 'Historical trend is not available for this metric yet.';
+    }
+
+    const delta = sensor.historyDays[sensor.historyDays.length - 1] - sensor.historyDays[0];
+    if (Math.abs(delta) < 1) {
+      return `${sensor.label} is stable across the available history.`;
+    }
+
+    return `${sensor.label} is ${delta > 0 ? 'improving' : 'declining'} across the available history.`;
+  }
+
+  private parseDateValue(value: string): Date {
+    return new Date(value.includes('T') ? value : `${value}T00:00:00`);
   }
 }
