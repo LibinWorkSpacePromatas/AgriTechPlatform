@@ -4,102 +4,145 @@
             <i-lucide [img]="SproutIcon" class="page-icon"></i-lucide>
             <div>
                 <h1>Growing Opportunities</h1>
-                <p class="subtitle">Explore diversification options and support programs for Riverland growers</p>
+                <p class="subtitle">Live block actions first, then broader diversification options for Riverland growers</p>
             </div>
         </div>
     </div>
+
+    <section class="live-section">
+        <div class="hero-panel">
+            <div class="hero-copy">
+                <p class="section-kicker">For {{ currentBlock?.name || 'your selected block' }}</p>
+                <h2>{{ pageHeadline }}</h2>
+                <p class="hero-summary">{{ pageSummary }}</p>
+            </div>
+
+            <div class="hero-meta">
+                <span class="status-pill" [class.loading]="isInsightsLoading">
+                    <i-lucide [img]="isInsightsLoading ? RefreshCwIcon : (hasLiveAlerts ? AlertTriangleIcon : CheckCircleIcon)"></i-lucide>
+                    {{ insightsStatusLabel }}
+                </span>
+                <span class="status-meta">{{ freshnessLabel }}</span>
+                <span class="status-meta">{{ qualityLabel }}</span>
+            </div>
+        </div>
+
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">Recommended Actions</p>
+                <h2>Clear next steps for this block</h2>
+            </div>
+        </div>
+
+        <div class="inline-warning" *ngIf="pageWarning">
+            {{ pageWarning }}
+        </div>
+
+        <div class="trend-summary" *ngIf="pageData?.trend_summary">
+            {{ withFriendlyBlockName(pageData?.trend_summary) }}
+        </div>
+
+        <div class="feedback-banner" *ngIf="feedbackMessage">
+            {{ feedbackMessage }}
+        </div>
+
+        <div class="recommendations-grid">
+            <article
+                class="recommendation-card"
+                *ngFor="let recommendation of liveRecommendations; trackBy: trackByRecommendation"
+                [class.severity-critical]="recommendation.severity === 'critical'"
+                [class.severity-warning]="recommendation.severity === 'warning'"
+                [class.severity-info]="recommendation.severity === 'info'"
+                [class.severity-positive]="recommendation.severity === 'positive'">
+                <div class="recommendation-header">
+                    <div class="recommendation-icon">
+                        <i-lucide [img]="getRecommendationIcon(recommendation)"></i-lucide>
+                    </div>
+                    <div class="recommendation-copy">
+                        <div class="recommendation-topline">
+                            <p class="recommendation-label">{{ getSeverityLabel(recommendation) }}</p>
+                            <span class="recommendation-metric">{{ getPlainMetricLabel(recommendation) }}</span>
+                        </div>
+                        <h3>{{ recommendation.title }}</h3>
+                        <p class="recommendation-summary">{{ withFriendlyBlockName(recommendation.message) }}</p>
+                    </div>
+                </div>
+
+                <div class="recommendation-glance" aria-label="Recommendation summary">
+                    <div class="glance-chip">
+                        <span class="glance-label">Why it matters</span>
+                        <strong>{{ recommendation.threshold }}</strong>
+                    </div>
+                    <div class="glance-chip">
+                        <span class="glance-label">Current reading</span>
+                        <strong>{{ formatRecommendationValue(recommendation.current_value) }}</strong>
+                    </div>
+                </div>
+
+                <div class="recommendation-body">
+                    <div class="recommendation-section">
+                        <span class="section-label">What this means</span>
+                        <p class="recommendation-detail">{{ withFriendlyBlockName(recommendation.detail) }}</p>
+                    </div>
+
+                    <div class="recommendation-callout">
+                        <span class="callout-label">What to do now</span>
+                        <p class="recommendation-farmer">{{ withFriendlyBlockName(recommendation.recommended_action) }}</p>
+                    </div>
+                </div>
+
+                <p class="recommendation-trend" *ngIf="recommendation.trend_note">
+                    {{ withFriendlyBlockName(recommendation.trend_note) }}
+                </p>
+
+                <div class="feedback-row" *ngIf="pageData?.feedback_enabled">
+                    <span class="feedback-label">Was this recommendation accurate?</span>
+                    <div class="feedback-actions">
+                        <button
+                            type="button"
+                            class="feedback-button"
+                            [class.selected]="isFeedbackSelected(recommendation.id, 'helpful')"
+                            [disabled]="feedbackState[recommendation.id] === 'saving'"
+                            (click)="submitFeedback(recommendation, true)">
+                            <i-lucide [img]="ThumbsUpIcon"></i-lucide>
+                            Helpful
+                        </button>
+                        <button
+                            type="button"
+                            class="feedback-button"
+                            [class.selected]="isFeedbackSelected(recommendation.id, 'not_helpful')"
+                            [disabled]="feedbackState[recommendation.id] === 'saving'"
+                            (click)="submitFeedback(recommendation, false)">
+                            <i-lucide [img]="ThumbsDownIcon"></i-lucide>
+                            Not helpful
+                        </button>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </section>
+
+    <section class="library-section">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">Explore More</p>
+                <h2>Funding, diversification, and longer-term options</h2>
+            </div>
+        </div>
 
     <div class="opportunities-grid">
-        <!-- Opportunity Card 1 -->
-        <div class="opportunity-card hover-lift" (click)="openOpportunity(opportunities[0])">
+        <div class="opportunity-card hover-lift" *ngFor="let opportunity of opportunities; trackBy: trackByOpportunity" (click)="openOpportunity(opportunity)">
             <div class="card-content">
-                <h3 class="card-title">Olives: A Lower-Water Option for Riverland</h3>
-                <p class="card-description">
-                    Olive cultivation offers Riverland growers a drought-tolerant alternative that thrives in the
-                    region's warm Mediterranean climate. With water requirements 30-40% lower than wine grapes, olives
-                    present an attractive option for growers...
-                </p>
+                <h3 class="card-title">{{ opportunity.title }}</h3>
+                <p class="card-description">{{ opportunity.description }}</p>
                 <div class="card-tags">
-                    <span class="tag">olives</span>
-                    <span class="tag">diversification</span>
-                    <span class="tag">water-efficiency</span>
-                </div>
-            </div>
-            <i-lucide [img]="ChevronRightIcon" class="card-arrow"></i-lucide>
-        </div>
-
-        <!-- Opportunity Card 2 -->
-        <div class="opportunity-card hover-lift" (click)="openOpportunity(opportunities[1])">
-            <div class="card-content">
-                <h3 class="card-title">Government Funding to Support Diversification</h3>
-                <p class="card-description">
-                    The South Australian Government and Central Cooperative Winery (CCW) have announced funding
-                    initiatives to help Riverland grape growers transition to more from low-value red grape varieties.
-                    Grants of up to $50,000 are available for...
-                </p>
-                <div class="card-tags">
-                    <span class="tag">funding</span>
-                    <span class="tag">government-support</span>
-                    <span class="tag">grants</span>
-                </div>
-            </div>
-            <i-lucide [img]="ChevronRightIcon" class="card-arrow"></i-lucide>
-        </div>
-
-        <!-- Opportunity Card 3 -->
-        <div class="opportunity-card hover-lift" (click)="openOpportunity(opportunities[2])">
-            <div class="card-content">
-                <h3 class="card-title">Alternative Varieties & Premium Markets</h3>
-                <p class="card-description">
-                    Mediterranean grape varieties like Nero d'Avola, Fiano, and Vermentino are gaining traction in the
-                    Riverland, offering growers access to premium markets with being better adapted to warming
-                    conditions. These varieties typically...
-                </p>
-                <div class="card-tags">
-                    <span class="tag">premium-varieties</span>
-                    <span class="tag">alternative-grapes</span>
-                    <span class="tag">organic</span>
-                </div>
-            </div>
-            <i-lucide [img]="ChevronRightIcon" class="card-arrow"></i-lucide>
-        </div>
-
-        <!-- Opportunity Card 4 -->
-        <div class="opportunity-card hover-lift" (click)="openOpportunity(opportunities[3])">
-            <div class="card-content">
-                <h3 class="card-title">Almonds & Precision Irrigation for Drought Resilience</h3>
-                <p class="card-description">
-                    SARDI and the SA Drought Hub have been researching precision irrigation techniques that match water
-                    application to actual canopy requirements. For almond growers, this approach has shown 15-20% water
-                    savings without yield...
-                </p>
-                <div class="card-tags">
-                    <span class="tag">almonds</span>
-                    <span class="tag">precision-irrigation</span>
-                    <span class="tag">drought-resilience</span>
-                </div>
-            </div>
-            <i-lucide [img]="ChevronRightIcon" class="card-arrow"></i-lucide>
-        </div>
-
-        <!-- Opportunity Card 5 -->
-        <div class="opportunity-card hover-lift" (click)="openOpportunity(opportunities[4])">
-            <div class="card-content">
-                <h3 class="card-title">Multi-Crop Strategies Amid Oversupply</h3>
-                <p class="card-description">
-                    Several successful Riverland growers have diversified their operations to include multiple crop
-                    types, reducing their exposure to single commodity price fluctuations. Examples include combining
-                    citrus with wine grapes, or adding oil...
-                </p>
-                <div class="card-tags">
-                    <span class="tag">multi-crop</span>
-                    <span class="tag">diversification</span>
-                    <span class="tag">risk-management</span>
+                    <span class="tag" *ngFor="let tag of opportunity.tags">{{ tag }}</span>
                 </div>
             </div>
             <i-lucide [img]="ChevronRightIcon" class="card-arrow"></i-lucide>
         </div>
     </div>
+    </section>
 </div>
 
 <!-- Modal Overlay -->

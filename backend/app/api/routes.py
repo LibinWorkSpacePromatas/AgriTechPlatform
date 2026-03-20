@@ -7,9 +7,15 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.api import auth, scan
 from app.db.session import SessionLocal
 from app.db.models import Block, User, SatelliteCache
+from app.schemas.growing_opportunities import (
+    GrowingOpportunitiesResponse,
+    GrowingOpportunityFeedbackRequest,
+    GrowingOpportunityFeedbackResponse,
+)
 from app.schemas.satellite import BlockInsightsResponse as GEEInsightsResponse
 from app.schemas.insights import BlockInsightsResponse
 from app.services.satellite_insights import SatelliteInsightsUnavailableError, satellite_insights_service
+from app.services.growing_opportunities import growing_opportunities_service
 from app.services.insights import generate_insights
 from app.services.utils import calculate_confidence
 from app.services.dashboard_insights import build_block_insights
@@ -159,3 +165,49 @@ def get_block_dashboard_insights(block_id: str, db: Session = Depends(get_db)):
 
     # If no real data, return the simulated rich insights for the dashboard
     return build_block_insights(block)
+
+
+@router.get("/api/blocks/{block_id}/growing-opportunities", response_model=GrowingOpportunitiesResponse, tags=["growing-opportunities"])
+def get_growing_opportunities(block_id: str, db: Session = Depends(get_db)):
+    block = None
+
+    try:
+        block_uuid = UUID(block_id)
+        block = db.query(Block).filter(Block.id == block_uuid).first()
+    except (ValueError, AttributeError):
+        pass
+
+    if not block:
+        block = db.query(Block).filter(Block.lanslu == block_id).first()
+
+    if not block:
+        raise HTTPException(status_code=404, detail=f"Block {block_id} not found")
+
+    return growing_opportunities_service.build_page_payload(db, block)
+
+
+@router.post(
+    "/api/blocks/{block_id}/growing-opportunities/feedback",
+    response_model=GrowingOpportunityFeedbackResponse,
+    tags=["growing-opportunities"],
+)
+def save_growing_opportunity_feedback(
+    block_id: str,
+    feedback: GrowingOpportunityFeedbackRequest,
+    db: Session = Depends(get_db),
+):
+    block = None
+
+    try:
+        block_uuid = UUID(block_id)
+        block = db.query(Block).filter(Block.id == block_uuid).first()
+    except (ValueError, AttributeError):
+        pass
+
+    if not block:
+        block = db.query(Block).filter(Block.lanslu == block_id).first()
+
+    if not block:
+        raise HTTPException(status_code=404, detail=f"Block {block_id} not found")
+
+    return growing_opportunities_service.save_feedback(block, feedback)

@@ -3,7 +3,7 @@ from uuid import UUID
 
 def populate():
     try:
-        conn = psycopg2.connect('postgresql://postgres:1234@localhost:5432/postgres')
+        conn = psycopg2.connect('postgresql://postgres:jithin@localhost:5432/postgres')
         cur = conn.cursor()
 
         users = [

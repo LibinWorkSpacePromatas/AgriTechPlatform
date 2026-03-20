@@ -1,9 +1,17 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAngularModule, Sprout, ChevronRight, X, ExternalLink } from 'lucide-angular';
+import { Subject, Subscription, takeUntil, distinctUntilChanged, filter } from 'rxjs';
+import { LucideAngularModule, Sprout, ChevronRight, X, ExternalLink, AlertTriangle, Droplets, Leaf, Layers, CheckCircle2, RefreshCw, ThumbsUp, ThumbsDown } from 'lucide-angular';
 import { UserDataService } from '../../core/services/user-data.service';
 import { AuthService } from '../../core/services/auth.service';
 import { User } from '../../core/models/user.model';
+import { BlockService } from '../../shared/services/block.service';
+import { Block } from '../../shared/models';
+import {
+    GrowingOpportunitiesService,
+    GrowingOpportunitiesResponse,
+    GrowingOpportunityRecommendation
+} from '../../core/services/growing-opportunities.service';
 
 interface Opportunity {
     id: string;
@@ -23,14 +31,32 @@ interface Opportunity {
     templateUrl: './growing-opportunities.component.html',
     styleUrls: ['./growing-opportunities.component.css']
 })
-export class GrowingOpportunitiesComponent implements OnInit {
+export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
     SproutIcon = Sprout;
     ChevronRightIcon = ChevronRight;
     XIcon = X;
     ExternalLinkIcon = ExternalLink;
+    AlertTriangleIcon = AlertTriangle;
+    DropletsIcon = Droplets;
+    LeafIcon = Leaf;
+    LayersIcon = Layers;
+    CheckCircleIcon = CheckCircle2;
+    RefreshCwIcon = RefreshCw;
+    ThumbsUpIcon = ThumbsUp;
+    ThumbsDownIcon = ThumbsDown;
+
+    private readonly destroy$ = new Subject<void>();
+    private insightsRequest?: Subscription;
+    private feedbackRequest?: Subscription;
 
     selectedOpportunity: Opportunity | null = null;
     user: User | undefined;
+    currentBlock: Block | null = null;
+    pageData: GrowingOpportunitiesResponse | null = null;
+    isInsightsLoading = false;
+    pageWarning: string | null = null;
+    feedbackMessage: string | null = null;
+    feedbackState: Record<string, 'helpful' | 'not_helpful' | 'saving'> = {};
 
     opportunities: Opportunity[] = [
         {
@@ -117,11 +143,32 @@ export class GrowingOpportunitiesComponent implements OnInit {
 
     constructor(
         private userDataService: UserDataService,
-        private authService: AuthService
+        private authService: AuthService,
+        private blockService: BlockService,
+        private growingOpportunitiesService: GrowingOpportunitiesService
     ) {}
 
     ngOnInit() {
         this.user = this.authService.getCurrentUser() || this.userDataService.getUsers()[0];
+
+        this.blockService.block$
+            .pipe(
+                takeUntil(this.destroy$),
+                filter((block): block is Block => !!block),
+                distinctUntilChanged((previous, current) => previous.lan === current.lan)
+            )
+            .subscribe(block => {
+                this.currentBlock = block;
+                this.loadBlockInsights(block);
+            });
+    }
+
+    ngOnDestroy(): void {
+        this.insightsRequest?.unsubscribe();
+        this.feedbackRequest?.unsubscribe();
+        document.body.classList.remove('scroll-lock');
+        this.destroy$.next();
+        this.destroy$.complete();
     }
 
     openOpportunity(opportunity: Opportunity): void {
@@ -133,4 +180,262 @@ export class GrowingOpportunitiesComponent implements OnInit {
         this.selectedOpportunity = null;
         document.body.classList.remove('scroll-lock');
     }
+
+    get insightsStatusLabel(): string {
+        if (this.isInsightsLoading) {
+            return 'Loading live block intelligence';
+        }
+
+        if (!this.pageData) {
+            return 'Waiting for block intelligence';
+        }
+
+        if (this.pageData.status === 'updating') {
+            return 'Background refresh in progress';
+        }
+
+        if (this.pageData.status === 'stale') {
+            return 'Showing stale cache while refresh runs';
+        }
+
+        return this.pageData.source === 'gee' ? 'Freshly refreshed from GEE' : 'Fresh cache intelligence';
+    }
+
+    get freshnessLabel(): string {
+        if (!this.pageData?.composite_date_to) {
+            return 'Composite date unavailable';
+        }
+
+        return `Composite date: ${this.formatDate(this.pageData.composite_date_to)}`;
+    }
+
+    get qualityLabel(): string {
+        if (!this.pageData) {
+            return 'Quality unknown';
+        }
+
+        return `Data quality: ${this.pageData.data_quality.replace('_', ' ')}`;
+    }
+
+    get hasLiveAlerts(): boolean {
+        return (this.pageData?.recommendations || []).some(recommendation => recommendation.category !== 'system');
+    }
+
+    get primaryRecommendation(): GrowingOpportunityRecommendation | null {
+        return this.liveRecommendations[0] || null;
+    }
+
+    get liveRecommendations(): GrowingOpportunityRecommendation[] {
+        return this.pageData?.recommendations || [];
+    }
+
+    get pageHeadline(): string {
+        if (this.isInsightsLoading) {
+            return 'Checking the latest conditions for this block';
+        }
+
+        if (!this.primaryRecommendation) {
+            return 'No live recommendation available yet';
+        }
+
+        if (this.primaryRecommendation.severity === 'critical') {
+            return 'Immediate attention recommended';
+        }
+
+        if (this.primaryRecommendation.severity === 'warning') {
+            return 'A block-level action is worth planning now';
+        }
+
+        if (this.primaryRecommendation.severity === 'positive') {
+            return 'This block looks stable right now';
+        }
+
+        return 'A management opportunity has been detected';
+    }
+
+    get pageSummary(): string {
+        if (!this.currentBlock) {
+            return 'Select a block to see the next recommended action.';
+        }
+
+        if (this.isInsightsLoading) {
+            return `We are loading the latest recommendation set for ${this.currentBlock.name}.`;
+        }
+
+        if (this.primaryRecommendation) {
+            return this.withFriendlyBlockName(this.primaryRecommendation.message_to_farmer);
+        }
+
+        return `We do not have a live recommendation ready for ${this.currentBlock.name} yet.`;
+    }
+
+    trackByRecommendation(_: number, recommendation: GrowingOpportunityRecommendation): string {
+        return recommendation.id;
+    }
+
+    trackByOpportunity(_: number, opportunity: Opportunity): string {
+        return opportunity.id;
+    }
+
+    getRecommendationIcon(recommendation: GrowingOpportunityRecommendation): any {
+        if (recommendation.metric_key === 'ndwi') {
+            return this.DropletsIcon;
+        }
+
+        if (recommendation.metric_key === 'ndre') {
+            return this.LayersIcon;
+        }
+
+        if (recommendation.metric_key === 'evi') {
+            return this.LeafIcon;
+        }
+
+        if (recommendation.severity === 'positive') {
+            return this.CheckCircleIcon;
+        }
+
+        return this.AlertTriangleIcon;
+    }
+
+    getSeverityLabel(recommendation: GrowingOpportunityRecommendation): string {
+        if (recommendation.severity === 'critical') {
+            return 'Urgent';
+        }
+
+        if (recommendation.severity === 'warning') {
+            return 'Action soon';
+        }
+
+        if (recommendation.severity === 'positive') {
+            return 'Stable';
+        }
+
+        return 'Watch';
+    }
+
+    getPlainMetricLabel(recommendation: GrowingOpportunityRecommendation): string {
+        if (recommendation.metric_key === 'ndre') {
+            return 'Leaf nutrient signal';
+        }
+
+        if (recommendation.metric_key === 'evi') {
+            return 'Canopy growth signal';
+        }
+
+        if (recommendation.metric_key === 'ndwi') {
+            return 'Water stress signal';
+        }
+
+        if (recommendation.metric_key === 'system') {
+            return 'Block status';
+        }
+
+        return recommendation.metric_label;
+    }
+
+    withFriendlyBlockName(text: string | null | undefined): string {
+        if (!text) {
+            return '';
+        }
+
+        if (!this.currentBlock) {
+            return text;
+        }
+
+        let nextText = text;
+
+        if (this.currentBlock.lan) {
+            nextText = nextText.split(this.currentBlock.lan).join(this.currentBlock.name);
+        }
+
+        if (this.currentBlock.id) {
+            nextText = nextText.split(this.currentBlock.id).join(this.currentBlock.name);
+        }
+
+        return nextText;
+    }
+
+    formatRecommendationValue(value: number | string | null): string {
+        if (value === null || value === undefined || value === '') {
+            return 'N/A';
+        }
+
+        if (typeof value === 'number') {
+            return value.toFixed(2);
+        }
+
+        return value;
+    }
+
+    isFeedbackSelected(recommendationId: string, choice: 'helpful' | 'not_helpful'): boolean {
+        return this.feedbackState[recommendationId] === choice;
+    }
+
+    submitFeedback(recommendation: GrowingOpportunityRecommendation, helpful: boolean): void {
+        if (!this.currentBlock || !this.pageData?.feedback_enabled) {
+            return;
+        }
+
+        const nextState = helpful ? 'helpful' : 'not_helpful';
+        this.feedbackState[recommendation.id] = 'saving';
+        this.feedbackMessage = null;
+        this.feedbackRequest?.unsubscribe();
+
+        this.feedbackRequest = this.growingOpportunitiesService
+            .sendFeedback(this.currentBlock.lan || this.currentBlock.id, {
+                recommendation_id: recommendation.id,
+                helpful
+            })
+            .pipe(takeUntil(this.destroy$))
+            .subscribe({
+                next: () => {
+                    this.feedbackState[recommendation.id] = nextState;
+                    this.feedbackMessage = 'Feedback saved for calibration.';
+                },
+                error: error => {
+                    console.error('Failed to save Growing Opportunities feedback.', error);
+                    delete this.feedbackState[recommendation.id];
+                    this.feedbackMessage = 'Feedback could not be saved right now.';
+                }
+            });
+    }
+
+    private loadBlockInsights(block: Block): void {
+        this.isInsightsLoading = true;
+        this.pageWarning = null;
+        this.feedbackMessage = null;
+        this.pageData = null;
+        this.feedbackState = {};
+        this.insightsRequest?.unsubscribe();
+
+        this.insightsRequest = this.growingOpportunitiesService.getPageData(block.lan || block.id)
+            .pipe(takeUntil(this.destroy$))
+            .subscribe({
+                next: pageData => {
+                    this.pageData = pageData;
+                    this.pageWarning = pageData.warning;
+                    this.isInsightsLoading = false;
+                },
+                error: error => {
+                    console.error('Growing Opportunities insights request failed.', error);
+                    this.pageData = null;
+                    this.pageWarning = 'Unable to load live satellite opportunities for the selected block.';
+                    this.isInsightsLoading = false;
+                }
+            });
+    }
+
+    private formatDate(value: string): string {
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return value;
+        }
+
+        return date.toLocaleDateString('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric'
+        });
+    }
+
 }
