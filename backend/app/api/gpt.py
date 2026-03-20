@@ -7,8 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Block, SatelliteCache
 from app.db.session import SessionLocal
-from app.services.insights import generate_insights
-from app.services.utils import calculate_data_age, calculate_confidence
+from app.services.insights import generate_insights, calculate_metadata
 from app.services.llm_service import llm_service
 
 from pydantic import BaseModel
@@ -80,8 +79,7 @@ async def get_gpt(block_id: str, db: Session = Depends(get_db)):
 
     payload = cache.payload
     insights = generate_insights(payload)
-    data_age = calculate_data_age(cache)
-    confidence = calculate_confidence(cache)
+    data_age, confidence = calculate_metadata(cache)
 
     # Generate natural language advice using LLM
     system_prompt = "You are an expert viticulturist and agricultural advisor. Provide concise, actionable advice based on satellite indices (NDVI, NDWI, NDRE, EVI, LAI)."

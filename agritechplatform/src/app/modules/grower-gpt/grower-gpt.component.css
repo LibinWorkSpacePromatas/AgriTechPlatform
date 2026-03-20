@@ -242,7 +242,102 @@
 .insight-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
+}
+
+/* Metadata Card Styles */
+.metadata-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.meta-label {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.meta-value {
+  color: #1e293b;
+  font-weight: 700;
+}
+
+.meta-value.badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+}
+
+.meta-value.badge.high { background: #dcfce7; color: #166534; }
+.meta-value.badge.medium { background: #fef3c7; color: #92400e; }
+.meta-value.badge.low { background: #fee2e2; color: #991b1b; }
+
+/* New Insight Item Styles */
+.insight-item-new {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  transition: all 0.2s;
+  border-left: 4px solid #cbd5e1;
+}
+
+.insight-item-new.critical { border-left-color: #ef4444; background: #fff1f2; }
+.insight-item-new.warning { border-left-color: #f59e0b; background: #fffbeb; }
+.insight-item-new.info { border-left-color: #3b82f6; background: #eff6ff; }
+.insight-item-new.normal { border-left-color: #10b981; background: #f0fdf4; }
+
+.insight-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.severity-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.critical .severity-icon { background: #fee2e2; color: #ef4444; }
+.warning .severity-icon { background: #fef3c7; color: #d97706; }
+.info .severity-icon { background: #dbeafe; color: #2563eb; }
+.normal .severity-icon { background: #dcfce7; color: #10b981; }
+
+.icon-xs { width: 14px; height: 14px; }
+
+.insight-msg {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.3;
+}
+
+.insight-reason {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-family: monospace;
+  padding-left: 34px;
 }
 
 .insight-item {

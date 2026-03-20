@@ -16,7 +16,7 @@ from app.core.config import Settings, get_settings
 logger = logging.getLogger(__name__)
 
 DATASET_ID = "COPERNICUS/S2_SR_HARMONIZED"
-SPECTRAL_BANDS = ["B2", "B3", "B4", "B5", "B8"]
+SPECTRAL_BANDS = ["B2", "B3", "B4", "B5", "B6", "B8"]
 MASKED_SCL_CLASSES = (1, 3, 8, 9, 10, 11)
 
 
@@ -156,7 +156,16 @@ class EarthEngineClient:
                 .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", self._settings.satellite_cloud_filter_pct))
             )
 
+            # Debugging requested by user
+            logger.info("Start Date: %s", date_from)
+            logger.info("End Date: %s", date_to)
+
             image_count = int(collection.size().getInfo())
+            logger.info("Image count: %s", image_count)
+
+            cloud_values = collection.aggregate_array("CLOUDY_PIXEL_PERCENTAGE").getInfo()
+            logger.info("Cloud values: %s", cloud_values)
+
             if image_count == 0:
                 return SatelliteComputation(
                     ndvi=None,
@@ -201,8 +210,8 @@ class EarthEngineClient:
                 cloud_cover_pct=cloud_cover_pct,
                 pixel_count=pixel_count,
                 data_quality="no_data" if pixel_count == 0 else data_quality,
-                composite_date_from=self._parse_iso_date(summary.get("composite_date_from")) or date_from,
-                composite_date_to=self._parse_iso_date(summary.get("composite_date_to")) or date_to,
+                composite_date_from=date_from,
+                composite_date_to=date_to,
                 map_tile_url=map_tile_url,
                 image_count=image_count,
                 execution_ms=int((perf_counter() - started_at) * 1000),
@@ -229,19 +238,45 @@ class EarthEngineClient:
         return clear_mask
 
     def _build_indices(self, composite: Any) -> Any:
+        """
+        Builds the five core indices (NDVI, NDWI, NDRE, EVI, LAI) from the median composite.
+        """
+        # 1. NDVI (Health): (NIR - Red) / (NIR + Red)
         ndvi = composite.normalizedDifference(["B8", "B4"]).rename("ndvi")
+
+        # 2. NDWI (Water): (Green - NIR) / (Green + NIR)
         ndwi = composite.normalizedDifference(["B3", "B8"]).rename("ndwi")
-        evi = composite.expression(
-            "2.5 * ((nir - red) / (nir + 6 * red - 7.5 * blue + 1))",
-            {
-                "nir": composite.select("B8"),
-                "red": composite.select("B4"),
-                "blue": composite.select("B2"),
-            },
-        ).rename("evi")
-        ndre = composite.normalizedDifference(["B5", "B4"]).rename("ndre")
-        lai = ndvi.expression("3.618 * exp(2.04 * ndvi) - 2", {"ndvi": ndvi}).rename("lai")
-        return ndvi.addBands(ndwi).addBands(evi).addBands(ndre).addBands(lai)
+
+        # 3. NDRE (Nutrient): (RedEdge2 - Red) / (RedEdge2 + Red)
+        # PDF FIX: (B6 - B4) / (B6 + B4)
+        ndre = composite.normalizedDifference(["B6", "B4"]).rename("ndre")
+
+        # 4. EVI (Canopy): 2.5 * ((NIR - Red) / (NIR + 6 * Red - 7.5 * Blue + 1))
+        evi = (
+            composite.expression(
+                "2.5 * ((B8 - B4) / (B8 + 6 * B4 - 7.5 * B2 + 1))",
+                {
+                    "B8": composite.select("B8"),
+                    "B4": composite.select("B4"),
+                    "B2": composite.select("B2"),
+                },
+            )
+            .rename("evi")
+        )
+
+        # 5. LAI (Yield): 3.618 * exp(2.04 * NDVI) - 2
+        lai = (
+            ndvi.expression("3.618 * exp(2.04 * ndvi) - 2", {"ndvi": ndvi})
+            .rename("lai")
+        )
+
+        return (
+            composite.addBands(ndvi)
+            .addBands(ndwi)
+            .addBands(ndre)
+            .addBands(evi)
+            .addBands(lai)
+        )
 
     def _build_summary(self, collection: Any, prepared_collection: Any, indices: Any, geometry: Any) -> Any:
         ee = self._ee

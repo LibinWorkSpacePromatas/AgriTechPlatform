@@ -63,44 +63,6 @@
             </div>
           </div>
         </div>
-
-        <ng-container *ngIf="irrigationStatus">
-          <div class="analysis-card card shadow-sm">
-            <div class="card-title">
-              <i-lucide [img]="ActivityIcon"></i-lucide>
-              <div class="title-stack">
-                <h3>Water Management</h3>
-                <span class="sub-tag">Satellite Intelligence (NDWI)</span>
-              </div>
-            </div>
-            
-            <div class="status-summary card shadow-sm" [ngClass]="getStatusBgColor(irrigationStatus.status)">
-              <div class="summary-header">
-                <div class="status-indicator-large" [ngClass]="irrigationStatus.status"></div>
-                <div>
-                  <span class="tag">Water Status:</span>
-                  <h2 class="uppercase">{{ irrigationStatus.status }}</h2>
-                </div>
-              </div>
-              <div class="summary-meta">
-                <span class="summary-chip" *ngIf="irrigationStatus.ndwi !== null">
-                  NDWI (Satellite Ground Truth): {{ irrigationStatus.ndwi | number:'1.4-4' }}
-                </span>
-              </div>
-              <div class="recommendation-section">
-                <span class="tag">Recommendation:</span>
-                <p class="recommendation-msg bold">{{ irrigationStatus.recommendation }}</p>
-              </div>
-              <div class="about-section">
-                <span class="tag">About:</span>
-                <ul class="about-list">
-                  <li>• NDWI: Direct satellite measurement of leaf water content.</li>
-                  <li>• Recommendation: Based strictly on satellite ground truth (no weather model).</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </ng-container>
       </div>
 
       <div class="right-column">
@@ -142,6 +104,41 @@
             </div>
           </div>
 
+          <div class="analysis-card card shadow-sm">
+            <div class="card-title">
+              <i-lucide [img]="ActivityIcon"></i-lucide>
+              <div class="title-stack">
+                <h3>Water Management</h3>
+                <span class="sub-tag">Satellite Intelligence (NDWI)</span>
+              </div>
+            </div>
+            
+            <div class="status-summary card shadow-sm" [ngClass]="getStatusBgColor(irrigationStatus.status)">
+              <div class="summary-header">
+                <div class="status-indicator-large" [ngClass]="irrigationStatus.status"></div>
+                <div>
+                  <span class="tag">Water Status:</span>
+                  <h2 class="uppercase">{{ irrigationStatus.status }}</h2>
+                </div>
+              </div>
+              <div class="summary-meta">
+                <span class="summary-chip" *ngIf="irrigationStatus.ndwi !== null">
+                  NDWI (Satellite Ground Truth): {{ irrigationStatus.ndwi | number:'1.4-4' }}
+                </span>
+              </div>
+              <div class="recommendation-section">
+                <span class="tag">Recommendation:</span>
+                <p class="recommendation-msg bold">{{ irrigationStatus.recommendation }}</p>
+              </div>
+              <div class="about-section">
+                <span class="tag">About:</span>
+                <ul class="about-list">
+                  <li>• NDWI: Captures the balance of NIR reflection; healthy leaves reflect NIR strongly.</li>
+                  <li>• Recommendation: Based strictly on satellite ground truth (no weather model).</li>
+                </ul>
+              </div>
+            </div>
+          </div>
         </ng-container>
 
         <div *ngIf="!irrigationStatus && !isLoading" class="empty-state card shadow-sm">

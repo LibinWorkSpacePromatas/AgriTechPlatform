@@ -2,7 +2,7 @@ import { Component, OnInit, ViewChild, ElementRef, AfterViewChecked } from '@ang
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdelaideTimePipe } from '../../shared/pipes/adelaide-time.pipe';
-import { LucideAngularModule, MessageCircle, Zap, Maximize2, Bot, Send, Sparkles } from 'lucide-angular';
+import { LucideAngularModule, MessageCircle, Zap, Maximize2, Bot, Send, Sparkles, RefreshCw } from 'lucide-angular';
 import { GrowerGptService } from '../../services/grower-gpt/grower-gpt.service';
 import { BlockService } from '../../shared/services/block.service';
 import { UserDataService } from '../../core/services/user-data.service';
@@ -27,11 +27,13 @@ export class GrowerGptComponent implements OnInit, AfterViewChecked {
   SendIcon = Send;
   SparklesIcon = Sparkles;
   MessageIcon = MessageCircle;
+  ZapIcon = Zap;
 
   userMessage: string = '';
   chatHistory: { role: 'user' | 'assistant', content: string }[] = [];
   isLoading: boolean = false;
   irrigationData: IrrigationStatus | null = null;
+  backendInsights: any = null;
   recommendedQuestions: string[] = [
     "What is the irrigation plan for this week?",
     "How does the current ET0 affect my Shiraz?",
@@ -79,6 +81,7 @@ export class GrowerGptComponent implements OnInit, AfterViewChecked {
       .pipe(take(1))
       .subscribe({
         next: (backendData) => {
+          this.backendInsights = backendData;
           if (backendData.insights && backendData.insights.length > 0) {
             this.chatHistory.push({
               role: 'assistant',

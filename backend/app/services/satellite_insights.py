@@ -147,6 +147,8 @@ class SatelliteInsightsService:
                 date_from=window_from,
                 date_to=window_to,
             )
+            now = self._utcnow()
+            expires_at = (now + timedelta(days=self._settings.satellite_cache_ttl_days)).date()
             response = self._decorate_response(
                 BlockInsightsResponse(
                     block_id=str(block.id),
@@ -166,6 +168,7 @@ class SatelliteInsightsService:
                 source="gee",
                 latency_ms=computation.execution_ms,
                 error=self._resolve_error_message(data_quality=computation.data_quality),
+                expires_at=expires_at,
             )
             self._store_cache(
                 db,
@@ -280,6 +283,7 @@ class SatelliteInsightsService:
             source=source,
             latency_ms=latency_ms,
             error=error,
+            expires_at=cache.expires_at.date() if cache.expires_at else None,
         )
 
     def _store_cache(
@@ -374,12 +378,20 @@ class SatelliteInsightsService:
         latency_ms: int,
         error: str | None = None,
         infer_error: bool = True,
+        expires_at: date | None = None,
     ) -> BlockInsightsResponse:
+        today = self._utcnow().date()
+        data_age_days = None
+        if response.composite_date_to:
+            data_age_days = (today - response.composite_date_to).days
+
         return response.model_copy(
             update={
                 "status": status,
                 "source": source,
                 "latency_ms": latency_ms,
+                "data_age_days": data_age_days,
+                "expires_at": expires_at,
                 "error": error
                 if error is not None
                 else (
@@ -408,8 +420,13 @@ class SatelliteInsightsService:
         return None
 
     def _build_composite_window(self) -> tuple[date, date]:
+        """
+        Builds the 14-day data processing window for GEE.
+        14 Days = DATA (Median Composite)
+        """
         today = self._utcnow().date()
-        return today - timedelta(days=self._settings.satellite_composite_window_days - 1), today
+        # Exactly as requested: start_date = end_date - 14 days
+        return today - timedelta(days=self._settings.satellite_composite_window_days), today
 
     def _log_request(
         self,

@@ -3,6 +3,9 @@ from __future__ import annotations
 from typing import Any, Dict, List, Tuple
 
 
+from datetime import date
+
+
 def classify_ndwi(ndwi: float | None) -> Tuple[str, str]:
     """
     Classifies NDWI according to PDF requirements with action-driven status.
@@ -27,44 +30,112 @@ def classify_ndwi(ndwi: float | None) -> Tuple[str, str]:
 
 def generate_insights(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
-    Generates structured agricultural insights focusing on NDWI.
-    Matches PDF requirements for the Grower GPT system.
+    Generates structured agricultural insights prioritized by PDF rules:
+    1. 🚨 Water (NDWI)
+    2. 🌱 Nutrient (NDRE)
+    3. 🌿 Health (NDVI)
+    4. 🌿 Canopy (EVI)
+    5. 📉 Yield (LAI)
     """
     insights = []
 
     ndwi = payload.get("ndwi")
-    status, recommendation = classify_ndwi(ndwi)
-
-    if "severe_stress" in status:
-        insights.append({
-            "type": "irrigation",
-            "severity": "critical",
-            "message": recommendation,
-            "reason": f"NDWI = {ndwi:.2f} (< -0.3)"
-        })
-    elif "moderate_stress" in status:
-        insights.append({
-            "type": "irrigation",
-            "severity": "warning",
-            "message": recommendation,
-            "reason": f"NDWI = {ndwi:.2f} (-0.3 to -0.1)"
-        })
-    elif "mild_stress" in status:
-        insights.append({
-            "type": "irrigation",
-            "severity": "info",
-            "message": recommendation,
-            "reason": f"NDWI = {ndwi:.2f} (-0.1 to 0.1)"
-        })
-
-    # Optional: Keep other indices but simplify based on user focus on NDWI
     ndvi = payload.get("ndvi")
-    if ndvi is not None and ndvi < 0.20:
+    ndre = payload.get("ndre")
+    evi = payload.get("evi")
+    lai = payload.get("lai")
+
+    # 🚨 1. WATER (HIGHEST PRIORITY - NDWI)
+    if ndwi is not None:
+        if ndwi < -0.3:
+            insights.append({
+                "type": "irrigation",
+                "severity": "critical",
+                "message": "Severe water stress. Irrigate immediately.",
+                "reason": f"NDWI = {ndwi} (< -0.3)"
+            })
+        elif ndwi < -0.1:
+            insights.append({
+                "type": "irrigation",
+                "severity": "warning",
+                "message": "Water stress detected. Irrigate today.",
+                "reason": f"NDWI = {ndwi} (< -0.1)"
+            })
+
+    # 🌱 2. NUTRIENT (NDRE)
+    if ndre is not None and ndre < 0.25:
         insights.append({
-            "type": "health",
-            "severity": "critical",
-            "message": "Critical vine stress detected.",
-            "reason": f"NDVI = {ndvi:.2f} (< 0.20)"
+            "type": "nutrient",
+            "severity": "warning",
+            "message": "Nitrogen deficiency likely. Foliar spray recommended.",
+            "reason": f"NDRE = {ndre} (< 0.25)"
         })
 
-    return insights[:3]
+    # 🌿 3. HEALTH (NDVI)
+    if ndvi is not None:
+        if ndvi < 0.2:
+            insights.append({
+                "type": "health",
+                "severity": "critical",
+                "message": "Critical vine stress — urgent inspection.",
+                "reason": f"NDVI = {ndvi} (< 0.20)"
+            })
+        elif ndvi < 0.35:
+            insights.append({
+                "type": "health",
+                "severity": "warning",
+                "message": "Vine health declining — inspect.",
+                "reason": f"NDVI = {ndvi} (< 0.35)"
+            })
+
+    # 🌿 4. CANOPY (EVI)
+    if evi is not None and evi > 0.5:
+        insights.append({
+            "type": "canopy",
+            "severity": "info",
+            "message": "Dense canopy detected. Consider leaf removal.",
+            "reason": f"EVI = {evi} (> 0.5)"
+        })
+
+    # 📉 5. YIELD (LAI)
+    if lai is not None and lai < 2:
+        insights.append({
+            "type": "yield",
+            "severity": "warning",
+            "message": "Low yield potential expected.",
+            "reason": f"LAI = {lai} (< 2)"
+        })
+
+    # Fallback if no specific stress detected
+    if not insights:
+        insights.append({
+            "type": "info",
+            "severity": "normal",
+            "message": "All indicators are within optimal range.",
+            "reason": "Satellite ground truth shows healthy growth."
+        })
+
+    return insights[:3]  # Max 3 (PDF Requirement)
+
+
+def calculate_metadata(cache):
+    """
+    Calculates data age and confidence based on PDF rules.
+    """
+    # Calculate days since latest composite
+    composite_date = cache.composite_date_to
+    if isinstance(composite_date, str):
+        from datetime import datetime
+        composite_date = datetime.strptime(composite_date, "%Y-%m-%d").date()
+    
+    data_age_days = (date.today() - composite_date).days
+
+    # Confidence logic from instructions
+    if cache.pixel_count < 5 or cache.data_quality != "good" or cache.payload.get("cloud_cover_pct", 0) > 50:
+        confidence = "low"
+    elif data_age_days > 7:
+        confidence = "medium"
+    else:
+        confidence = "high"
+
+    return data_age_days, confidence

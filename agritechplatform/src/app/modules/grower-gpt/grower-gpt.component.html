@@ -78,25 +78,56 @@
         <i-lucide [img]="SparklesIcon" class="badge-icon"></i-lucide>
         <span>Live Insights</span>
       </div>
+
+      <!-- AI Analysis Metadata -->
+      <div class="metadata-card" *ngIf="backendInsights">
+        <div class="meta-row">
+          <span class="meta-label">Block:</span>
+          <span class="meta-value">{{ backendInsights.crop }} ({{ blockService.getSelectedBlock().name }})</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Data:</span>
+          <span class="meta-value">{{ backendInsights.date | date:'MMM d' }} ({{ backendInsights.data_age_days }} days old)</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Confidence:</span>
+          <span class="meta-value badge" [ngClass]="backendInsights.confidence">
+            {{ backendInsights.confidence | uppercase }}
+          </span>
+        </div>
+      </div>
+
       <div class="insight-list">
-        <div class="insight-item">
-          <div class="insight-icon warn">
-            <i-lucide [img]="MessageIcon" class="icon-sm"></i-lucide>
+        <!-- New Prioritized Insights from Backend -->
+        <ng-container *ngIf="backendInsights?.insights?.length > 0; else fallbackInsights">
+          <div *ngFor="let insight of backendInsights.insights" class="insight-item-new" [ngClass]="insight.severity">
+            <div class="insight-header">
+              <span class="severity-icon">
+                <i-lucide *ngIf="insight.type === 'irrigation'" [img]="ZapIcon" class="icon-xs"></i-lucide>
+                <i-lucide *ngIf="insight.type === 'nutrient'" [img]="SparklesIcon" class="icon-xs"></i-lucide>
+                <i-lucide *ngIf="insight.type === 'health' || insight.type === 'canopy'" [img]="SparklesIcon" class="icon-xs"></i-lucide>
+                <i-lucide *ngIf="insight.type === 'yield'" [img]="MessageIcon" class="icon-xs"></i-lucide>
+              </span>
+              <span class="insight-msg">{{ insight.message }}</span>
+            </div>
+            <div class="insight-reason" *ngIf="insight.reason">
+              → {{ insight.reason }}
+            </div>
           </div>
-          <div class="insight-content">
-            <h4>Water Stress Peak</h4>
-            <p>Block C likely to hit critical stress levels by Thursday.</p>
+        </ng-container>
+
+        <!-- Fallback static insights if no backend data -->
+        <ng-template #fallbackInsights>
+          <div class="insight-item">
+            <div class="insight-icon info">
+              <i-lucide [img]="SparklesIcon" class="icon-sm"></i-lucide>
+            </div>
+            <div class="insight-content">
+              <h4>System Monitoring</h4>
+              <p>All indicators are within optimal range for this block.</p>
+            </div>
           </div>
-        </div>
-        <div class="insight-item">
-          <div class="insight-icon info">
-            <i-lucide [img]="SparklesIcon" class="icon-sm"></i-lucide>
-          </div>
-          <div class="insight-content">
-            <h4>Harvest Window</h4>
-            <p>Shiraz blocks trending 3 days earlier. Window: March 12-15.</p>
-          </div>
-        </div>
+        </ng-template>
       </div>
     </div>
   </div>

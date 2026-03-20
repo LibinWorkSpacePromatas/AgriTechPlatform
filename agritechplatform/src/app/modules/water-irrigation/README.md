@@ -37,7 +37,7 @@ Previous versions of this page used a "Hybrid Formula" that combined:
 
 ### 1. Why NDWI?
 - **Direct Measurement**: NDWI measures the liquid water content in vegetation leaves using the Near-Infrared (NIR) and Shortwave Infrared (SWIR) bands.
-- **Precision**: Unlike weather-based models that *estimate* water loss, NDWI *shows* the actual hydration state of the vine.
+- **Precision**: Healthy leaves reflect NIR strongly. Water stress changes this balance. NDWI captures this difference.
 - **Simplicity**: Removes the need for complex coefficients that can vary by vineyard block.
 
 ### 2. Classification Logic (The Rules)

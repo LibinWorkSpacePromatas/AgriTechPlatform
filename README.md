@@ -221,6 +221,13 @@ To ensure 100% alignment with satellite truth, the MVP uses a simplified **NDWI-
 - **Moderate Stress** (-0.3 ≤ NDWI < -0.1): Irrigate today.
 - **Severe Stress** (NDWI < -0.3): Immediate irrigation required.
 
+**Grower GPT Rule Engine (Prioritized Alerts)**
+1. **🚨 Water (NDWI)**: Critical if < -0.3, Warning if < -0.1.
+2. **🌱 Nutrient (NDRE)**: Warning if < 0.25 (Nitrogen deficiency).
+3. **🌿 Health (NDVI)**: Critical if < 0.20 (Urgent stress), Warning if < 0.35.
+4. **🌿 Canopy (EVI)**: Info if > 0.5 (Dense canopy).
+5. **📉 Yield (LAI)**: Warning if < 2 (Low yield potential).
+
 **Important current-state notes**
 
 - Weather-based ET₀ and Kc math have been deprecated in favor of direct satellite ground truth.

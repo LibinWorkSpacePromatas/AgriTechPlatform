@@ -21,6 +21,8 @@ class BlockInsightsResponse(BaseModel):
     data_quality: Literal["good", "degraded", "no_data"]
     composite_date_from: date | None = None
     composite_date_to: date | None = None
+    data_age_days: int | None = None
+    expires_at: date | None = None
     status: Literal["fresh", "stale", "updating"] = "fresh"
     latency_ms: int = 0
     source: Literal["cache", "gee"] = "cache"
