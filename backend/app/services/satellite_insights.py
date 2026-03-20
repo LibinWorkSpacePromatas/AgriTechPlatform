@@ -252,7 +252,7 @@ class SatelliteInsightsService:
             if window_end in existing_observed_days:
                 continue
 
-            window_start = window_end - timedelta(days=self._settings.satellite_composite_window_days - 1)
+            window_start = window_end - timedelta(days=self._settings.satellite_composite_window_days)
 
             try:
                 response = self._compute_block_response_for_window(
@@ -315,6 +315,7 @@ class SatelliteInsightsService:
             geometry_geojson,
             date_from=date_from,
             date_to=date_to,
+            generate_tile_url=True,
         )
         return self._decorate_response(
             self._enrich_response(BlockInsightsResponse(
@@ -327,7 +328,7 @@ class SatelliteInsightsService:
                 cloud_cover_pct=computation.cloud_cover_pct,
                 pixel_count=computation.pixel_count,
                 map_tile_url=computation.map_tile_url,
-                map_tile_type="ndvi" if computation.map_tile_url else None,
+                map_tile_type="ndwi" if computation.map_tile_url else None,
                 data_quality=computation.data_quality,
                 composite_date_from=computation.composite_date_from,
                 composite_date_to=computation.composite_date_to,
@@ -350,19 +351,37 @@ class SatelliteInsightsService:
                     SELECT
                         ST_IsValid(geom) AS is_valid,
                         ST_IsEmpty(geom) AS is_empty,
-                        ST_MakeValid(geom) AS valid_geom
+                        ST_Transform(ST_MakeValid(geom), 3857) AS valid_geom
                     FROM blocks
                     WHERE id = :block_id
+                ),
+                buffered AS (
+                    SELECT
+                        is_valid,
+                        is_empty,
+                        CASE
+                            WHEN ST_IsEmpty(ST_Buffer(valid_geom, -:buffer_meters))
+                                THEN valid_geom
+                            ELSE ST_Buffer(valid_geom, -:buffer_meters)
+                        END AS buffered_geom
+                    FROM prepared
                 )
                 SELECT
                     is_valid,
                     is_empty,
-                    ST_AsGeoJSON(ST_Transform(valid_geom, 4326)) AS buffered_geojson
-                FROM prepared
+                    ST_AsGeoJSON(
+                        ST_Transform(
+                            ST_SimplifyPreserveTopology(buffered_geom, :simplify_tolerance_meters),
+                            4326
+                        )
+                    ) AS buffered_geojson
+                FROM buffered
                 """
             ),
             {
                 "block_id": str(block_id),
+                "buffer_meters": self._settings.satellite_buffer_meters,
+                "simplify_tolerance_meters": self._settings.satellite_simplify_tolerance_meters,
             },
         ).mappings().first()
 
@@ -599,7 +618,7 @@ class SatelliteInsightsService:
         if job_error:
             return job_error
         if data_quality == "degraded":
-            return "Cloud-heavy imagery reduced the reliability of this composite."
+            return "Degraded composite quality due to low usable pixels and/or cloud contamination."
         if data_quality == "no_data":
             return "No usable satellite pixels were available for the selected period."
         return None

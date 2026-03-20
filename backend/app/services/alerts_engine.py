@@ -9,17 +9,29 @@ def build_alerts(payload: dict[str, Any]) -> list[SatelliteAlert]:
     alerts: list[SatelliteAlert] = []
 
     ndvi = _as_nullable_float(payload.get("ndvi"))
-    if ndvi is not None and ndvi < 0.35:
-        alerts.append(
-            SatelliteAlert(
-                metric="ndvi",
-                code="health_warning",
-                severity="warning",
-                message="Health warning triggered.",
-                value=round(ndvi, 4),
-                threshold="NDVI < 0.35",
+    if ndvi is not None:
+        if ndvi < 0.20:
+            alerts.append(
+                SatelliteAlert(
+                    metric="ndvi",
+                    code="critical_vine_stress",
+                    severity="critical",
+                    message="Critical vine stress. Inspect immediately.",
+                    value=round(ndvi, 4),
+                    threshold="NDVI < 0.20",
+                )
             )
-        )
+        elif ndvi < 0.35:
+            alerts.append(
+                SatelliteAlert(
+                    metric="ndvi",
+                    code="vine_health_declining",
+                    severity="warning",
+                    message="Vine health declining. Inspect soon.",
+                    value=round(ndvi, 4),
+                    threshold="NDVI < 0.35",
+                )
+            )
 
     ndwi = _as_nullable_float(payload.get("ndwi"))
     if ndwi is not None:
@@ -29,7 +41,7 @@ def build_alerts(payload: dict[str, Any]) -> list[SatelliteAlert]:
                     metric="ndwi",
                     code="urgent_irrigation",
                     severity="critical",
-                    message="Urgent irrigation alert triggered.",
+                    message="Severe water stress. Immediate irrigation required.",
                     value=round(ndwi, 4),
                     threshold="NDWI < -0.30",
                 )
@@ -40,7 +52,7 @@ def build_alerts(payload: dict[str, Any]) -> list[SatelliteAlert]:
                     metric="ndwi",
                     code="irrigation_alert",
                     severity="warning",
-                    message="Irrigation alert triggered.",
+                    message="Moderate water stress. Irrigate today.",
                     value=round(ndwi, 4),
                     threshold="NDWI < -0.15",
                 )
@@ -53,7 +65,7 @@ def build_alerts(payload: dict[str, Any]) -> list[SatelliteAlert]:
                 metric="ndre",
                 code="nutrient_issue",
                 severity="warning",
-                message="Nutrient issue detected.",
+                message="Nitrogen deficiency likely.",
                 value=round(ndre, 4),
                 threshold="NDRE < 0.25",
             )
@@ -66,7 +78,7 @@ def build_alerts(payload: dict[str, Any]) -> list[SatelliteAlert]:
                 metric="evi",
                 code="canopy_alert",
                 severity="warning",
-                message="Canopy alert triggered.",
+                message="Dense canopy detected. Leaf removal recommended.",
                 value=round(evi, 4),
                 threshold="EVI > 0.50",
             )
@@ -80,7 +92,7 @@ def build_alerts(payload: dict[str, Any]) -> list[SatelliteAlert]:
                     metric="lai",
                     code="high_yield",
                     severity="info",
-                    message="High yield signal detected.",
+                    message="High yield potential signal detected.",
                     value=round(lai, 4),
                     threshold="LAI > 5",
                 )
@@ -91,7 +103,7 @@ def build_alerts(payload: dict[str, Any]) -> list[SatelliteAlert]:
                     metric="lai",
                     code="low_yield",
                     severity="warning",
-                    message="Low yield signal detected.",
+                    message="Low yield potential detected.",
                     value=round(lai, 4),
                     threshold="LAI < 2",
                 )

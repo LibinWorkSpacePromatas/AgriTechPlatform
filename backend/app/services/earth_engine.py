@@ -215,8 +215,10 @@ class EarthEngineClient:
             indices = self._build_indices(composite).clip(geometry)
             summary = self._build_summary(collection, prepared_collection, indices, geometry).getInfo()
             stats = summary.get("stats", {})
-            pixel_count = int(stats.get("ndvi_count") or 0)
-            cloud_cover_pct = self._maybe_round(summary.get("cloud_cover_pct"), 2)
+            pixel_count = int(stats.get("ndwi_count") or stats.get("ndvi_count") or 0)
+            cloud_cover_pct = self._maybe_round(metadata_summary.get("cloud_cover_pct"), 2)
+            if cloud_cover_pct is None:
+                cloud_cover_pct = self._maybe_round(summary.get("cloud_cover_pct"), 2)
             data_quality = self._classify_quality(
                 pixel_count=pixel_count,
                 cloud_cover_pct=cloud_cover_pct,
@@ -330,14 +332,14 @@ class EarthEngineClient:
             reducer=ee.Reducer.mean().combine(ee.Reducer.count(), sharedInputs=True),
             geometry=geometry,
             scale=self._settings.satellite_reduction_scale_meters,
-            bestEffort=True,
+            bestEffort=False,
             maxPixels=self._settings.satellite_reduce_max_pixels,
         )
         cloud_cover_stats = prepared_collection.select("cloud_indicator").mean().reduceRegion(
             reducer=ee.Reducer.mean(),
             geometry=geometry,
             scale=self._settings.satellite_reduction_scale_meters,
-            bestEffort=True,
+            bestEffort=False,
             maxPixels=self._settings.satellite_reduce_max_pixels,
         )
         cloud_cover_pct = ee.Algorithms.If(
@@ -365,6 +367,11 @@ class EarthEngineClient:
             {
                 "image_count": collection.size(),
                 "actual_dates": actual_dates.distinct().sort(),
+                "cloud_cover_pct": ee.Algorithms.If(
+                    collection.size().gt(0),
+                    ee.Number(collection.aggregate_mean("CLOUDY_PIXEL_PERCENTAGE")),
+                    None,
+                ),
                 "composite_date_from": ee.Algorithms.If(
                     collection.size().gt(0),
                     ee.Date(collection.aggregate_min("system:time_start")).format("YYYY-MM-dd"),

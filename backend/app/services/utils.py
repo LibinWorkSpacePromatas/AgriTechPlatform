@@ -50,13 +50,15 @@ def calculate_confidence(cache: Any) -> str:
     if freshness_status != "fresh":
         return "low"
 
-    if cache.data_quality != "good":
-        return "low"
+    data_age_days = calculate_data_age(cache)
 
-    if cache.pixel_count < 20:
+    if cache.data_quality == "good" and data_age_days < 7:
+        return "high"
+
+    if data_age_days < 14:
         return "medium"
 
-    return "high"
+    return "low"
 
 
 def build_satellite_contract_payload(response: Any) -> dict[str, Any]:
