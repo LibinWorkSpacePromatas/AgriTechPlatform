@@ -29,7 +29,7 @@
             </div>
             <div class="forecast-metric">
                 <span class="forecast-label">Profit outlook</span>
-                <strong>{{ liveInsights()?.metrics?.lai?.raw !== null && liveInsights()?.metrics?.lai?.raw !== undefined ? ('LAI ' + (liveInsights()!.metrics.lai.raw! | number:'1.1-2')) : '--' }}</strong>
+                <strong>{{ profitOutlookHeadline() }}</strong>
                 <small>{{ profitForecastSummary() }}</small>
             </div>
         </div>
@@ -276,9 +276,9 @@
             <div class="insight-content">
                 <i-lucide [img]="Lightbulb" class="insight-icon"></i-lucide>
                 <div>
-                    <h4 class="insight-title">Key Insight</h4>
+                    <h4 class="insight-title">{{ keyInsight().title }}</h4>
                     <p class="insight-text">
-                        Wine grapes: -$1,775/ha annual losses with 35% price volatility
+                        {{ keyInsight().message }}
                     </p>
                     <p class="insight-warning">
                         <i-lucide [img]="AlertTriangle" class="icon-sm"></i-lucide>
@@ -448,7 +448,7 @@
             <p class="chart-subtitle">Revenue adjusted for price volatility risk vs wine grapes baseline</p>
 
             <div style="text-align: center; font-size: 0.75rem; color: var(--gray-500); margin-bottom: 0.5rem;">
-                Difference vs Wine Grapes baseline [${{WINE_GRAPE_BASELINE}}/ML risk-adjusted]
+                Difference vs Wine Grapes baseline [${{ wineGrapeRiskAdjustedBaseline() | number:'1.0-0' }}/ML risk-adjusted]
             </div>
 
             <div class="revenue-chart-container">
@@ -465,16 +465,13 @@
                                     +${{crop.riskAdjustedRevenuePerML | number:'1.0-0'}}/ML
                                 </div>
                                 <div class="tooltip-comparison">
-                                    +{{ (((crop.riskAdjustedRevenuePerML / (waterAllocation() / 100)) -
-                                    WINE_GRAPE_BASELINE)
-                                    / WINE_GRAPE_BASELINE) * 100 | number:'1.0-0' }}%
-                                    <span class="comparison-text">vs Wine Grapes ($493.44512195121956/ML)</span>
+                                    +{{ getRiskAdjustedDifferenceVsWineGrapes(crop) | number:'1.0-0' }}%
+                                    <span class="comparison-text">vs Wine Grapes (${{ wineGrapeRiskAdjustedBaseline() | number:'1.0-0' }}/ML)</span>
                                 </div>
                             </div>
                         </div>
                         <span class="bar-value diff-label">
-                            +{{ (((crop.riskAdjustedRevenuePerML / (waterAllocation() / 100)) - WINE_GRAPE_BASELINE) /
-                            WINE_GRAPE_BASELINE) * 100 | number:'1.0-0' }}%
+                            +{{ getRiskAdjustedDifferenceVsWineGrapes(crop) | number:'1.0-0' }}%
                         </span>
                     </div>
                 </div>

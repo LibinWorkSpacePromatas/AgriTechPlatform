@@ -51,6 +51,21 @@ export interface Crop {
   yearsToProfit?: number | string;
 }
 
+interface LiveWineGrapeEconomics {
+  tonnesPerHaCenter: number;
+  tonnesPerHaRangeLabel: string;
+  totalTonnageLabel: string;
+  yieldAdjustmentFactor: number;
+  revenuePerHa: number;
+  netMarginPerHa: number;
+  revenuePerML: number;
+  riskAdjustedRevenuePerML: number;
+  projectedLoss: number;
+  outlookLabel: string;
+  guidance: string;
+  yearsToProfit: number | string;
+}
+
 @Component({
   selector: 'app-profit-risk',
   standalone: true,
@@ -222,8 +237,60 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
     const totalUpper = upperPerHa * block.size;
 
     return {
+      centerPerHa: tonnesPerHaCenter,
       perHa: `${lowerPerHa.toFixed(1)}-${upperPerHa.toFixed(1)} t/ha`,
+      totalCenter: ((lowerPerHa + upperPerHa) / 2) * block.size,
       total: `${totalLower.toFixed(1)}-${totalUpper.toFixed(1)} t`,
+    };
+  });
+
+  liveWineGrapeEconomics = computed<LiveWineGrapeEconomics | null>(() => {
+    const tonnage = this.projectedTonnageRange();
+    const insights = this.liveInsights();
+    if (!tonnage || !insights) {
+      return null;
+    }
+
+    const allocation = this.waterAllocation() / 100;
+    const baseCrop = this.crops.find(crop => crop.name === 'Wine Grapes');
+    if (!baseCrop) {
+      return null;
+    }
+
+    const tonnesPerHaCenter = tonnage.centerPerHa;
+    const baselineForecastPerHa = 4.2;
+    const yieldAdjustmentFactor = Math.max(0.45, Math.min(1.55, tonnesPerHaCenter / baselineForecastPerHa));
+    const revenuePerHa = baseCrop.marginParams.revenueAt100 * allocation * yieldAdjustmentFactor;
+    const netMarginPerHa = revenuePerHa - baseCrop.marginParams.costsAt100;
+    const revenuePerML = baseCrop.waterMLPerHa > 0 ? revenuePerHa / baseCrop.waterMLPerHa : 0;
+    const riskAdjustedRevenuePerML = revenuePerML * (1 - baseCrop.volatilityFactor);
+    const projectedLoss = Math.max(0, insights.yieldImpact.projectedLoss);
+
+    let outlookLabel = 'Stable';
+    let guidance = 'Yield and return expectations are broadly in line with the current block plan.';
+    if (tonnesPerHaCenter < 2 || projectedLoss >= 40) {
+      outlookLabel = 'Downside risk';
+      guidance = 'Lower canopy strength is pulling the block below its expected return, so budget and harvest planning should be tightened.';
+    } else if (tonnesPerHaCenter > 5 || projectedLoss <= 10) {
+      outlookLabel = 'Upside potential';
+      guidance = 'This block is running ahead of the base forecast, so there is room for a stronger-than-usual return if fruit quality holds.';
+    }
+
+    const yearsToProfit = netMarginPerHa > 0 ? 1 : 'Ongoing losses';
+
+    return {
+      tonnesPerHaCenter,
+      tonnesPerHaRangeLabel: tonnage.perHa,
+      totalTonnageLabel: tonnage.total,
+      yieldAdjustmentFactor,
+      revenuePerHa,
+      netMarginPerHa,
+      revenuePerML,
+      riskAdjustedRevenuePerML,
+      projectedLoss,
+      outlookLabel,
+      guidance,
+      yearsToProfit
     };
   });
 
@@ -286,8 +353,13 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
 
   profitForecastSummary = computed(() => {
     const insights = this.liveInsights();
-    if (!insights) {
+    const wineEconomics = this.liveWineGrapeEconomics();
+    if (!insights || !wineEconomics) {
       return 'Profit impact unavailable while the live forecast loads.';
+    }
+
+    if (wineEconomics.netMarginPerHa < 0) {
+      return `Current block forecast implies about ${this.formatCompactCurrency(Math.abs(wineEconomics.netMarginPerHa))}/ha downside versus break-even.`;
     }
 
     if (insights.yieldImpact.projectedLoss > 0) {
@@ -297,28 +369,71 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
     return 'No immediate profit loss is implied by the current block forecast.';
   });
 
+  profitOutlookHeadline = computed(() => {
+    const wineEconomics = this.liveWineGrapeEconomics();
+    if (!wineEconomics) {
+      return '--';
+    }
+    return wineEconomics.outlookLabel;
+  });
+
+  keyInsight = computed(() => {
+    const wineEconomics = this.liveWineGrapeEconomics();
+    if (!wineEconomics) {
+      return {
+        title: 'Key Insight',
+        message: 'Waiting for the latest satellite forecast before updating the block-level profit picture.',
+        warning: 'This section refreshes when a new LAI composite is available.'
+      };
+    }
+
+    const marginText = wineEconomics.netMarginPerHa >= 0
+      ? `+$${Math.round(wineEconomics.netMarginPerHa).toLocaleString()}/ha margin estimate`
+      : `-$${Math.round(Math.abs(wineEconomics.netMarginPerHa)).toLocaleString()}/ha margin pressure`;
+
+    return {
+      title: 'Live block impact',
+      message: `Wine grapes are currently tracking at ${wineEconomics.tonnesPerHaRangeLabel} with ${marginText}.`,
+      warning: `${this.forecastConfidence()} at ${this.waterAllocation()}% water allocation. ${wineEconomics.guidance}`
+    };
+  });
+
   // Computed Values
   cropMetrics = computed(() => {
       const allocation = this.waterAllocation() / 100;
+      const wineEconomics = this.liveWineGrapeEconomics();
 
       return this.crops.map(crop => {
           // Logic for Revenue Chart (Standard)
           const effectiveWaterProportion = allocation;
           const adjustedYield = crop.yieldPerHa * effectiveWaterProportion;
           const revenuePerHaStandard = adjustedYield * crop.pricePerTon;
-          const revenuePerML = crop.waterMLPerHa > 0 ? revenuePerHaStandard / crop.waterMLPerHa : 0;
-          const riskAdjustedRevenuePerML = revenuePerML * (1 - crop.volatilityFactor);
+          let revenuePerML = crop.waterMLPerHa > 0 ? revenuePerHaStandard / crop.waterMLPerHa : 0;
+          let riskAdjustedRevenuePerML = revenuePerML * (1 - crop.volatilityFactor);
 
           // Logic for Net Margin Chart (Specific Targets)
           // Revenue scales with allocation, Costs stay fixed
-          const marginRevenue = (crop.marginParams?.revenueAt100 || 0) * allocation;
+          let marginRevenue = (crop.marginParams?.revenueAt100 || 0) * allocation;
           const marginCosts = crop.marginParams?.costsAt100 || 0;
-          const netMarginPerHa = marginRevenue - marginCosts;
+          let netMarginPerHa = marginRevenue - marginCosts;
 
-          const yearsToProfit = netMarginPerHa > 0 ? Math.ceil(30000 / netMarginPerHa) : 'Ongoing losses';
+          let yearsToProfit: number | string = netMarginPerHa > 0 ? Math.ceil(30000 / netMarginPerHa) : 'Ongoing losses';
+          let yearsStr = crop.yearsStr;
+
+          if (crop.name === 'Wine Grapes' && wineEconomics) {
+              marginRevenue = wineEconomics.revenuePerHa;
+              netMarginPerHa = wineEconomics.netMarginPerHa;
+              revenuePerML = wineEconomics.revenuePerML;
+              riskAdjustedRevenuePerML = wineEconomics.riskAdjustedRevenuePerML;
+              yearsToProfit = wineEconomics.yearsToProfit;
+              yearsStr = typeof yearsToProfit === 'number' ? `${yearsToProfit} year` : 'Ongoing losses';
+          }
+
 
           return {
               ...crop,
+              yieldPerHa: crop.name === 'Wine Grapes' && wineEconomics ? wineEconomics.tonnesPerHaCenter : crop.yieldPerHa,
+              yearsStr,
               revenuePerHa: marginRevenue, // Use margin revenue for tooltip
               totalCostsPerHa: marginCosts, // Use margin costs for tooltip
               netMarginPerHa,
@@ -388,6 +503,11 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
   }
 
   readonly WINE_GRAPE_BASELINE = 493.44512195121956;
+
+  wineGrapeRiskAdjustedBaseline = computed(() => {
+      const wineGrapes = this.cropMetrics().find(c => c.name === 'Wine Grapes');
+      return wineGrapes?.riskAdjustedRevenuePerML ?? this.WINE_GRAPE_BASELINE;
+  });
 
   wineGrapeMetrics = computed(() => {
       return this.cropMetrics().find(c => c.name === 'Wine Grapes');
@@ -498,6 +618,16 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
 
       if (wineGrapesRevenue === 0) return 0;
       return ((cropRevenue - wineGrapesRevenue) / wineGrapesRevenue) * 100;
+  }
+
+  getRiskAdjustedDifferenceVsWineGrapes(crop: Crop): number {
+      const baseline = this.wineGrapeRiskAdjustedBaseline();
+      const riskAdjustedRevenue = crop.riskAdjustedRevenuePerML ?? 0;
+      if (!baseline || this.waterAllocation() === 0) {
+          return 0;
+      }
+
+      return (((riskAdjustedRevenue / (this.waterAllocation() / 100)) - baseline) / baseline) * 100;
   }
 
   private loadLiveForecast(block: Block): void {
