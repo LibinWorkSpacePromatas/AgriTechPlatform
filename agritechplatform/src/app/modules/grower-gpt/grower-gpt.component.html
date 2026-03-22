@@ -114,12 +114,13 @@
         </div>
 
         <div class="insight-item" *ngFor="let insight of blockSummary.insights">
-          <div class="insight-icon" [ngClass]="insight.status === 'Critical' || insight.status === 'Severe stress' || insight.status === 'Poor yield' ? 'warn' : 'info'">
+          <div class="insight-icon" [ngClass]="insight.severity === 'critical' ? 'warn' : 'info'">
             <i-lucide [img]="MessageIcon" class="icon-sm"></i-lucide>
           </div>
           <div class="insight-content">
-            <h4>{{ insight.metric.toUpperCase() }}</h4>
-            <p>{{ insight.status }}</p>
+            <h4>{{ insight.type.toUpperCase() }} ({{ insight.severity }})</h4>
+            <p>{{ insight.message }}</p>
+            <p>{{ insight.action_window }} — {{ insight.reason }}</p>
           </div>
         </div>
       </div>

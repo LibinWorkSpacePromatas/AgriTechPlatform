@@ -11,7 +11,7 @@ from app.services.satellite_insights import SatelliteInsightsUnavailableError
 
 from pydantic import BaseModel
 from typing import Optional
-from app.schemas.insights import GrowerGPTResponse, MetricInsight, UserGPTInsight, UserGPTResponse
+from app.schemas.insights import GrowerGPTInsight, GrowerGPTResponse, MetricInsight, UserGPTInsight, UserGPTResponse
 
 router = APIRouter()
 
@@ -51,14 +51,16 @@ async def get_gpt(block_id: str):
         snapshot = satellite_access_service.get_block_snapshot(block_id)
         satellite_response = snapshot.insights
         is_fresh = satellite_response.freshness_status == "fresh"
-        insights = _build_metric_insights(satellite_response)
-        data_age = calculate_data_age(satellite_response)
+        insights = _build_action_insights(satellite_response)
         confidence = calculate_confidence(satellite_response)
 
+        reason = insights[0].reason if insights else None
         if not is_fresh:
             ai_message = _build_freshness_guardrail_message(satellite_response.freshness_status, satellite_response.error)
         elif satellite_response.data_quality == "no_data" and not insights:
             ai_message = "No satellite data available for this block yet."
+        elif confidence != "high":
+            ai_message = None
         else:
             system_prompt = "You are an expert viticulturist and agricultural advisor. Provide concise, actionable advice based on satellite indices (NDVI, NDWI, NDRE, EVI, LAI)."
             prompt = f"""
@@ -80,14 +82,17 @@ async def get_gpt(block_id: str):
             """
             ai_message = await llm_service.generate_response(prompt, system_prompt)
 
+        payload = build_satellite_contract_payload(satellite_response)
+        payload["data_age_days"] = calculate_data_age(satellite_response)
+
         return GrowerGPTResponse(
-            **build_satellite_contract_payload(satellite_response),
+            **payload,
             crop=snapshot.crop,
             date=satellite_response.composite_date_to,
-            data_age_days=data_age,
             confidence=confidence,
             insights=insights,
             message=ai_message,
+            reason=reason,
         )
     except SatelliteInsightsUnavailableError as exc:
         raise HTTPException(status_code=503, detail=f"Satellite insights are temporarily unavailable: {exc}") from exc
@@ -102,7 +107,8 @@ async def user_gpt(user_id: str):
     Prioritizes critical alerts across all blocks and generates a property-wide summary.
     """
     all_insights: list[UserGPTInsight] = []
-    fresh_block_summaries = []
+    urgency_counts = {"critical": 0, "warning": 0, "info": 0, "positive": 0}
+    urgent_blocks: list[str] = []
     stale_block_names: list[str] = []
 
     try:
@@ -112,26 +118,17 @@ async def user_gpt(user_id: str):
             satellite_response = snapshot.insights
             block_name = snapshot.lanslu or snapshot.block_id
             is_fresh = satellite_response.freshness_status == "fresh"
-            insights = _build_metric_insights(satellite_response) if is_fresh else []
-            alert_summaries = _build_alert_summaries(satellite_response) if is_fresh else []
+            insights = _build_action_insights(satellite_response) if is_fresh else []
 
-            if alert_summaries:
-                fresh_block_summaries.append({
-                    "block_name": block_name,
-                    "crop": snapshot.crop,
-                    "status": alert_summaries[0],
-                })
-            elif insights:
-                primary_alert = insights[0]
-                fresh_block_summaries.append({
-                    "block_name": block_name,
-                    "crop": snapshot.crop,
-                    "status": f"{primary_alert.metric.upper()}: {primary_alert.status}"
-                })
+            if insights:
+                severity = insights[0].severity
+                urgency_counts[severity] = urgency_counts.get(severity, 0) + 1
+                if severity == "critical":
+                    urgent_blocks.append(block_name)
             elif not is_fresh:
                 stale_block_names.append(block_name)
 
-            for alert in insights:
+            for alert in _build_metric_insights_for_user(satellite_response) if is_fresh else []:
                 all_insights.append(
                     UserGPTInsight(
                         block_id=snapshot.block_id,
@@ -142,12 +139,16 @@ async def user_gpt(user_id: str):
                     )
                 )
 
-        if fresh_block_summaries:
-            system_prompt = "You are a regional vineyard manager. Provide a 1-sentence executive summary for the entire property."
-            prompt = f"Provide a brief property-wide summary based on these block statuses: {json.dumps(fresh_block_summaries)}. Focus on the most urgent issues."
-            summary = await llm_service.generate_response(prompt, system_prompt)
+        if urgency_counts["critical"] or urgency_counts["warning"] or urgency_counts["info"] or urgency_counts["positive"]:
+            summary = (
+                f"{urgency_counts['critical']} block(s) need urgent attention, "
+                f"{urgency_counts['warning']} block(s) need action soon, "
+                f"{urgency_counts['info']} block(s) have advisory notes."
+            )
+            if urgent_blocks:
+                summary = f"{summary} Urgent: {', '.join(sorted(set(urgent_blocks))[:5])}."
             if stale_block_names:
-                summary = f"{summary} Freshness note: {len(stale_block_names)} block(s) are still stale or updating and were excluded."
+                summary = f"{summary} Freshness note: {len(stale_block_names)} block(s) were stale/updating and excluded."
         elif stale_block_names:
             summary = "Fresh property-wide GPT advice is temporarily unavailable because all block refreshes are still pending."
         else:
@@ -188,6 +189,120 @@ def _build_metric_insights(satellite_response) -> list[MetricInsight]:
         if detail.status != "No data"
     ]
 
+
+def _build_metric_insights_for_user(satellite_response) -> list[MetricInsight]:
+    insights = _build_metric_insights(satellite_response)
+    priority = {"ndwi": 0, "ndre": 1, "ndvi": 2, "evi": 3, "lai": 4}
+    return sorted(insights, key=lambda insight: priority.get(insight.metric, 999))[:3]
+
+
+def _build_action_insights(satellite_response) -> list[GrowerGPTInsight]:
+    ndwi = satellite_response.ndwi
+    ndre = satellite_response.ndre
+    ndvi = satellite_response.ndvi
+    evi = satellite_response.evi
+    lai = satellite_response.lai
+
+    insights: list[GrowerGPTInsight] = []
+
+    irrigation_insight = _build_irrigation_insight(ndwi)
+    if irrigation_insight is not None:
+        insights.append(irrigation_insight)
+
+    nutrient_insight = _build_nutrient_insight(ndre)
+    if nutrient_insight is not None:
+        insights.append(nutrient_insight)
+
+    health_insight = _build_health_insight(ndvi, evi, lai)
+    if health_insight is not None:
+        insights.append(health_insight)
+
+    priority = {"irrigation": 0, "nutrient": 1, "health": 2}
+    return sorted(insights, key=lambda insight: priority[insight.type])[:3]
+
+
+def _build_irrigation_insight(ndwi: float | None) -> GrowerGPTInsight | None:
+    if ndwi is None:
+        return None
+    if ndwi < -0.30:
+        return GrowerGPTInsight(
+            type="irrigation",
+            severity="critical",
+            message="Severe water stress. Irrigate immediately.",
+            action_window="today",
+            reason=f"NDWI = {round(ndwi, 4)} (< -0.30)",
+        )
+    if ndwi < -0.15:
+        return GrowerGPTInsight(
+            type="irrigation",
+            severity="warning",
+            message="Water stress detected. Irrigate today.",
+            action_window="today",
+            reason=f"NDWI = {round(ndwi, 4)} (< -0.15)",
+        )
+    return None
+
+
+def _build_nutrient_insight(ndre: float | None) -> GrowerGPTInsight | None:
+    if ndre is None:
+        return None
+    if ndre < 0.12:
+        return GrowerGPTInsight(
+            type="nutrient",
+            severity="critical",
+            message="Severe nutrient stress likely. Prioritise foliar nutrient review.",
+            action_window="this week",
+            reason=f"NDRE = {round(ndre, 4)} (< 0.12)",
+        )
+    if ndre < 0.25:
+        return GrowerGPTInsight(
+            type="nutrient",
+            severity="warning",
+            message="Nutrient deficiency likely. Plan a foliar nutrient check.",
+            action_window="this week",
+            reason=f"NDRE = {round(ndre, 4)} (< 0.25)",
+        )
+    return None
+
+
+def _build_health_insight(ndvi: float | None, evi: float | None, lai: float | None) -> GrowerGPTInsight | None:
+    if ndvi is not None:
+        if ndvi < 0.20:
+            return GrowerGPTInsight(
+                type="health",
+                severity="critical",
+                message="Critical vine stress. Inspect immediately.",
+                action_window="today",
+                reason=f"NDVI = {round(ndvi, 4)} (< 0.20)",
+            )
+        if ndvi < 0.35:
+            return GrowerGPTInsight(
+                type="health",
+                severity="warning",
+                message="Vine health declining. Inspect soon.",
+                action_window="this week",
+                reason=f"NDVI = {round(ndvi, 4)} (< 0.35)",
+            )
+
+    if evi is not None and evi > 0.50:
+        return GrowerGPTInsight(
+            type="health",
+            severity="warning",
+            message="Dense canopy detected. Review leaf removal and airflow.",
+            action_window="this week",
+            reason=f"EVI = {round(evi, 4)} (> 0.50)",
+        )
+
+    if lai is not None and lai < 2.0:
+        return GrowerGPTInsight(
+            type="health",
+            severity="warning",
+            message="Low yield potential signal. Review block constraints and stress drivers.",
+            action_window="this week",
+            reason=f"LAI = {round(lai, 4)} (< 2.0)",
+        )
+
+    return None
 
 def _build_alert_summaries(satellite_response) -> list[str]:
     return [f"{alert.metric.upper()}: {alert.message}" for alert in satellite_response.alerts]

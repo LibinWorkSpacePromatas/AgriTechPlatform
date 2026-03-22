@@ -139,8 +139,17 @@ export const growerGptBlockSummarySchema = satelliteContractSchema.extend({
   date: isoDateSchema.default(null),
   data_age_days: z.number().int().nonnegative().default(0),
   confidence: z.string().min(1).default('low'),
-  insights: z.array(metricInsightSchema).default([]),
-  message: z.string().nullable().default(null)
+  insights: z.array(
+    z.object({
+      type: z.enum(['irrigation', 'nutrient', 'health']),
+      severity: z.enum(['critical', 'warning', 'info', 'positive']),
+      message: z.string().min(1),
+      action_window: z.string().min(1),
+      reason: z.string().min(1)
+    })
+  ).default([]),
+  message: z.string().nullable().default(null),
+  reason: z.string().nullable().default(null)
 });
 
 export type SatelliteContract = z.infer<typeof satelliteContractSchema>;

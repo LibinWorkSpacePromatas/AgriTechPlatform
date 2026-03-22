@@ -87,6 +87,7 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
   private blockService = inject(BlockService);
   selectedBlock = toSignal(this.blockService.selectedBlock$);
   private dashboardApiService = inject(DashboardApiService);
+  private authService = inject(AuthService);
 
   // State
   waterAllocation = signal<number>(100); // Default 100% as requested
@@ -185,10 +186,7 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
       }
   ];
 
-  constructor(
-    private userDataService: UserDataService,
-    private authService: AuthService
-  ) {}
+  constructor(private userDataService: UserDataService) {}
 
   ngOnInit() {
     this.user = this.authService.getCurrentUser() || this.userDataService.getUsers()[0];

@@ -13,12 +13,18 @@ from app.db.session import SessionLocal
 from app.db.models import Block, User
 from fastapi import Query
 from app.schemas.opportunities import OpportunitiesResponse
+from app.schemas.growing_opportunities import (
+    GrowingOpportunitiesResponse,
+    GrowingOpportunityFeedbackRequest,
+    GrowingOpportunityFeedbackResponse,
+)
 from app.schemas.satellite import BlockInsightsResponse as GEEInsightsResponse, SatelliteTimeseriesPoint
 from app.services.satellite_events import satellite_event_broker
 from app.services.satellite_access import satellite_access_service
 from app.services.satellite_insights import SatelliteInsightsUnavailableError, satellite_insights_service
 from app.services.block_lookup import resolve_block
 from app.services.opportunities import build_opportunities_response
+from app.services.growing_opportunities import growing_opportunities_service
 
 router = APIRouter()
 router.include_router(auth.router, prefix="/auth", tags=["auth"])
@@ -202,6 +208,38 @@ def get_block_opportunities(block_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=503, detail=f"Satellite opportunities are temporarily unavailable: {exc}") from exc
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=500, detail=f"Database error while fetching growth opportunities: {exc}") from exc
+
+
+@router.get(
+    "/api/blocks/{block_id}/growing-opportunities",
+    response_model=GrowingOpportunitiesResponse,
+    tags=["growing-opportunities"],
+)
+def get_growing_opportunities(block_id: str, db: Session = Depends(get_db)):
+    try:
+        block = resolve_block(db, block_id)
+        return growing_opportunities_service.build_page_payload(db, block)
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail=f"Database error while fetching growing opportunities: {exc}") from exc
+
+
+@router.post(
+    "/api/blocks/{block_id}/growing-opportunities/feedback",
+    response_model=GrowingOpportunityFeedbackResponse,
+    tags=["growing-opportunities"],
+)
+def save_growing_opportunity_feedback(
+    block_id: str,
+    feedback: GrowingOpportunityFeedbackRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        block = resolve_block(db, block_id)
+        return growing_opportunities_service.save_feedback(block, feedback)
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Database error while saving growing opportunity feedback: {exc}"
+        ) from exc
 
 
 def _format_sse_payload(payload: dict) -> str:

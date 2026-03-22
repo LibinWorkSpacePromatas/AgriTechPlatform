@@ -36,9 +36,9 @@ export class GrowerGptComponent implements OnInit, AfterViewChecked, OnDestroy {
   blockSummary: GrowerGptBlockSummary | null = null;
   recommendedQuestions: string[] = [
     "What is the irrigation plan for this week?",
-    "How does the current ET0 affect my Shiraz?",
-    "Check for any heat stress risks.",
-    "Optimal harvest time based on weather?"
+    "Which satellite signals are most urgent right now?",
+    "What does my NDWI mean and what should I do?",
+    "What do NDVI/NDRE changes mean for vine health?"
   ];
 
   constructor(
@@ -199,7 +199,7 @@ export class GrowerGptComponent implements OnInit, AfterViewChecked, OnDestroy {
             this.chatHistory.push({
               role: 'assistant',
               content: `Hello! I've performed a specialized analysis on **${block.name}**.\n\n`
-                + backendData.insights.map((insight) => `- **${insight.metric.toUpperCase()}**: ${insight.status}`).join('\n')
+                + backendData.insights.map((insight) => `- **${insight.type.toUpperCase()} (${insight.severity})**: ${insight.message} (${insight.action_window})`).join('\n')
                 + `\n\n${backendData.message || 'Ask me how to act on these satellite signals.'}`
             });
             return;

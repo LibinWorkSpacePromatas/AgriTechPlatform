@@ -48,8 +48,17 @@ class GrowerGPTResponse(SatelliteContractResponse):
     date: Optional[date_type] = None
     data_age_days: int = 0
     confidence: str = "high"
-    insights: List[MetricInsight] = Field(default_factory=list)
+    insights: List["GrowerGPTInsight"] = Field(default_factory=list)
     message: Optional[str] = None
+    reason: Optional[str] = None
+
+
+class GrowerGPTInsight(BaseModel):
+    type: Literal["irrigation", "nutrient", "health"]
+    severity: Literal["critical", "warning", "info", "positive"]
+    message: str
+    action_window: str
+    reason: str
 
 
 class UserGPTInsight(BaseModel):
