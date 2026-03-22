@@ -93,6 +93,21 @@ export const waterResponseSchema = satelliteContractSchema.extend({
   recommendation: z.string().min(1)
 });
 
+export const waterMinimalResponseSchema = z.object({
+  block_id: z.string().min(1),
+  composite_date_from: isoDateSchema.default(null),
+  composite_date_to: isoDateSchema.default(null),
+  ndvi: ratioIndexSchema.default(null),
+  ndwi: ratioIndexSchema.default(null),
+  evi: eviSchema.default(null),
+  ndre: ratioIndexSchema.default(null),
+  lai: laiSchema.default(null),
+  cloud_cover_pct: z.number().nullable().default(null),
+  pixel_count: z.number().int().nonnegative().default(0),
+  map_tile_url: z.string().nullable().default(null),
+  data_quality: z.enum(['good', 'degraded', 'no_data'])
+});
+
 export const metricInsightSchema = z.object({
   metric: metricKeySchema,
   value: z.number().nullable(),
@@ -132,6 +147,7 @@ export type SatelliteContract = z.infer<typeof satelliteContractSchema>;
 export type BlockInsightsContract = z.infer<typeof blockInsightsSchema>;
 export type SatelliteTimeseriesContract = z.infer<typeof timeseriesPointSchema>;
 export type WaterResponseContract = z.infer<typeof waterResponseSchema>;
+export type WaterMinimalResponseContract = z.infer<typeof waterMinimalResponseSchema>;
 export type OpportunitiesResponseContract = z.infer<typeof opportunitiesResponseSchema>;
 export type GrowerGptBlockSummaryContract = z.infer<typeof growerGptBlockSummarySchema>;
 export type MetricInsightContract = z.infer<typeof metricInsightSchema>;

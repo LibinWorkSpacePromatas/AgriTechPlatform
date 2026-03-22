@@ -107,16 +107,11 @@ function buildIrrigationStatus(lan: string): IrrigationStatus {
     recommendation: 'Test recommendation',
     date: '2026-03-20',
     dataQuality: 'good',
-    lanslu: lan,
     blockId: lan,
-    searchWindowFrom: '2026-03-07',
-    searchWindowTo: '2026-03-20',
     compositeDateFrom: '2026-03-15',
     compositeDateTo: '2026-03-20',
     mapTileUrl: null,
-    mapTileType: 'ndvi',
-    pixelCount: 8,
-    lastSatelliteUpdate: '2026-03-20',
-    limitations: lan === 'LAN-002' ? ['Thresholds may vary by crop and region'] : []
+    mapTileType: null,
+    pixelCount: 8
   };
 }

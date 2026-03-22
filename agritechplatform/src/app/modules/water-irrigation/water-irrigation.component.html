@@ -49,9 +49,9 @@
                 <span class="label">MAP MODE</span>
                 <span class="summary-chip">
                   {{
-                    irrigationStatus?.mapTileType === 'ndwi'
+                    irrigationStatus?.mapTileUrl
                       ? 'NDWI Zone Map (Water Stress)'
-                      : (irrigationStatus?.mapTileType === 'ndvi' ? 'NDVI Map (Vegetation Health)' : 'Block Polygon')
+                      : 'Block Polygon'
                   }}
                 </span>
               </div>
@@ -135,9 +135,6 @@
                 <span class="summary-chip" *ngIf="irrigationStatus.ndwi !== null">
                   NDWI: {{ irrigationStatus.ndwi | number:'1.4-4' }}
                 </span>
-                <span class="summary-chip" *ngIf="irrigationStatus.lastSatelliteUpdate">
-                  Last satellite update: {{ irrigationStatus.lastSatelliteUpdate | date:'mediumDate' }}
-                </span>
                 <span class="summary-chip">
                   Pixels: {{ irrigationStatus.pixelCount }}
                 </span>
@@ -146,13 +143,6 @@
               <div class="recommendation-section">
                 <span class="tag">Recommendation:</span>
                 <p class="recommendation-msg bold">{{ irrigationStatus.recommendation }}</p>
-              </div>
-
-              <div class="recommendation-section" *ngIf="irrigationStatus.limitations.length">
-                <span class="tag">Limitations:</span>
-                <p class="recommendation-msg" *ngFor="let limitation of irrigationStatus.limitations">
-                  {{ limitation }}
-                </p>
               </div>
 
               <div class="about-section">

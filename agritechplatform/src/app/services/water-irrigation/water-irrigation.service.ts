@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, catchError, map, of } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { WaterResponseContract, waterResponseSchema } from '../../shared/satellite-contract.schemas';
+import { WaterMinimalResponseContract, waterMinimalResponseSchema } from '../../shared/satellite-contract.schemas';
 
 export interface IrrigationStatus {
   status: 'Well-watered' | 'Mild stress' | 'Moderate stress' | 'Severe stress' | 'No data';
@@ -10,17 +10,12 @@ export interface IrrigationStatus {
   recommendation: string;
   date: string | null;
   dataQuality: 'good' | 'degraded' | 'no_data';
-  lanslu: string;
   blockId: string;
-  searchWindowFrom: string | null;
-  searchWindowTo: string | null;
   compositeDateFrom: string | null;
   compositeDateTo: string | null;
   mapTileUrl: string | null;
   mapTileType: 'ndvi' | 'ndwi' | null;
   pixelCount: number;
-  lastSatelliteUpdate: string | null;
-  limitations: string[];
 }
 
 @Injectable({
@@ -32,8 +27,8 @@ export class WaterIrrigationService {
   constructor(private http: HttpClient) {}
 
   getIrrigationStatus(blockId: string): Observable<IrrigationStatus> {
-    return this.http.get<unknown>(`${this.baseUrl}/api/water/${blockId}`).pipe(
-      map(payload => this.mapResponse(waterResponseSchema.parse(payload))),
+    return this.http.get<unknown>(`${this.baseUrl}/api/water/${blockId}/minimal`).pipe(
+      map(payload => this.mapResponse(waterMinimalResponseSchema.parse(payload))),
       catchError(error => {
         console.error('WaterIrrigationService error:', error);
         return of(this.getFallbackStatus(blockId));
@@ -45,24 +40,20 @@ export class WaterIrrigationService {
     return this.getIrrigationStatus(blockId);
   }
 
-  private mapResponse(data: WaterResponseContract): IrrigationStatus {
+  private mapResponse(data: WaterMinimalResponseContract): IrrigationStatus {
+    const status = this.classifyWaterStatus(data.ndwi);
     return {
-      status: data.status,
+      status,
       ndwi: data.ndwi,
-      recommendation: data.recommendation,
-      date: data.date,
+      recommendation: this.actionForStatus(status),
+      date: data.composite_date_to,
       dataQuality: data.data_quality,
-      lanslu: data.lanslu,
       blockId: data.block_id,
-      searchWindowFrom: data.search_window_from,
-      searchWindowTo: data.search_window_to,
       compositeDateFrom: data.composite_date_from,
       compositeDateTo: data.composite_date_to,
       mapTileUrl: data.map_tile_url,
-      mapTileType: data.map_tile_type,
-      pixelCount: data.pixel_count,
-      lastSatelliteUpdate: data.last_satellite_update,
-      limitations: [...data.limitations]
+      mapTileType: data.map_tile_url ? 'ndwi' : null,
+      pixelCount: data.pixel_count
     };
   }
 
@@ -73,17 +64,28 @@ export class WaterIrrigationService {
       recommendation: 'Unable to fetch water data. Please check connection.',
       date: null,
       dataQuality: 'no_data',
-      lanslu: 'N/A',
       blockId,
-      searchWindowFrom: null,
-      searchWindowTo: null,
       compositeDateFrom: null,
       compositeDateTo: null,
       mapTileUrl: null,
       mapTileType: null,
-      pixelCount: 0,
-      lastSatelliteUpdate: null,
-      limitations: []
+      pixelCount: 0
     };
+  }
+
+  private classifyWaterStatus(ndwi: number | null): IrrigationStatus['status'] {
+    if (ndwi === null) return 'No data';
+    if (ndwi > 0.1) return 'Well-watered';
+    if (ndwi > -0.1) return 'Mild stress';
+    if (ndwi > -0.3) return 'Moderate stress';
+    return 'Severe stress';
+  }
+
+  private actionForStatus(status: IrrigationStatus['status']): string {
+    if (status === 'Well-watered') return 'Check over-irrigation';
+    if (status === 'Mild stress') return 'Consider irrigation in 2-3 days';
+    if (status === 'Moderate stress') return 'Irrigate today';
+    if (status === 'Severe stress') return 'Immediate irrigation required';
+    return 'No irrigation recommendation is available until satellite data is ready.';
   }
 }

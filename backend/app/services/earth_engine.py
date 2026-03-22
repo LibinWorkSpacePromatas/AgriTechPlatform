@@ -188,10 +188,20 @@ class EarthEngineClient:
 
         try:
             geometry = ee.Geometry(geometry_geojson)
-            collection = self._build_collection(geometry, date_from=date_from, date_to=date_to)
+            date_from_candidate = date_from
+            collection = self._build_collection(geometry, date_from=date_from_candidate, date_to=date_to)
             metadata_summary = self._build_collection_metadata_summary(collection).getInfo()
             image_count = int(metadata_summary.get("image_count") or 0)
             actual_dates = self._parse_iso_dates(metadata_summary.get("actual_dates"))
+
+            retries = 0
+            while image_count > 0 and image_count < 2 and retries < 2:
+                retries += 1
+                date_from_candidate = date_from_candidate - timedelta(days=7)
+                collection = self._build_collection(geometry, date_from=date_from_candidate, date_to=date_to)
+                metadata_summary = self._build_collection_metadata_summary(collection).getInfo()
+                image_count = int(metadata_summary.get("image_count") or 0)
+                actual_dates = self._parse_iso_dates(metadata_summary.get("actual_dates"))
             if image_count == 0:
                 return SatelliteComputation(
                     ndvi=None,
@@ -202,7 +212,7 @@ class EarthEngineClient:
                     cloud_cover_pct=None,
                     pixel_count=0,
                     data_quality="no_data",
-                    composite_date_from=date_from,
+                    composite_date_from=date_from_candidate,
                     composite_date_to=date_to,
                     map_tile_url=None,
                     image_count=0,
@@ -211,14 +221,12 @@ class EarthEngineClient:
                 )
 
             prepared_collection = collection.map(self._prepare_image)
-            composite = prepared_collection.select(SPECTRAL_BANDS).median()
+            composite = prepared_collection.select(SPECTRAL_BANDS).median().clip(geometry)
             indices = self._build_indices(composite).clip(geometry)
             summary = self._build_summary(collection, prepared_collection, indices, geometry).getInfo()
             stats = summary.get("stats", {})
             pixel_count = int(stats.get("ndwi_count") or stats.get("ndvi_count") or 0)
             cloud_cover_pct = self._maybe_round(metadata_summary.get("cloud_cover_pct"), 2)
-            if cloud_cover_pct is None:
-                cloud_cover_pct = self._maybe_round(summary.get("cloud_cover_pct"), 2)
             data_quality = self._classify_quality(
                 pixel_count=pixel_count,
                 cloud_cover_pct=cloud_cover_pct,
@@ -240,7 +248,7 @@ class EarthEngineClient:
                 cloud_cover_pct=cloud_cover_pct,
                 pixel_count=pixel_count,
                 data_quality="no_data" if pixel_count == 0 else data_quality,
-                composite_date_from=self._parse_iso_date(metadata_summary.get("composite_date_from")) or date_from,
+                composite_date_from=self._parse_iso_date(metadata_summary.get("composite_date_from")) or date_from_candidate,
                 composite_date_to=self._parse_iso_date(metadata_summary.get("composite_date_to")) or date_to,
                 map_tile_url=map_tile_url,
                 image_count=image_count,
@@ -425,7 +433,7 @@ class EarthEngineClient:
             return "no_data"
         if pixel_count < 10:
             return "degraded"
-        if cloud_cover_pct is not None and cloud_cover_pct > 50:
+        if cloud_cover_pct is not None and cloud_cover_pct > self._settings.satellite_degraded_cloud_threshold_pct:
             return "degraded"
         return "good"
 

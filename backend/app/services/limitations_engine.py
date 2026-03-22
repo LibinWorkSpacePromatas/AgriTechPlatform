@@ -23,16 +23,18 @@ def build_limitations(
         cloud_cover_pct is not None
         and cloud_cover_pct > active_settings.satellite_degraded_cloud_threshold_pct
     ):
-        limitations.append("Cloud degradation — cloud cover above 50% makes this composite less reliable.")
+        limitations.append(
+            f"Cloud degradation - cloud cover above {active_settings.satellite_degraded_cloud_threshold_pct:.0f}% makes this composite less reliable."
+        )
 
-    limitations.append("Satellite delay — data is not real-time (Sentinel-2 revisit is about 5 days).")
+    limitations.append("Satellite delay - data is not real-time (Sentinel-2 revisit is about 5 days).")
 
     if block_area_ha is not None and block_area_ha < active_settings.satellite_pixel_mixing_block_area_threshold_ha:
-        limitations.append("Pixel mixing — small blocks can produce less accurate NDVI.")
+        limitations.append("Pixel mixing - small blocks can produce less accurate NDVI.")
 
     if ndvi is not None and ndvi > 0.8:
-        limitations.append("NDVI saturation — values above 0.8 may hide canopy differences, so use EVI for finer separation.")
+        limitations.append("NDVI saturation - values above 0.8 may hide canopy differences, so use EVI for finer separation.")
 
-    limitations.append("LAI / yield separation — NDVI does not measure yield directly; use LAI as secondary yield context.")
+    limitations.append("LAI / yield separation - NDVI does not measure yield directly; use LAI as secondary yield context.")
 
     return limitations

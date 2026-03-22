@@ -353,7 +353,9 @@ class SatelliteInsightsService:
                     SELECT
                         ST_IsValid(geom) AS is_valid,
                         ST_IsEmpty(geom) AS is_empty,
-                        ST_Transform(ST_MakeValid(geom), 3857) AS valid_geom
+                        ST_Transform(ST_MakeValid(geom), 3857) AS valid_geom,
+                        ST_Area(ST_Transform(ST_MakeValid(geom), 3857)) AS area_m2,
+                        COALESCE(area_ha, 0) AS area_ha
                     FROM blocks
                     WHERE id = :block_id
                 ),
@@ -361,11 +363,23 @@ class SatelliteInsightsService:
                     SELECT
                         is_valid,
                         is_empty,
+                        area_m2,
+                        area_ha,
                         CASE
-                            WHEN ST_IsEmpty(ST_Buffer(valid_geom, -:buffer_meters))
-                                THEN valid_geom
+                            WHEN area_ha > 0
+                                 AND area_m2 < (area_ha * 10000.0 * :min_geometry_area_ratio)
+                                THEN ST_Buffer(
+                                    ST_Centroid(valid_geom),
+                                    sqrt((area_ha * 10000.0) / pi())
+                                )
+                            WHEN area_m2 < :min_buffer_area_m2 THEN valid_geom
+                            WHEN ST_IsEmpty(ST_Buffer(valid_geom, -:buffer_meters)) THEN valid_geom
                             ELSE ST_Buffer(valid_geom, -:buffer_meters)
-                        END AS buffered_geom
+                        END AS buffered_geom,
+                        CASE
+                            WHEN area_m2 < :min_buffer_area_m2 THEN 0.0
+                            ELSE :simplify_tolerance_meters
+                        END AS simplify_tolerance_meters
                     FROM prepared
                 )
                 SELECT
@@ -373,7 +387,7 @@ class SatelliteInsightsService:
                     is_empty,
                     ST_AsGeoJSON(
                         ST_Transform(
-                            ST_SimplifyPreserveTopology(buffered_geom, :simplify_tolerance_meters),
+                            ST_SimplifyPreserveTopology(buffered_geom, simplify_tolerance_meters),
                             4326
                         )
                     ) AS buffered_geojson
@@ -384,6 +398,8 @@ class SatelliteInsightsService:
                 "block_id": str(block_id),
                 "buffer_meters": self._settings.satellite_buffer_meters,
                 "simplify_tolerance_meters": self._settings.satellite_simplify_tolerance_meters,
+                "min_buffer_area_m2": 10_000.0,
+                "min_geometry_area_ratio": 0.25,
             },
         ).mappings().first()
 

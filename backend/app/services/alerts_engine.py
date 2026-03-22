@@ -39,9 +39,9 @@ def build_alerts(payload: dict[str, Any]) -> list[SatelliteAlert]:
             alerts.append(
                 SatelliteAlert(
                     metric="ndwi",
-                    code="urgent_irrigation",
+                    code="severe_water_stress",
                     severity="critical",
-                    message="Severe water stress. Immediate irrigation required.",
+                    message="Severe water stress. Irrigate immediately.",
                     value=round(ndwi, 4),
                     threshold="NDWI < -0.30",
                 )
@@ -50,7 +50,7 @@ def build_alerts(payload: dict[str, Any]) -> list[SatelliteAlert]:
             alerts.append(
                 SatelliteAlert(
                     metric="ndwi",
-                    code="irrigation_alert",
+                    code="water_stress_detected",
                     severity="warning",
                     message="Moderate water stress. Irrigate today.",
                     value=round(ndwi, 4),

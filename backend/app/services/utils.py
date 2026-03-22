@@ -24,6 +24,7 @@ SATELLITE_CONTRACT_RESPONSE_FIELDS = {
     "map_tile_type",
     "cache_last_updated_at",
     "cache_expires_at",
+    "data_age_days",
     "data_quality",
     "acquisition_metadata",
     "interpretations",
@@ -57,7 +58,7 @@ def calculate_confidence(cache: Any) -> str:
     if cache.data_quality == "good" and data_age_days < 7:
         return "high"
 
-    if data_age_days < 14:
+    if 7 <= data_age_days < 14:
         return "medium"
 
     return "low"

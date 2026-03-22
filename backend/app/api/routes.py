@@ -11,6 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.api import auth, scan
 from app.db.session import SessionLocal
 from app.db.models import Block, User
+from fastapi import Query
 from app.schemas.opportunities import OpportunitiesResponse
 from app.schemas.satellite import BlockInsightsResponse as GEEInsightsResponse, SatelliteTimeseriesPoint
 from app.services.satellite_events import satellite_event_broker
@@ -128,9 +129,10 @@ def get_block_timeseries(block_identifier: str):
 
 
 @router.get("/api/blocks/{block_id}/insights", response_model=GEEInsightsResponse, tags=["satellite-insights"])
-def get_block_dashboard_insights(block_id: str):
+def get_block_dashboard_insights(block_id: str, refresh: bool = Query(default=False)):
     try:
-        return satellite_access_service.get_block_insights(block_id)
+        snapshot = satellite_access_service.get_block_snapshot(block_id, force_refresh=refresh)
+        return snapshot.insights
     except SatelliteInsightsUnavailableError as exc:
         raise HTTPException(status_code=503, detail=f"Satellite insights are temporarily unavailable: {exc}") from exc
     except SQLAlchemyError as exc:

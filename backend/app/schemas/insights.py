@@ -28,6 +28,21 @@ class WaterResponse(SatelliteContractResponse):
     recommendation: str
 
 
+class WaterMinimalResponse(BaseModel):
+    block_id: str
+    composite_date_from: date_type | None = None
+    composite_date_to: date_type | None = None
+    ndvi: float | None = None
+    ndwi: float | None = None
+    evi: float | None = None
+    ndre: float | None = None
+    lai: float | None = None
+    cloud_cover_pct: float | None = None
+    pixel_count: int = 0
+    map_tile_url: str | None = None
+    data_quality: Literal["good", "degraded", "no_data"]
+
+
 class GrowerGPTResponse(SatelliteContractResponse):
     crop: Optional[str] = None
     date: Optional[date_type] = None
