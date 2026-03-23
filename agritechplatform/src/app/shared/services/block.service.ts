@@ -90,22 +90,22 @@ export class BlockService {
   private mapUserBlocks(user: User): Block[] {
     return user.blocks.map((block, index) => {
       const blockNumber = index + 1;
-      const fallbackCoords = this.getLatLongForLocation(user.farmLocation);
 
       return {
         id: block.lanslu,
         name: `BLOCK ${blockNumber} - ${block.crop || user.primaryCropName}`,
         location: this.getBlockLocation(user.farmLocation, block.latitude, block.longitude),
-        coordinates: '',
+        coordinates: block.latitude && block.longitude ? `${Math.abs(block.latitude).toFixed(4)}°S, ${Math.abs(block.longitude).toFixed(4)}°E` : '',
         size: block.area,
         sizeUnit: 'ha',
         grapeVariety: block.crop || user.primaryCropName,
         crop: block.crop || user.primaryCropName,
         soilType: block.primarySoilClass,
         soilDescription: block.description,
-        lat: block.latitude || fallbackCoords.lat,
-        lon: block.longitude || fallbackCoords.lon,
-        lan: block.lanslu
+        lat: block.latitude,
+        lon: block.longitude,
+        lan: block.lanslu,
+        polygon: block.polygon || null
       };
     });
   }
@@ -127,19 +127,6 @@ export class BlockService {
 
     return farmLocation;
   }
-
-  private getLatLongForLocation(location: string): { lat: number; lon: number } {
-    const locationMap: Record<string, { lat: number; lon: number }> = {
-      'Renmark, SA': { lat: -34.1747, lon: 140.7472 },
-      'Tanunda, SA': { lat: -34.5267, lon: 138.96 },
-      'Willunga, SA': { lat: -35.2733, lon: 138.55 },
-      'Waikerie, SA': { lat: -34.1833, lon: 139.9833 },
-      'Nuriootpa, SA': { lat: -34.4667, lon: 138.9833 }
-    };
-
-    return locationMap[location] || locationMap['Renmark, SA'];
-  }
-
   private getStoredLan(): string | null {
     const stored = localStorage.getItem(this.BLOCK_STORAGE_KEY);
     if (!stored) return null;

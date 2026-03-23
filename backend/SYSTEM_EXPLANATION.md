@@ -56,31 +56,32 @@ To ensure high accuracy and fast performance, the system uses two different time
 
 ---
 
-## 4. Water & Irrigation: Action-Driven Status
-
-This module focuses entirely on the **NDWI** value to provide clear instructions to the grower.
+### A. Water & Irrigation Page Rule Engine
+This page focuses on water management and spatial visualization.
 
 | NDWI Value | Action-Driven Status |
 | :--- | :--- |
 | `> 0.1` | `WELL_WATERED — CHECK OVER-IRRIGATION` |
-| `-0.1` to `0.1` | `MILD_STRESS — CONSIDER IRRIGATION IN 2-3 DAYS` |
-| `-0.3` to `-0.1` | `MODERATE_STRESS — IRRIGATE TODAY` |
+| `-0.15` to `0.1` | `MILD_STRESS — CONSIDER IRRIGATION IN 2-3 DAYS` |
+| `-0.3` to `-0.15` | `MODERATE_STRESS — IRRIGATE SOON` |
 | `< -0.3` | `SEVERE_STRESS — IMMEDIATE IRRIGATION REQUIRED` |
 
----
+**NDWI Zone Map**: The page displays a live spectral map of the vineyard block using GEE map tiles.
+- **Red**: Severe Stress (< -0.3)
+- **Orange**: Moderate Stress (-0.3 to -0.15)
+- **Yellow**: Mild Stress (-0.15 to 0.1)
+- **Green**: Optimal (> 0.1)
 
-## 5. Grower GPT: The Prioritized Brain
+### B. Grower GPT Prioritized Rule Engine
+This engine looks at all five indices and presents the top 3 most critical issues in a specific order of importance.
 
-Grower GPT uses a **Prioritized Rule Engine** to rank issues. It doesn't just show data; it tells you what matters most.
-
-**The Alert Hierarchy:**
-1.  **🚨 Water (NDWI)**: Highest priority. Critical if < -0.3, Warning if < -0.1.
-2.  **🌱 Nutrient (NDRE)**: Warning if Nitrogen is low (< 0.25).
-3.  **🌿 Health (NDVI)**: 
-    -   **Critical** if stress is urgent (< 0.20).
-    -   **Warning** if health is declining (< 0.35).
-4.  **🌿 Canopy (EVI)**: Info if growth is too dense (> 0.5).
-5.  **📉 Yield (LAI)**: Warning if potential is low (< 2).
+| Priority | Index | Threshold | Action Output |
+| :--- | :--- | :--- | :--- |
+| **1. (Critical)** | **NDWI** | `< -0.3` | **Severe water stress. Irrigate immediately.** |
+| **2. (Warning)** | **NDWI** | `< -0.15` | **Water stress detected. Irrigate soon.** |
+| **3. (Critical)** | **NDVI** | `< 0.20` | **Critical vine stress — urgent inspection.** |
+| **4. (Warning)** | **NDRE** | `< 0.25` | **Nitrogen deficiency likely. Foliar spray recommended.** |
+| **5. (Warning)** | **NDVI** | `< 0.35` | **Vine health declining — inspect.** |
 
 **Confidence Metrics:**
 -   **HIGH**: Fresh data (< 7 days) and Good quality.

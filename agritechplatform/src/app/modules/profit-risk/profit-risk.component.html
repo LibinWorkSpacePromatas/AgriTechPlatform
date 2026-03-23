@@ -282,7 +282,7 @@
                     </p>
                     <p class="insight-warning">
                         <i-lucide [img]="AlertTriangle" class="icon-sm"></i-lucide>
-                        Showing impact at {{ waterAllocation() }}% water allocation — grapes suffer most from water cuts
+                        {{ keyInsight().warning }}
                     </p>
                 </div>
             </div>
@@ -297,7 +297,7 @@
                     <i-lucide [img]="BarChart2" class="icon-blue"></i-lucide>
                     <h3>Revenue per ML Water</h3>
                 </div>
-                <p class="chart-subtitle">Click bars to select crop • Hover for details</p>
+                <p class="chart-subtitle">Click bars to select crop • Hover for details • Live yield scaled from LAI</p>
 
                 <div class="revenue-chart-container">
                     <div *ngFor="let crop of cropMetricsFixedOrder()" class="revenue-row"
@@ -367,7 +367,7 @@
                     <i-lucide [img]="DollarSign" class="icon-green"></i-lucide>
                     <h3>Net Margin per Hectare</h3>
                 </div>
-                <p class="chart-subtitle">Revenue minus input costs • Zero line shown</p>
+                <p class="chart-subtitle">Revenue minus input costs • Zero line shown • Baseline economics with live LAI context</p>
 
                 <div class="margin-chart-container">
                     <!-- Y Axis -->

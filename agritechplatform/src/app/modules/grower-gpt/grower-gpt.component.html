@@ -4,19 +4,18 @@
       <i-lucide [img]="BotIcon" class="page-icon"></i-lucide>
       <div>
         <h1>Grower GPT</h1>
-        <p class="subtitle">Personalized AI agronomist for block-level biological insights</p>
-        <!-- Error State -->
-      <div *ngIf="chatHistory.length > 0 && (chatHistory[chatHistory.length-1].content.includes('error connecting') || chatHistory[chatHistory.length-1].content.includes('Rate Limited') || chatHistory[chatHistory.length-1].content.includes('handling too many requests'))" class="error-container">
-        <div class="error-message">
-          <lucide-angular [img]="BotIcon" class="error-icon"></lucide-angular>
-          <p>Connection failed. Please check your network or try again.</p>
-          <button (click)="retryLastMessage()" class="retry-button">Retry Connection</button>
+        <p class="subtitle">Satellite-grounded agronomy guidance for the selected block</p>
+        <div *ngIf="chatHistory.length > 0 && (chatHistory[chatHistory.length - 1].content.includes('error connecting') || chatHistory[chatHistory.length - 1].content.includes('Rate Limited') || chatHistory[chatHistory.length - 1].content.includes('handling too many requests'))" class="error-container">
+          <div class="error-message">
+            <lucide-angular [img]="BotIcon" class="error-icon"></lucide-angular>
+            <p>Connection failed. Please check your network or try again.</p>
+            <button (click)="retryLastMessage()" class="retry-button">Retry Connection</button>
+          </div>
         </div>
       </div>
     </div>
-    </div>
   </div>
-  
+
   <div class="gpt-layout">
     <div class="chat-main">
       <div class="chat-container" #chatContainer>
@@ -28,7 +27,6 @@
           <h3>Block Analysis: {{ blockService.getSelectedBlock().name }}</h3>
         </div>
 
-        <!-- Recommended Questions as Quick Chips -->
         <div class="recommended-chips" *ngIf="chatHistory.length <= 1">
           <div class="chips-label">Quick Actions:</div>
           <button *ngFor="let q of recommendedQuestions" (click)="sendMessage(q)" class="chip">
@@ -45,7 +43,7 @@
               <div [innerHTML]="renderMarkdown(msg.content)"></div>
             </div>
           </div>
-          
+
           <div *ngIf="isLoading" class="message assistant-msg">
             <div class="avatar-circle">
               <i-lucide [img]="BotIcon" class="avatar-icon"></i-lucide>
@@ -56,15 +54,15 @@
           </div>
         </div>
       </div>
-      
+
       <div class="chat-input-wrapper">
         <form (submit)="sendMessage()" class="chat-input-box">
-          <input 
-            type="text" 
-            [(ngModel)]="userMessage" 
+          <input
+            type="text"
+            [(ngModel)]="userMessage"
             name="userMessage"
             [disabled]="isLoading"
-            placeholder="Type your agronomic question..." 
+            placeholder="Type your agronomic question..."
           />
           <button type="submit" class="send-btn" [disabled]="!userMessage.trim() || isLoading">
             <i-lucide [img]="SendIcon" class="send-icon"></i-lucide>
@@ -72,63 +70,74 @@
         </form>
       </div>
     </div>
-    
+
     <div class="insights-sidebar">
       <div class="sidebar-header">
         <i-lucide [img]="SparklesIcon" class="badge-icon"></i-lucide>
-        <span>Live Insights</span>
+        <span>Satellite Context</span>
       </div>
-
-      <!-- AI Analysis Metadata -->
-      <div class="metadata-card" *ngIf="backendInsights">
-        <div class="meta-row">
-          <span class="meta-label">Block:</span>
-          <span class="meta-value">{{ backendInsights.crop }} ({{ blockService.getSelectedBlock().name }})</span>
-        </div>
-        <div class="meta-row">
-          <span class="meta-label">Data:</span>
-          <span class="meta-value">{{ backendInsights.date | date:'MMM d' }} ({{ backendInsights.data_age_days }} days old)</span>
-        </div>
-        <div class="meta-row">
-          <span class="meta-label">Confidence:</span>
-          <span class="meta-value badge" [ngClass]="backendInsights.confidence">
-            {{ backendInsights.confidence | uppercase }}
-          </span>
-        </div>
-      </div>
-
-      <div class="insight-list">
-        <!-- New Prioritized Insights from Backend -->
-        <ng-container *ngIf="backendInsights?.insights?.length > 0; else fallbackInsights">
-          <div *ngFor="let insight of backendInsights.insights" class="insight-item-new" [ngClass]="insight.severity">
-            <div class="insight-header">
-              <span class="severity-icon">
-                <i-lucide *ngIf="insight.type === 'irrigation'" [img]="ZapIcon" class="icon-xs"></i-lucide>
-                <i-lucide *ngIf="insight.type === 'nutrient'" [img]="SparklesIcon" class="icon-xs"></i-lucide>
-                <i-lucide *ngIf="insight.type === 'health' || insight.type === 'canopy'" [img]="SparklesIcon" class="icon-xs"></i-lucide>
-                <i-lucide *ngIf="insight.type === 'yield'" [img]="MessageIcon" class="icon-xs"></i-lucide>
-              </span>
-              <span class="insight-msg">{{ insight.message }}</span>
-            </div>
-            <div class="insight-reason" *ngIf="insight.reason">
-              → {{ insight.reason }}
-            </div>
+      <div class="insight-list" *ngIf="blockSummary; else noLiveInsights">
+        <div class="insight-item">
+          <div class="insight-icon info">
+            <i-lucide [img]="SparklesIcon" class="icon-sm"></i-lucide>
           </div>
-        </ng-container>
+          <div class="insight-content">
+            <h4>Satellite Summary</h4>
+            <p>{{ blockSummary.message || 'No summary available yet.' }}</p>
+          </div>
+        </div>
 
-        <!-- Fallback static insights if no backend data -->
-        <ng-template #fallbackInsights>
+        <div class="insight-item">
+          <div class="insight-icon info">
+            <i-lucide [img]="MessageIcon" class="icon-sm"></i-lucide>
+          </div>
+          <div class="insight-content">
+            <h4>Real Indices</h4>
+            <p>
+              NDVI (Vegetation Health): {{ blockSummary.ndvi ?? 'N/A' }}<br>
+              NDWI (Water Stress): {{ blockSummary.ndwi ?? 'N/A' }}<br>
+              NDRE (Nutrient Status): {{ blockSummary.ndre ?? 'N/A' }}<br>
+              EVI (Canopy Density): {{ blockSummary.evi ?? 'N/A' }}<br>
+              LAI (Yield Potential): {{ blockSummary.lai ?? 'N/A' }}
+            </p>
+          </div>
+        </div>
+
+        <div class="insight-item" *ngIf="blockSummary.limitations.length">
+          <div class="insight-icon warn">
+            <i-lucide [img]="MessageIcon" class="icon-sm"></i-lucide>
+          </div>
+          <div class="insight-content">
+            <h4>Scientific Limitations</h4>
+            <p *ngFor="let limitation of blockSummary.limitations">{{ limitation }}</p>
+          </div>
+        </div>
+
+        <div class="insight-item" *ngFor="let insight of blockSummary.insights">
+          <div class="insight-icon" [ngClass]="insight.severity === 'critical' ? 'warn' : 'info'">
+            <i-lucide [img]="MessageIcon" class="icon-sm"></i-lucide>
+          </div>
+          <div class="insight-content">
+            <h4>{{ insight.type.toUpperCase() }} ({{ insight.severity }})</h4>
+            <p>{{ insight.message }}</p>
+            <p>{{ insight.action_window }} — {{ insight.reason }}</p>
+          </div>
+        </div>
+      </div>
+
+      <ng-template #noLiveInsights>
+        <div class="insight-list">
           <div class="insight-item">
             <div class="insight-icon info">
               <i-lucide [img]="SparklesIcon" class="icon-sm"></i-lucide>
             </div>
             <div class="insight-content">
-              <h4>System Monitoring</h4>
-              <p>All indicators are within optimal range for this block.</p>
+              <h4>Waiting For Satellite Context</h4>
+              <p>Grower GPT will show NDVI, NDWI, NDRE, EVI, and LAI here once the latest block summary loads.</p>
             </div>
           </div>
-        </ng-template>
-      </div>
+        </div>
+      </ng-template>
     </div>
   </div>
 </div>

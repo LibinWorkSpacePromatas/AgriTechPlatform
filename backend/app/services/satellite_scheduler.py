@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.db.database import SessionLocal
 from app.db.models import Block, SatelliteRefreshJob
+from app.services.satellite_events import satellite_event_broker
 from app.services.satellite_insights import SatelliteInsightsUnavailableError, satellite_insights_service
 
 
@@ -68,6 +69,19 @@ class SatelliteRefreshScheduler:
                 max_instances=1,
                 coalesce=True,
             )
+        if self._settings.satellite_backfill_enabled:
+            self._scheduler.add_job(
+                self.backfill_all_blocks,
+                trigger="interval",
+                days=self._settings.satellite_backfill_interval_days,
+                id="satellite-history-backfill",
+                replace_existing=True,
+                max_instances=1,
+                coalesce=True,
+                next_run_time=datetime.now(timezone.utc)
+                + timedelta(seconds=self._settings.satellite_backfill_initial_delay_seconds),
+            )
+        if self._settings.satellite_scheduler_enabled or self._settings.satellite_backfill_enabled:
             self._scheduler.start()
 
         self._stop_event.clear()
@@ -83,9 +97,10 @@ class SatelliteRefreshScheduler:
 
         self._started = True
         logger.info(
-            "event=satellite_scheduler_started workers=%s schedule_enabled=%s gee_enabled=%s",
+            "event=satellite_scheduler_started workers=%s schedule_enabled=%s backfill_enabled=%s gee_enabled=%s",
             len(self._workers),
             self._settings.satellite_scheduler_enabled,
+            self._settings.satellite_backfill_enabled,
             self._settings.has_gee_credentials,
         )
 
@@ -174,6 +189,11 @@ class SatelliteRefreshScheduler:
                 priority,
                 scheduled_for.isoformat(),
             )
+            satellite_event_broker.publish(
+                block_id=str(block_id),
+                event="queued",
+                reason=reason,
+            )
             return SatelliteRefreshEnqueueResult(queued=True, active=True, job_status=str(result["status"]))
 
         existing_job = db.get(SatelliteRefreshJob, block_id)
@@ -249,6 +269,46 @@ class SatelliteRefreshScheduler:
                 self._settings.satellite_job_timeout_seconds,
             )
 
+    def backfill_all_blocks(self) -> None:
+        if not self._settings.has_gee_credentials or not self._settings.satellite_backfill_enabled:
+            logger.info("event=satellite_backfill_skipped reason=disabled_or_missing_credentials")
+            return
+
+        with SessionLocal() as db:
+            block_ids = [block_id for (block_id,) in db.query(Block.id).order_by(Block.id).all()]
+
+        inserted_total = 0
+        processed_blocks = 0
+
+        for block_id in block_ids:
+            with SessionLocal() as db:
+                block = db.query(Block).filter(Block.id == block_id).first()
+                if block is None:
+                    continue
+
+                try:
+                    inserted_total += satellite_insights_service.backfill_block_timeseries(
+                        db,
+                        block,
+                        history_days=self._settings.satellite_backfill_history_days,
+                        step_days=self._settings.satellite_backfill_step_days,
+                    )
+                    processed_blocks += 1
+                except SatelliteInsightsUnavailableError as exc:
+                    db.rollback()
+                    logger.warning("event=satellite_backfill_failed block_id=%s error=%s", block_id, exc)
+                except Exception:
+                    db.rollback()
+                    logger.exception("event=satellite_backfill_failed_unexpected block_id=%s", block_id)
+
+        logger.info(
+            "event=satellite_backfill_run_completed processed_blocks=%s inserted=%s history_days=%s step_days=%s",
+            processed_blocks,
+            inserted_total,
+            self._settings.satellite_backfill_history_days,
+            self._settings.satellite_backfill_step_days,
+        )
+
     def _worker_loop(self, worker_number: int) -> None:
         while not self._stop_event.is_set():
             if not self._settings.has_gee_credentials:
@@ -297,6 +357,11 @@ class SatelliteRefreshScheduler:
 
     def _process_job(self, block_id: Any, worker_number: int) -> None:
         started_at = perf_counter()
+        satellite_event_broker.publish(
+            block_id=str(block_id),
+            event="running",
+            reason="worker_started",
+        )
 
         with SessionLocal() as db:
             block = db.query(Block).filter(Block.id == block_id).first()
@@ -313,6 +378,13 @@ class SatelliteRefreshScheduler:
                     block_id,
                     response.data_quality,
                     response.latency_ms,
+                )
+                satellite_event_broker.publish(
+                    block_id=str(block_id),
+                    event="completed",
+                    reason="refresh_completed",
+                    data_quality=response.data_quality,
+                    latency_ms=response.latency_ms,
                 )
             except SatelliteInsightsUnavailableError as exc:
                 db.rollback()
@@ -345,6 +417,13 @@ class SatelliteRefreshScheduler:
         job.last_duration_ms = int((perf_counter() - started_at) * 1000)
         db.add(job)
         db.commit()
+        satellite_event_broker.publish(
+            block_id=str(block_id),
+            event="failed",
+            reason="refresh_failed",
+            error=error,
+            latency_ms=job.last_duration_ms,
+        )
         logger.warning("event=satellite_job_failed block_id=%s error=%s", block_id, error)
 
     @staticmethod

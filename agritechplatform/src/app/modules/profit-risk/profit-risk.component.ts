@@ -2,7 +2,7 @@ import { Component, OnDestroy, OnInit, computed, signal, inject } from '@angular
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { Subscription, distinctUntilChanged, filter } from 'rxjs';
+import { Subject, distinctUntilChanged, filter, takeUntil } from 'rxjs';
 import { AdelaideTimePipe } from '../../shared/pipes/adelaide-time.pipe';
 import { BlockService } from '../../shared/services/block.service';
 import { 
@@ -31,6 +31,7 @@ import { Block } from '../../shared/models';
 export interface Crop {
   name: string;
   yieldPerHa: number;
+  adjustedYieldPerHa?: number;
   pricePerTon: number;
   waterMLPerHa: number;
   variableCosts: number;
@@ -98,9 +99,11 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
   ShieldIcon = ShieldCheck;
 
   user: User | undefined;
+  private readonly destroy$ = new Subject<void>();
   private blockService = inject(BlockService);
   selectedBlock = toSignal(this.blockService.selectedBlock$);
-  private insightsRequest?: Subscription;
+  private dashboardApiService = inject(DashboardApiService);
+  private authService = inject(AuthService);
 
   // State
   waterAllocation = signal<number>(100); // Default 100% as requested
@@ -113,7 +116,6 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
   selectedQuadrantCrop = signal<any>(null); // For detail modal
   liveInsights = signal<DashboardInsightsResponse | null>(null);
   profitRiskWarning = signal<string | null>(null);
-  isLiveForecastLoading = signal<boolean>(false);
 
   // Constants
   readonly WATER_PRICE_PER_ML = 150; // Assumed temporary value, adjust if needed
@@ -199,17 +201,15 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
       }
   ];
 
-  constructor(
-    private userDataService: UserDataService,
-    private authService: AuthService,
-    private dashboardApiService: DashboardApiService
-  ) {}
+  constructor(private userDataService: UserDataService) {}
 
   ngOnInit() {
     this.user = this.authService.getCurrentUser() || this.userDataService.getUsers()[0];
-    this.insightsRequest = this.blockService.selectedBlock$
+
+    this.blockService.block$
       .pipe(
-        filter((block): block is Block => !!block),
+        takeUntil(this.destroy$),
+        filter(block => !!block),
         distinctUntilChanged((previous, current) => previous.lan === current.lan)
       )
       .subscribe(block => {
@@ -218,7 +218,8 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.insightsRequest?.unsubscribe();
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   liveLai = computed(() => this.liveInsights()?.metrics.lai.raw ?? null);
@@ -264,7 +265,7 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
     const netMarginPerHa = revenuePerHa - baseCrop.marginParams.costsAt100;
     const revenuePerML = baseCrop.waterMLPerHa > 0 ? revenuePerHa / baseCrop.waterMLPerHa : 0;
     const riskAdjustedRevenuePerML = revenuePerML * (1 - baseCrop.volatilityFactor);
-    const projectedLoss = Math.max(0, insights.yieldImpact.projectedLoss);
+    const projectedLoss = Math.max(0, (baseCrop.marginParams.revenueAt100 * allocation) - revenuePerHa);
 
     let outlookLabel = 'Stable';
     let guidance = 'Yield and return expectations are broadly in line with the current block plan.';
@@ -309,7 +310,7 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
     if (insights.status === 'stale') return 'Showing cached forecast while refresh runs';
     if (insights.dataQuality === 'degraded') return 'Forecast available with reduced image quality';
     if (insights.dataQuality === 'no_data') return 'No usable satellite data available';
-    return insights.source === 'gee' ? 'Forecast refreshed from satellite data' : 'Forecast loaded from cache';
+    return insights.source === 'real' ? 'Forecast refreshed from satellite data' : 'Forecast loaded from cache';
   });
 
   freshnessSummary = computed(() => {
@@ -362,8 +363,8 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
       return `Current block forecast implies about ${this.formatCompactCurrency(Math.abs(wineEconomics.netMarginPerHa))}/ha downside versus break-even.`;
     }
 
-    if (insights.yieldImpact.projectedLoss > 0) {
-      return `Projected profit risk: ${this.formatCompactCurrency(insights.yieldImpact.projectedLoss)} under current block conditions.`;
+    if (wineEconomics.projectedLoss > 0) {
+      return `Projected profit risk: ${this.formatCompactCurrency(wineEconomics.projectedLoss)} under current block conditions.`;
     }
 
     return 'No immediate profit loss is implied by the current block forecast.';
@@ -404,7 +405,6 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
       const wineEconomics = this.liveWineGrapeEconomics();
 
       return this.crops.map(crop => {
-          // Logic for Revenue Chart (Standard)
           const effectiveWaterProportion = allocation;
           const adjustedYield = crop.yieldPerHa * effectiveWaterProportion;
           const revenuePerHaStandard = adjustedYield * crop.pricePerTon;
@@ -434,6 +434,7 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
               ...crop,
               yieldPerHa: crop.name === 'Wine Grapes' && wineEconomics ? wineEconomics.tonnesPerHaCenter : crop.yieldPerHa,
               yearsStr,
+              adjustedYieldPerHa: crop.name === 'Wine Grapes' && wineEconomics ? wineEconomics.tonnesPerHaCenter * effectiveWaterProportion : adjustedYield,
               revenuePerHa: marginRevenue, // Use margin revenue for tooltip
               totalCostsPerHa: marginCosts, // Use margin costs for tooltip
               netMarginPerHa,
@@ -631,19 +632,18 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
   }
 
   private loadLiveForecast(block: Block): void {
-      this.isLiveForecastLoading.set(true);
       this.profitRiskWarning.set(null);
-      this.dashboardApiService.getBlockInsights(block.lan || block.id).subscribe({
+      this.dashboardApiService.getBlockInsights(block.lan || block.id)
+          .pipe(takeUntil(this.destroy$))
+          .subscribe({
           next: insights => {
               this.liveInsights.set(insights);
               this.profitRiskWarning.set(insights.warning);
-              this.isLiveForecastLoading.set(false);
           },
           error: error => {
               console.error('Profit & Risk forecast failed to load.', error);
               this.liveInsights.set(null);
               this.profitRiskWarning.set('Unable to load the live satellite forecast for this block.');
-              this.isLiveForecastLoading.set(false);
           }
       });
   }
@@ -782,4 +782,5 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
             }
         ];
     })();
+
 }

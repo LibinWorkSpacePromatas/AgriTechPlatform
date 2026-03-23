@@ -1,5 +1,10 @@
 // Shared TypeScript interfaces and models
 
+export interface BlockPolygon {
+    type: 'Polygon' | 'MultiPolygon';
+    coordinates: number[][][] | number[][][][];
+}
+
 export interface Block {
     id: string;
     name: string;
@@ -14,6 +19,7 @@ export interface Block {
     lat: number;
     lon: number;
     lan: string;
+    polygon: BlockPolygon | null;
 }
 
 export interface SensorReading {

@@ -1,17 +1,17 @@
-import { Component, OnInit, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdelaideTimePipe } from '../../shared/pipes/adelaide-time.pipe';
-import { LucideAngularModule, MessageCircle, Zap, Maximize2, Bot, Send, Sparkles, RefreshCw } from 'lucide-angular';
-import { GrowerGptService } from '../../services/grower-gpt/grower-gpt.service';
+import { LucideAngularModule, MessageCircle, Zap, Maximize2, Bot, Send, Sparkles } from 'lucide-angular';
+import { GrowerGptBlockSummary, GrowerGptService } from '../../services/grower-gpt/grower-gpt.service';
 import { BlockService } from '../../shared/services/block.service';
 import { UserDataService } from '../../core/services/user-data.service';
-import { WaterIrrigationService, IrrigationStatus } from '../../services/water-irrigation/water-irrigation.service';
 import { AuthService } from '../../core/services/auth.service';
-import { take, lastValueFrom } from 'rxjs';
+import { Subject, distinctUntilChanged, filter, lastValueFrom, take, takeUntil } from 'rxjs';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
+import { Block } from '../../shared/models';
 
 @Component({
   selector: 'app-grower-gpt',
@@ -20,8 +20,9 @@ import DOMPurify from 'dompurify';
   templateUrl: './grower-gpt.component.html',
   styleUrls: ['./grower-gpt.component.css']
 })
-export class GrowerGptComponent implements OnInit, AfterViewChecked {
+export class GrowerGptComponent implements OnInit, AfterViewChecked, OnDestroy {
   @ViewChild('chatContainer') private chatContainer!: ElementRef;
+  private readonly destroy$ = new Subject<void>();
 
   BotIcon = Bot;
   SendIcon = Send;
@@ -32,13 +33,12 @@ export class GrowerGptComponent implements OnInit, AfterViewChecked {
   userMessage: string = '';
   chatHistory: { role: 'user' | 'assistant', content: string }[] = [];
   isLoading: boolean = false;
-  irrigationData: IrrigationStatus | null = null;
-  backendInsights: any = null;
+  blockSummary: GrowerGptBlockSummary | null = null;
   recommendedQuestions: string[] = [
     "What is the irrigation plan for this week?",
-    "How does the current ET0 affect my Shiraz?",
-    "Check for any heat stress risks.",
-    "Optimal harvest time based on weather?"
+    "Which satellite signals are most urgent right now?",
+    "What does my NDWI mean and what should I do?",
+    "What do NDVI/NDRE changes mean for vine health?"
   ];
 
   constructor(
@@ -46,7 +46,6 @@ export class GrowerGptComponent implements OnInit, AfterViewChecked {
     public blockService: BlockService,
     private userDataService: UserDataService,
     private authService: AuthService,
-    private irrigationService: WaterIrrigationService,
     private sanitizer: DomSanitizer
   ) { }
 
@@ -74,47 +73,24 @@ export class GrowerGptComponent implements OnInit, AfterViewChecked {
   }
 
   ngOnInit() {
-    const block = this.blockService.getSelectedBlock();
-    
-    // Fetch backend rule-based insights first
-    this.growerGptService.getRuleBasedInsights(block.id || block.lan)
-      .pipe(take(1))
-      .subscribe({
-        next: (backendData) => {
-          this.backendInsights = backendData;
-          if (backendData.insights && backendData.insights.length > 0) {
-            this.chatHistory.push({
-              role: 'assistant',
-              content: `Hello! I've performed a specialized analysis on **${block.name}**.\n\n` +
-                       backendData.insights.map((i: any) => `- **${i.message}** (Priority: ${i.severity})`).join('\n') +
-                       `\n\nHow can I help you manage these findings?`
-            });
-          } else {
-            this.chatHistory.push({
-              role: 'assistant',
-              content: `Hello! I'm monitoring **${block.name}**. Everything looks optimal currently. How can I help you today?`
-            });
-          }
-        },
-        error: () => {
-          this.chatHistory.push({
-            role: 'assistant',
-            content: `Hello! I'm here to help with **${block.name}**. Ask me anything about your viticulture strategy!`
-          });
-        }
-      });
-
-    this.irrigationService.getIrrigationStatus(block.lan)
-      .pipe(take(1))
-      .subscribe({
-        next: (status) => {
-          this.irrigationData = status;
-        }
+    this.blockService.block$
+      .pipe(
+        takeUntil(this.destroy$),
+        filter((block): block is Block => !!block),
+        distinctUntilChanged((previous, current) => previous.lan === current.lan)
+      )
+      .subscribe(block => {
+        this.loadBlockSummary(block);
       });
   }
 
   ngAfterViewChecked() {
     this.scrollToBottom();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   private scrollToBottom(): void {
@@ -177,17 +153,15 @@ export class GrowerGptComponent implements OnInit, AfterViewChecked {
         }
       }
 
-      // Fetch fresh irrigation data if it's a different block
-      let targetIrrigation = this.irrigationData;
-      if (targetBlock.lan !== currentBlock.lan || !targetIrrigation) {
-        const status = await lastValueFrom(this.irrigationService.getIrrigationStatus(targetBlock.lan));
-        targetIrrigation = status || null;
+      let targetSummary = this.blockSummary;
+      if (targetBlock.lan !== currentBlock.lan || !targetSummary) {
+        targetSummary = await lastValueFrom(this.growerGptService.getRuleBasedInsights(targetBlock.lan || targetBlock.id));
       }
 
       const reply = await this.growerGptService.askGrowerGPT(
         targetBlock,
         selectedUser,
-        targetIrrigation,
+        targetSummary,
         message,
         blockLabel
       );
@@ -210,5 +184,38 @@ export class GrowerGptComponent implements OnInit, AfterViewChecked {
     } finally {
       this.isLoading = false;
     }
+  }
+
+  private loadBlockSummary(block: Block): void {
+    this.blockSummary = null;
+    this.chatHistory = [];
+
+    this.growerGptService.getRuleBasedInsights(block.lan || block.id)
+      .pipe(take(1))
+      .subscribe({
+        next: (backendData) => {
+          this.blockSummary = backendData;
+          if (backendData.insights && backendData.insights.length > 0) {
+            this.chatHistory.push({
+              role: 'assistant',
+              content: `Hello! I've performed a specialized analysis on **${block.name}**.\n\n`
+                + backendData.insights.map((insight) => `- **${insight.type.toUpperCase()} (${insight.severity})**: ${insight.message} (${insight.action_window})`).join('\n')
+                + `\n\n${backendData.message || 'Ask me how to act on these satellite signals.'}`
+            });
+            return;
+          }
+
+          this.chatHistory.push({
+            role: 'assistant',
+            content: `Hello! I'm monitoring **${block.name}**.\n\n${backendData.message || 'No satellite interpretation is active right now, but I can help explain NDVI, NDWI, NDRE, EVI, and LAI for you.'}`
+          });
+        },
+        error: () => {
+          this.chatHistory.push({
+            role: 'assistant',
+            content: `Hello! I'm here to help with **${block.name}**. I couldn't load the latest satellite summary, but you can still ask agronomy questions about this block.`
+          });
+        }
+      });
   }
 }

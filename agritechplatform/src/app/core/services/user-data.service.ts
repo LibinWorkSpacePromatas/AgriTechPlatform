@@ -115,9 +115,6 @@ export class UserDataService {
 
     private mapBlocks(apiBlocks: ApiBlockResponse[], userId: string): UserBlock[] {
         return apiBlocks.map((apiBlock) => {
-            // Default coordinates if not provided by API
-            const fallbackCoords = { lat: -34.1747, lon: 140.7472 }; // Default to Riverland
-
             return {
                 lanslu: apiBlock.lanslu,
                 soilSubgroup: apiBlock.soil_subgroup || '',
@@ -125,8 +122,9 @@ export class UserDataService {
                 description: apiBlock.description || '',
                 area: apiBlock.area_ha ?? 0,
                 crop: apiBlock.crop || '',
-                latitude: fallbackCoords.lat,
-                longitude: fallbackCoords.lon
+                latitude: apiBlock.centroid_lat ?? 0,
+                longitude: apiBlock.centroid_lon ?? 0,
+                polygon: apiBlock.block_polygon
             };
         });
     }

@@ -40,11 +40,20 @@ class Settings(BaseSettings):
     satellite_scheduler_interval_days: int = Field(default=5, alias="SATELLITE_SCHEDULER_INTERVAL_DAYS")
     satellite_scheduler_initial_delay_seconds: int = Field(default=30, alias="SATELLITE_SCHEDULER_INITIAL_DELAY_SECONDS")
     satellite_scheduler_enabled: bool = Field(default=True, alias="SATELLITE_SCHEDULER_ENABLED")
+    satellite_backfill_enabled: bool = Field(default=True, alias="SATELLITE_BACKFILL_ENABLED")
+    satellite_backfill_history_days: int = Field(default=84, alias="SATELLITE_BACKFILL_HISTORY_DAYS")
+    satellite_backfill_step_days: int = Field(default=7, alias="SATELLITE_BACKFILL_STEP_DAYS")
+    satellite_backfill_interval_days: int = Field(default=7, alias="SATELLITE_BACKFILL_INTERVAL_DAYS")
+    satellite_backfill_initial_delay_seconds: int = Field(default=15, alias="SATELLITE_BACKFILL_INITIAL_DELAY_SECONDS")
     satellite_batch_size: int = Field(default=25, alias="SATELLITE_BATCH_SIZE")
     satellite_buffer_meters: float = Field(default=10.0, alias="SATELLITE_BUFFER_METERS")
     satellite_simplify_tolerance_meters: float = Field(default=3.0, alias="SATELLITE_SIMPLIFY_TOLERANCE_METERS")
     satellite_cloud_filter_pct: float = Field(default=20.0, alias="SATELLITE_CLOUD_FILTER_PCT")
-    satellite_degraded_cloud_threshold_pct: float = Field(default=12.0, alias="SATELLITE_DEGRADED_CLOUD_THRESHOLD_PCT")
+    satellite_degraded_cloud_threshold_pct: float = Field(default=50.0, alias="SATELLITE_DEGRADED_CLOUD_THRESHOLD_PCT")
+    satellite_pixel_mixing_block_area_threshold_ha: float = Field(
+        default=1.0,
+        alias="SATELLITE_PIXEL_MIXING_BLOCK_AREA_THRESHOLD_HA",
+    )
     satellite_reduction_scale_meters: int = Field(default=10, alias="SATELLITE_REDUCTION_SCALE_METERS")
     satellite_reduce_max_pixels: int = Field(default=2_000_000, alias="SATELLITE_REDUCE_MAX_PIXELS")
     satellite_enable_tile_urls: bool = Field(default=False, alias="SATELLITE_ENABLE_TILE_URLS")
@@ -60,6 +69,7 @@ class Settings(BaseSettings):
     satellite_job_timeout_seconds: int = Field(default=900, alias="SATELLITE_JOB_TIMEOUT_SECONDS")
     satellite_worker_count: int = Field(default=2, alias="SATELLITE_WORKER_COUNT")
     satellite_gee_timeout_seconds: int = Field(default=90, alias="SATELLITE_GEE_TIMEOUT_SECONDS")
+    satellite_event_retention_days: int = Field(default=7, alias="SATELLITE_EVENT_RETENTION_DAYS")
 
     openrouter_api_key: str | None = Field(default=None, alias="OPENROUTER_API_KEY")
     openrouter_model: str = Field(default="google/gemini-2.0-flash-001", alias="OPENROUTER_MODEL")
