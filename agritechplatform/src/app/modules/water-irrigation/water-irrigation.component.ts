@@ -432,8 +432,9 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
         }
       });
   }
-  uploadShapefile(event: any): void {
-    const file: File | undefined = event?.target?.files?.[0];
+  uploadShapefile(event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0];
     if (!file || !this.selectedBlock) {
       return;
     }
@@ -445,10 +446,15 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     formData.append('file', file);
     formData.append('user_id', selectedUser.userId);
     formData.append('lanslu', this.selectedBlock.lan);
+    formData.append('crop', this.selectedBlock.crop || '');
+    formData.append('description', this.selectedBlock.soilDescription || '');
 
     const baseUrl = environment.apiBaseUrl.replace(/\/$/, '');
     this.http.post<any>(`${baseUrl}/api/blocks/upload-shapefile`, formData).subscribe({
       next: (result) => {
+        if (input) {
+          input.value = '';
+        }
         const updated = result?.block;
         if (!updated) {
           return;
@@ -472,6 +478,9 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
         this.refreshAfterGeometryChange();
       },
       error: (error: any) => {
+        if (input) {
+          input.value = '';
+        }
         console.error('Shapefile upload failed', error);
         const serverMessage = error?.error?.detail || error?.message || 'Unknown error';
         alert(`Failed to upload shapefile: ${serverMessage}`);

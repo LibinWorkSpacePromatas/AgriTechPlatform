@@ -1,4 +1,7 @@
 import json
+import tempfile
+import zipfile
+from pathlib import Path
 from time import sleep
 from uuid import UUID, uuid4
 from typing import Any
@@ -45,6 +48,214 @@ class BlockLocationRequest(BaseModel):
     lanslu: str
     lat: float
     lon: float
+
+
+def _validate_user_and_lanslu(user_id: str, lanslu: str, db: Session) -> UUID:
+    try:
+        user_uuid = UUID(user_id)
+    except (ValueError, AttributeError) as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid user_id format: {user_id}") from exc
+
+    if not lanslu.strip():
+        raise HTTPException(status_code=400, detail="lanslu is required.")
+
+    user = db.query(User).filter(User.id == user_uuid).first()
+    if not user:
+        raise HTTPException(status_code=404, detail=f"User {user_id} not found.")
+
+    return user_uuid
+
+
+def _analyze_block_geometry(db: Session, geojson_str: str) -> dict[str, Any]:
+    analysis = db.execute(
+        text(
+            """
+            WITH prepared AS (
+                SELECT ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326)) AS g
+            )
+            SELECT
+                ST_IsValid(g) AS is_valid,
+                ST_IsEmpty(g) AS is_empty,
+                GeometryType(g) AS geometry_type,
+                ST_Dimension(g) AS geometry_dimension,
+                ST_Area(ST_Transform(g, 3857)) / 10000.0 AS area_ha,
+                ST_AsGeoJSON(g) AS block_polygon,
+                ST_Y(ST_Centroid(g)) AS centroid_lat,
+                ST_X(ST_Centroid(g)) AS centroid_lon
+            FROM prepared
+            """
+        ),
+        {"geojson": geojson_str},
+    ).mappings().first()
+
+    if not analysis or not analysis.get("is_valid") or analysis.get("is_empty"):
+        raise HTTPException(status_code=400, detail="Invalid or empty polygon geometry.")
+
+    geometry_type = (analysis.get("geometry_type") or "").upper()
+    geometry_dimension = int(analysis.get("geometry_dimension") or -1)
+    if geometry_dimension != 2 or geometry_type not in {"POLYGON", "MULTIPOLYGON", "ST_POLYGON", "ST_MULTIPOLYGON"}:
+        raise HTTPException(status_code=400, detail="Uploaded geometry must be a polygon or multipolygon.")
+
+    area_ha = float(analysis["area_ha"] or 0.0)
+    if area_ha < 0.01:
+        raise HTTPException(status_code=400, detail="Block too small. Minimum is 0.01 hectares.")
+
+    return dict(analysis)
+
+
+def _upsert_block_geometry(
+    *,
+    db: Session,
+    user_uuid: UUID,
+    lanslu: str,
+    geojson_obj: dict[str, Any],
+    crop: str | None = None,
+    description: str | None = None,
+) -> dict[str, Any]:
+    geojson_str = json.dumps(geojson_obj, sort_keys=True)
+    analysis = _analyze_block_geometry(db, geojson_str)
+
+    existing = (
+        db.query(Block)
+        .filter(Block.user_id == user_uuid, Block.lanslu == lanslu)
+        .order_by(Block.id)
+        .first()
+    )
+
+    block_id = existing.id if existing else uuid4()
+    area_ha = float(analysis["area_ha"] or 0.0)
+
+    if existing:
+        db.execute(
+            text(
+                """
+                UPDATE blocks
+                SET
+                    crop = COALESCE(:crop, crop),
+                    description = COALESCE(:description, description),
+                    area_ha = :area_ha,
+                    geom = ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326))
+                WHERE id = :block_id
+                """
+            ),
+            {
+                "block_id": str(block_id),
+                "crop": crop,
+                "description": description,
+                "area_ha": area_ha,
+                "geojson": geojson_str,
+            },
+        )
+        db.execute(text("DELETE FROM satellite_cache WHERE block_id = :block_id"), {"block_id": str(block_id)})
+        db.execute(text("DELETE FROM satellite_timeseries WHERE block_id = :block_id"), {"block_id": str(block_id)})
+    else:
+        db.execute(
+            text(
+                """
+                INSERT INTO blocks (id, user_id, lanslu, crop, description, area_ha, geom)
+                VALUES (
+                    :block_id,
+                    :user_id,
+                    :lanslu,
+                    :crop,
+                    :description,
+                    :area_ha,
+                    ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326))
+                )
+                """
+            ),
+            {
+                "block_id": str(block_id),
+                "user_id": str(user_uuid),
+                "lanslu": lanslu,
+                "crop": crop,
+                "description": description,
+                "area_ha": area_ha,
+                "geojson": geojson_str,
+            },
+        )
+
+    db.commit()
+
+    return {
+        "status": "created" if existing is None else "updated",
+        "block": {
+            "id": str(block_id),
+            "user_id": str(user_uuid),
+            "lanslu": lanslu,
+            "description": description if description is not None else getattr(existing, "description", None),
+            "area_ha": area_ha,
+            "crop": crop if crop is not None else getattr(existing, "crop", None),
+            "block_polygon": json.loads(analysis["block_polygon"]) if analysis.get("block_polygon") else None,
+            "centroid_lat": float(analysis["centroid_lat"]) if analysis.get("centroid_lat") is not None else None,
+            "centroid_lon": float(analysis["centroid_lon"]) if analysis.get("centroid_lon") is not None else None,
+        },
+    }
+
+
+def _load_geojson_from_uploaded_shapefile(file_name: str, file_bytes: bytes) -> dict[str, Any]:
+    try:
+        import geopandas as gpd
+        from shapely.geometry import mapping
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Server missing shapefile dependencies: {exc}") from exc
+
+    suffix = Path(file_name or "upload").suffix.lower()
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+
+        try:
+            if suffix == ".zip":
+                archive_path = tmp_path / (Path(file_name).name or "shapefile.zip")
+                archive_path.write_bytes(file_bytes)
+                with zipfile.ZipFile(archive_path) as archive:
+                    archive.extractall(tmp_path)
+
+                shapefiles = [
+                    path for path in tmp_path.rglob("*.shp")
+                    if "__MACOSX" not in path.parts
+                ]
+                if not shapefiles:
+                    raise HTTPException(status_code=400, detail="ZIP must contain at least one .shp file.")
+                read_path = shapefiles[0]
+            elif suffix == ".shp":
+                read_path = tmp_path / (Path(file_name).name or "upload.shp")
+                read_path.write_bytes(file_bytes)
+            else:
+                raise HTTPException(status_code=400, detail="Upload a zipped shapefile (.zip) or a .shp file with all sidecar files available.")
+        except zipfile.BadZipFile as exc:
+            raise HTTPException(status_code=400, detail="Uploaded ZIP is not a valid archive.") from exc
+
+        try:
+            gdf = gpd.read_file(read_path)
+        except Exception as exc:
+            if suffix == ".shp":
+                raise HTTPException(
+                    status_code=400,
+                    detail="Standalone .shp uploads are incomplete. Upload the full shapefile as a .zip containing .shp, .shx, .dbf, and .prj.",
+                ) from exc
+            raise HTTPException(status_code=400, detail=f"Failed to read shapefile: {exc}") from exc
+
+        if gdf.empty:
+            raise HTTPException(status_code=400, detail="Uploaded shapefile contains no features.")
+
+        try:
+            if gdf.crs:
+                gdf = gdf.to_crs(epsg=4326)
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Failed to convert shapefile CRS to WGS84: {exc}") from exc
+
+        geometry_series = gdf.geometry.dropna()
+        if geometry_series.empty:
+            raise HTTPException(status_code=400, detail="Uploaded shapefile has no usable geometry.")
+
+        geometry = geometry_series.iloc[0]
+        if geometry.is_empty:
+            raise HTTPException(status_code=400, detail="Uploaded shapefile has empty geometry.")
+        if geometry.geom_type not in {"Polygon", "MultiPolygon"}:
+            raise HTTPException(status_code=400, detail="Uploaded shapefile geometry must be a polygon or multipolygon.")
+
+        return mapping(geometry)
 
 def get_db():
     db = SessionLocal()
@@ -132,126 +343,19 @@ def get_blocks(user_id: UUID, db: Session = Depends(get_db)):
 
 @router.post("/api/blocks", tags=["blocks"])
 def upsert_block(request: BlockUpsertRequest, db: Session = Depends(get_db)):
-    try:
-        user_uuid = UUID(request.user_id)
-    except (ValueError, AttributeError) as exc:
-        raise HTTPException(status_code=400, detail=f"Invalid user_id format: {request.user_id}") from exc
-
-    if not request.lanslu.strip():
-        raise HTTPException(status_code=400, detail="lanslu is required.")
+    user_uuid = _validate_user_and_lanslu(request.user_id, request.lanslu, db)
 
     if not request.geometry:
         raise HTTPException(status_code=400, detail="geometry is required.")
 
-    user = db.query(User).filter(User.id == user_uuid).first()
-    if not user:
-        raise HTTPException(status_code=404, detail=f"User {request.user_id} not found.")
-
-    geojson_str = json.dumps(request.geometry, sort_keys=True)
-    analysis = db.execute(
-        text(
-            """
-            SELECT
-                ST_IsValid(g) AS is_valid,
-                ST_IsEmpty(g) AS is_empty,
-                ST_Area(ST_Transform(g, 3857)) / 10000.0 AS area_ha,
-                ST_AsGeoJSON(ST_MakeValid(g)) AS block_polygon,
-                ST_Y(ST_Centroid(ST_MakeValid(g))) AS centroid_lat,
-                ST_X(ST_Centroid(ST_MakeValid(g))) AS centroid_lon,
-                ST_NPoints(ST_ExteriorRing(ST_MakeValid(g))) AS ring_points_count
-            FROM (
-                SELECT ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326) AS g
-            ) AS t
-            """
-        ),
-        {"geojson": geojson_str},
-    ).mappings().first()
-
-    if not analysis or not analysis.get("is_valid") or analysis.get("is_empty"):
-        raise HTTPException(status_code=400, detail="Invalid or empty polygon geometry.")
-
-    area_ha = float(analysis["area_ha"] or 0.0)
-    if area_ha < 0.01:
-        raise HTTPException(status_code=400, detail="Block too small. Minimum is 0.01 hectares.")
-    ring_points_count = int(analysis.get("ring_points_count") or 0)
-    if ring_points_count < 5:
-        raise HTTPException(status_code=400, detail="Polygon must have at least 4 points.")
-
-    existing = (
-        db.query(Block)
-        .filter(Block.user_id == user_uuid, Block.lanslu == request.lanslu)
-        .order_by(Block.id)
-        .first()
+    return _upsert_block_geometry(
+        db=db,
+        user_uuid=user_uuid,
+        lanslu=request.lanslu,
+        geojson_obj=request.geometry,
+        crop=request.crop,
+        description=request.description,
     )
-
-    block_id = existing.id if existing else uuid4()
-
-    if existing:
-        db.execute(
-            text(
-                """
-                UPDATE blocks
-                SET
-                    crop = :crop,
-                    description = :description,
-                    area_ha = :area_ha,
-                    geom = ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326))
-                WHERE id = :block_id
-                """
-            ),
-            {
-                "block_id": str(block_id),
-                "crop": request.crop,
-                "description": request.description,
-                "area_ha": area_ha,
-                "geojson": geojson_str,
-            },
-        )
-        db.execute(text("DELETE FROM satellite_cache WHERE block_id = :block_id"), {"block_id": str(block_id)})
-        db.execute(text("DELETE FROM satellite_timeseries WHERE block_id = :block_id"), {"block_id": str(block_id)})
-    else:
-        db.execute(
-            text(
-                """
-                INSERT INTO blocks (id, user_id, lanslu, crop, description, area_ha, geom)
-                VALUES (
-                    :block_id,
-                    :user_id,
-                    :lanslu,
-                    :crop,
-                    :description,
-                    :area_ha,
-                    ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326))
-                )
-                """
-            ),
-            {
-                "block_id": str(block_id),
-                "user_id": str(user_uuid),
-                "lanslu": request.lanslu,
-                "crop": request.crop,
-                "description": request.description,
-                "area_ha": area_ha,
-                "geojson": geojson_str,
-            },
-        )
-
-    db.commit()
-
-    return {
-        "status": "created" if existing is None else "updated",
-        "block": {
-            "id": str(block_id),
-            "user_id": str(user_uuid),
-            "lanslu": request.lanslu,
-            "description": request.description,
-            "area_ha": area_ha,
-            "crop": request.crop,
-            "block_polygon": json.loads(analysis["block_polygon"]) if analysis.get("block_polygon") else None,
-            "centroid_lat": float(analysis["centroid_lat"]) if analysis.get("centroid_lat") is not None else None,
-            "centroid_lon": float(analysis["centroid_lon"]) if analysis.get("centroid_lon") is not None else None,
-        },
-    }
 
 
 @router.delete("/api/blocks", tags=["blocks"])
@@ -296,143 +400,32 @@ async def upload_shapefile(
     file: UploadFile = File(...),
     user_id: str = Form(...),
     lanslu: str = Form(...),
+    crop: str | None = Form(default=None),
+    description: str | None = Form(default=None),
     db: Session = Depends(get_db),
 ):
-    try:
-        user_uuid = UUID(user_id)
-    except (ValueError, AttributeError) as exc:
-        raise HTTPException(status_code=400, detail=f"Invalid user_id format: {user_id}") from exc
+    user_uuid = _validate_user_and_lanslu(user_id, lanslu, db)
 
-    if not lanslu.strip():
-        raise HTTPException(status_code=400, detail="lanslu is required.")
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="A shapefile upload is required.")
 
-    try:
-        import tempfile
-        import geopandas as gpd
-        from shapely.geometry import mapping
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Server missing shapefile dependencies: {exc}") from exc
+    file_bytes = await file.read()
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="Uploaded shapefile is empty.")
 
-    # Persist the uploaded file to a temp path
-    try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{file.filename}") as tmp:
-            content = await file.read()
-            tmp.write(content)
-            tmp_path = tmp.name
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to persist uploaded file: {exc}") from exc
-
-    try:
-        gdf = gpd.read_file(tmp_path)
-        if gdf.empty:
-            raise HTTPException(status_code=400, detail="Uploaded shapefile contains no features.")
-        # Convert to WGS84 if CRS is set
-        try:
-            if gdf.crs:
-                gdf = gdf.to_crs(epsg=4326)
-        except Exception:
-            pass
-        geom = gdf.geometry.iloc[0]
-        if geom.is_empty:
-            raise HTTPException(status_code=400, detail="Uploaded shapefile has empty geometry.")
-        geojson_obj = mapping(geom)
-        geojson_str = json.dumps(geojson_obj, sort_keys=True)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Failed to read shapefile: {exc}") from exc
-
-    # Analyze and validate geometry
-    analysis = db.execute(
-        text(
-            """
-            SELECT
-                ST_IsValid(g) AS is_valid,
-                ST_IsEmpty(g) AS is_empty,
-                ST_Area(ST_Transform(g, 3857)) / 10000.0 AS area_ha,
-                ST_AsGeoJSON(ST_MakeValid(g)) AS block_polygon,
-                ST_Y(ST_Centroid(ST_MakeValid(g))) AS centroid_lat,
-                ST_X(ST_Centroid(ST_MakeValid(g))) AS centroid_lon,
-                ST_NPoints(ST_ExteriorRing(ST_MakeValid(g))) AS ring_points_count
-            FROM (
-                SELECT ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326) AS g
-            ) AS t
-            """
-        ),
-        {"geojson": geojson_str},
-    ).mappings().first()
-
-    if not analysis or not analysis.get("is_valid") or analysis.get("is_empty"):
-        raise HTTPException(status_code=400, detail="Invalid or empty polygon geometry.")
-
-    area_ha = float(analysis["area_ha"] or 0.0)
-    if area_ha < 0.01:
-        raise HTTPException(status_code=400, detail="Block too small. Minimum is 0.01 hectares.")
-    ring_points_count = int(analysis.get("ring_points_count") or 0)
-    if ring_points_count < 5:
-        raise HTTPException(status_code=400, detail="Polygon must have at least 4 points.")
-
-    existing = (
-        db.query(Block)
-        .filter(Block.user_id == user_uuid, Block.lanslu == lanslu)
-        .order_by(Block.id)
-        .first()
+    geojson_obj = _load_geojson_from_uploaded_shapefile(file.filename, file_bytes)
+    response = _upsert_block_geometry(
+        db=db,
+        user_uuid=user_uuid,
+        lanslu=lanslu,
+        geojson_obj=geojson_obj,
+        crop=crop,
+        description=description,
     )
+    response["status"] = "uploaded" if response["status"] == "created" else response["status"]
+    return response
 
-    block_id = existing.id if existing else uuid4()
 
-    if existing:
-        db.execute(
-            text(
-                """
-                UPDATE blocks
-                SET
-                    area_ha = :area_ha,
-                    geom = ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326))
-                WHERE id = :block_id
-                """
-            ),
-            {"block_id": str(block_id), "area_ha": area_ha, "geojson": geojson_str},
-        )
-        db.execute(text("DELETE FROM satellite_cache WHERE block_id = :block_id"), {"block_id": str(block_id)})
-        db.execute(text("DELETE FROM satellite_timeseries WHERE block_id = :block_id"), {"block_id": str(block_id)})
-    else:
-        db.execute(
-            text(
-                """
-                INSERT INTO blocks (id, user_id, lanslu, area_ha, geom)
-                VALUES (
-                    :block_id,
-                    :user_id,
-                    :lanslu,
-                    :area_ha,
-                    ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326))
-                )
-                """
-            ),
-            {
-                "block_id": str(block_id),
-                "user_id": str(user_uuid),
-                "lanslu": lanslu,
-                "area_ha": area_ha,
-                "geojson": geojson_str,
-            },
-        )
-
-    db.commit()
-
-    return {
-        "status": "uploaded" if existing is None else "updated",
-        "block": {
-            "id": str(block_id),
-            "user_id": str(user_uuid),
-            "lanslu": lanslu,
-            "area_ha": area_ha,
-            "block_polygon": json.loads(analysis["block_polygon"]) if analysis.get("block_polygon") else None,
-            "centroid_lat": float(analysis["centroid_lat"]) if analysis.get("centroid_lat") is not None else None,
-            "centroid_lon": float(analysis["centroid_lon"]) if analysis.get("centroid_lon") is not None else None,
-        },
-    }
 @router.post("/api/blocks/location", tags=["blocks"])
 def set_block_location(request: BlockLocationRequest, db: Session = Depends(get_db)):
     try:
