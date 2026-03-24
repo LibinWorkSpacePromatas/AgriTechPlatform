@@ -280,11 +280,14 @@
                 <i-lucide [img]="Lightbulb" class="insight-icon"></i-lucide>
                 <div>
                     <h4 class="insight-title">{{ keyInsight().title }}</h4>
+                    <h4 class="insight-title">{{ keyInsight().title }}</h4>
                     <p class="insight-text">
+                        {{ keyInsight().message }}
                         {{ keyInsight().message }}
                     </p>
                     <p class="insight-warning">
                         <i-lucide [img]="AlertTriangle" class="icon-sm"></i-lucide>
+                        {{ keyInsight().warning }}
                         {{ keyInsight().warning }}
                     </p>
                 </div>
@@ -452,6 +455,7 @@
 
             <div style="text-align: center; font-size: 0.75rem; color: var(--gray-500); margin-bottom: 0.5rem;">
                 Difference vs Wine Grapes baseline [${{ wineGrapeRiskAdjustedBaseline() | number:'1.0-0' }}/ML risk-adjusted]
+                Difference vs Wine Grapes baseline [${{ wineGrapeRiskAdjustedBaseline() | number:'1.0-0' }}/ML risk-adjusted]
             </div>
 
             <div class="revenue-chart-container">
@@ -470,10 +474,13 @@
                                 <div class="tooltip-comparison">
                                     +{{ getRiskAdjustedDifferenceVsWineGrapes(crop) | number:'1.0-0' }}%
                                     <span class="comparison-text">vs Wine Grapes (${{ wineGrapeRiskAdjustedBaseline() | number:'1.0-0' }}/ML)</span>
+                                    +{{ getRiskAdjustedDifferenceVsWineGrapes(crop) | number:'1.0-0' }}%
+                                    <span class="comparison-text">vs Wine Grapes (${{ wineGrapeRiskAdjustedBaseline() | number:'1.0-0' }}/ML)</span>
                                 </div>
                             </div>
                         </div>
                         <span class="bar-value diff-label">
+                            +{{ getRiskAdjustedDifferenceVsWineGrapes(crop) | number:'1.0-0' }}%
                             +{{ getRiskAdjustedDifferenceVsWineGrapes(crop) | number:'1.0-0' }}%
                         </span>
                     </div>
