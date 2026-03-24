@@ -39,9 +39,13 @@
               <button class="retry-btn" (click)="deleteSelectedBlock()">Delete block</button>
               <button class="retry-btn" (click)="clearBoundary()">Clear boundary</button>
               <label class="retry-btn" style="display:inline-block;">
-                Upload shapefile
+                Upload shapefile (.zip)
                 <input type="file" (change)="uploadShapefile($event)" accept=".zip,.shp" style="display:none;">
               </label>
+            </div>
+            <div class="block-selector">
+              <span class="label">UPLOAD NOTE</span>
+              <span class="summary-chip">Use a zipped shapefile with .shp, .shx, .dbf, and .prj files.</span>
             </div>
 
             <div class="location-picker">

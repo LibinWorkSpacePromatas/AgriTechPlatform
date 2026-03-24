@@ -10,6 +10,11 @@ from threading import Lock
 from time import perf_counter
 from typing import Any
 
+try:
+    from google.auth.exceptions import RefreshError as GoogleRefreshError
+except ImportError:  # pragma: no cover
+    GoogleRefreshError = Exception  # type: ignore[assignment,misc]
+
 from app.core.config import Settings, get_settings
 
 
@@ -27,6 +32,11 @@ DEGRADED_CLOUD_COVER_PCT = get_settings().satellite_degraded_cloud_threshold_pct
 
 
 class EarthEngineConfigurationError(RuntimeError):
+    pass
+
+
+class EarthEngineAuthError(RuntimeError):
+    """Raised when GEE credentials are rejected (e.g. clock skew, expired key)."""
     pass
 
 
@@ -117,13 +127,23 @@ class EarthEngineClient:
                     "GEE service account email is missing. Set GEE_SERVICE_ACCOUNT_EMAIL or include client_email in GEE_SERVICE_ACCOUNT_JSON."
                 )
 
-            credentials = self._ee.ServiceAccountCredentials(
-                service_account,
-                key_data=self._settings.gee_service_account_json,
-            )
-            self._ee.Initialize(credentials=credentials, project=self._settings.gee_project)
-            self._initialized = True
-            logger.info("Earth Engine initialized for project %s.", self._settings.gee_project)
+            try:
+                credentials = self._ee.ServiceAccountCredentials(
+                    service_account,
+                    key_data=self._settings.gee_service_account_json,
+                )
+                self._ee.Initialize(credentials=credentials, project=self._settings.gee_project)
+                self._initialized = True
+                logger.info("Earth Engine initialized for project %s.", self._settings.gee_project)
+            except GoogleRefreshError as exc:
+                # Do NOT set _initialized=True — allow the next attempt to retry auth.
+                logger.error(
+                    "event=gee_auth_failed reason=jwt_refresh_error hint=check_system_clock error=%s", exc
+                )
+                raise EarthEngineAuthError(
+                    f"GEE credentials were rejected by Google (invalid_grant / clock skew). "
+                    f"Fix: sync your system clock (W32tm /resync) and restart. Detail: {exc}"
+                ) from exc
 
     def compute_block_insights(
         self,
