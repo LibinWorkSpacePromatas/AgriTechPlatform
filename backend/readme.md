@@ -51,3 +51,4 @@ OPENROUTER_API_KEY=sk-or-v1-...
 - **Cache-First**: The API prefers `satellite_cache` data to ensure low latency.
 - **UUID/LANSLU Support**: Endpoints support both internal database UUIDs and human-readable LANSLU identifiers.
 - **Simplified Math**: All complex agronomical math (ET0, Kc) is handled by the "Satellite Truth" philosophy—interpreting direct leaf moisture from NDWI.
+now added
