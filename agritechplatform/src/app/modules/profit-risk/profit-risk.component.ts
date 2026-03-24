@@ -298,8 +298,8 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
   forecastConfidence = computed(() => {
     const insights = this.liveInsights();
     if (!insights) return 'Waiting';
-    if (insights.confidence === 'high') return 'High confidence';
-    if (insights.confidence === 'medium') return 'Moderate confidence';
+    if (insights.dataQuality === 'good' && insights.source === 'real') return 'High confidence';
+    if (insights.dataQuality === 'degraded' || insights.source === 'simulated') return 'Moderate confidence';
     return 'Low confidence';
   });
 
