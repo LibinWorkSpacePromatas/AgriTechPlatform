@@ -1,58 +1,27 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
-from app.db.models import Block, SatelliteCache, SatelliteTimeseries
+from app.db.models import Block, SatelliteTimeseries
 from app.schemas.growing_opportunities import (
     GrowingOpportunitiesResponse,
     GrowingOpportunityFeedbackRequest,
     GrowingOpportunityFeedbackResponse,
     GrowingOpportunityRecommendation,
 )
+from app.schemas.satellite import BlockInsightsResponse
+from app.services.satellite_insights import satellite_insights_service
 from app.services.utils import calculate_confidence
 
 
 class GrowingOpportunitiesService:
     def build_page_payload(self, db: Session, block: Block) -> GrowingOpportunitiesResponse:
-        cache = db.query(SatelliteCache).filter(SatelliteCache.block_id == block.id).first()
-        if not cache:
-            return GrowingOpportunitiesResponse(
-                block_id=str(block.id),
-                crop=block.crop,
-                status="updating",
-                source="cache",
-                data_quality="no_data",
-                composite_date_from=None,
-                composite_date_to=None,
-                data_age_days=None,
-                confidence="low",
-                warning="Satellite intelligence is still being prepared for this block.",
-                trend_summary="Trend analysis will be available once multiple satellite passes have been cached.",
-                recommendations=[
-                    GrowingOpportunityRecommendation(
-                        id="system-waiting",
-                        title="Satellite Recommendations Pending",
-                        category="system",
-                        severity="info",
-                        metric_key="system",
-                        metric_label="System",
-                        current_value=None,
-                        threshold="Live insight required",
-                        recommended_action="Retry after the next refresh",
-                        message="This block does not yet have a cached satellite composite for recommendation generation.",
-                        detail="Once a block composite is available, this page will automatically create nutrient, canopy, and irrigation cards from the latest satellite pass.",
-                        trend_note=None,
-                        message_to_farmer="Satellite recommendations are not ready yet for this block."
-                    )
-                ],
-            )
-
-        payload = cache.payload or {}
+        insights = satellite_insights_service.get_block_insights(db, block)
         observed_series = (
             db.query(SatelliteTimeseries)
             .filter(SatelliteTimeseries.block_id == block.id)
@@ -60,21 +29,39 @@ class GrowingOpportunitiesService:
             .limit(3)
             .all()
         )
-        recommendations = self._build_recommendations(block, payload, observed_series)
+        payload = {
+            "ndvi": insights.ndvi,
+            "ndwi": insights.ndwi,
+            "evi": insights.evi,
+            "ndre": insights.ndre,
+            "lai": insights.lai,
+        }
+        recommendations = self._build_recommendations(block, insights, payload, observed_series)
         trend_summary = self._build_trend_summary(observed_series)
-        data_age_days = (date.today() - cache.composite_date_to).days if cache.composite_date_to else None
 
         return GrowingOpportunitiesResponse(
             block_id=str(block.id),
             crop=block.crop,
-            status="fresh",
-            source="gee",
-            data_quality=cache.data_quality,
-            composite_date_from=cache.composite_date_from,
-            composite_date_to=cache.composite_date_to,
-            data_age_days=data_age_days,
-            confidence=calculate_confidence(cache),
-            warning=self._build_warning(cache),
+            status=insights.status,
+            freshness_status=insights.freshness_status,
+            source=insights.source,
+            search_window_from=insights.search_window_from,
+            search_window_to=insights.search_window_to,
+            data_quality=insights.data_quality,
+            composite_date_from=insights.composite_date_from,
+            composite_date_to=insights.composite_date_to,
+            last_satellite_update=insights.last_satellite_update,
+            data_age_days=insights.data_age_days,
+            ndvi=insights.ndvi,
+            ndwi=insights.ndwi,
+            evi=insights.evi,
+            ndre=insights.ndre,
+            lai=insights.lai,
+            cloud_cover_pct=insights.cloud_cover_pct,
+            pixel_count=insights.pixel_count,
+            map_tile_url=insights.map_tile_url,
+            confidence=calculate_confidence(insights),
+            warning=self._build_warning(block, insights),
             trend_summary=trend_summary,
             recommendations=recommendations,
         )
@@ -106,6 +93,7 @@ class GrowingOpportunitiesService:
     def _build_recommendations(
         self,
         block: Block,
+        insights: BlockInsightsResponse,
         payload: dict,
         observed_series: list[SatelliteTimeseries],
     ) -> list[GrowingOpportunityRecommendation]:
@@ -115,6 +103,25 @@ class GrowingOpportunitiesService:
         ndre = self._as_float(payload.get("ndre"))
         evi = self._as_float(payload.get("evi"))
         ndwi = self._as_float(payload.get("ndwi"))
+
+        if insights.data_quality == "no_data" or (ndre is None and evi is None and ndwi is None):
+            return [
+                GrowingOpportunityRecommendation(
+                    id="system-waiting",
+                    title="Satellite Recommendations Pending",
+                    category="system",
+                    severity="info",
+                    metric_key="system",
+                    metric_label="System",
+                    current_value=None,
+                    threshold="Live insight required",
+                    recommended_action="Retry after the next satellite refresh.",
+                    message="This block does not yet have enough usable satellite data for recommendation generation.",
+                    detail="Growing Opportunities needs valid NDRE, EVI, and NDWI readings before block actions can be generated from the Sentinel-2 composite.",
+                    trend_note=None,
+                    message_to_farmer=f"Satellite recommendations are not ready yet for {block_label}.",
+                )
+            ]
 
         if ndre is not None and ndre < 0.25:
             recommendations.append(
@@ -218,11 +225,26 @@ class GrowingOpportunitiesService:
 
         return recommendations[:4]
 
-    def _build_warning(self, cache: SatelliteCache) -> str | None:
-        if cache.data_quality == "degraded":
-            return "Cloud-heavy imagery reduced confidence in the current recommendation set."
-        if cache.data_quality == "no_data":
+    def _build_warning(self, block: Block, insights: BlockInsightsResponse) -> str | None:
+        block_label = block.lanslu or str(block.id)
+        if insights.cloud_cover_pct is not None and insights.cloud_cover_pct > 50:
+            next_pass_days = self._estimate_days_to_next_pass(insights.data_age_days)
+            return (
+                f"Satellite data for {block_label} may be degraded due to cloud cover "
+                f"({insights.cloud_cover_pct:.0f}% cloud). Next clear pass estimated in {next_pass_days} days."
+            )
+        if insights.data_quality == "degraded":
+            next_pass_days = self._estimate_days_to_next_pass(insights.data_age_days)
+            return (
+                f"Satellite data for {block_label} may be degraded due to cloud contamination or low usable pixels. "
+                f"Next clear pass estimated in {next_pass_days} days."
+            )
+        if insights.data_quality == "no_data":
+            if insights.status == "updating":
+                return "Satellite intelligence is still being prepared for this block."
             return "No usable satellite pixels were available for the selected period."
+        if insights.error:
+            return insights.error
         return None
 
     def _build_trend_summary(self, observed_series: list[SatelliteTimeseries]) -> str | None:
@@ -289,6 +311,14 @@ class GrowingOpportunitiesService:
         except (TypeError, ValueError):
             return None
         return numeric
+
+    @staticmethod
+    def _estimate_days_to_next_pass(data_age_days: int | None) -> int:
+        if data_age_days is None or data_age_days < 0:
+            return 5
+
+        days_since_last_pass = data_age_days % 5
+        return 5 if days_since_last_pass == 0 else 5 - days_since_last_pass
 
 
 growing_opportunities_service = GrowingOpportunitiesService()

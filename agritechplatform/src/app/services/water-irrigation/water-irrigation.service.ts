@@ -26,8 +26,8 @@ export class WaterIrrigationService {
 
   constructor(private http: HttpClient) {}
 
-  getIrrigationStatus(blockId: string): Observable<IrrigationStatus> {
-    return this.http.get<unknown>(`${this.baseUrl}/api/water/${blockId}/minimal`).pipe(
+  getIrrigationStatus(blockId: string, refresh: boolean = false): Observable<IrrigationStatus> {
+    return this.http.get<unknown>(`${this.baseUrl}/api/water/${blockId}/minimal`, { params: { refresh } }).pipe(
       map(payload => this.mapResponse(waterMinimalResponseSchema.parse(payload))),
       catchError(error => {
         console.error('WaterIrrigationService error:', error);
@@ -36,8 +36,8 @@ export class WaterIrrigationService {
     );
   }
 
-  refreshData(blockId: string): Observable<IrrigationStatus> {
-    return this.getIrrigationStatus(blockId);
+  refreshData(blockId: string, refresh: boolean = false): Observable<IrrigationStatus> {
+    return this.getIrrigationStatus(blockId, refresh);
   }
 
   private mapResponse(data: WaterMinimalResponseContract): IrrigationStatus {

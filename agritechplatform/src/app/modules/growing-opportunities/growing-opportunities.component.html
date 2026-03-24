@@ -24,6 +24,22 @@
                 </span>
                 <span class="status-meta">{{ freshnessLabel }}</span>
                 <span class="status-meta">{{ qualityLabel }}</span>
+                <span class="status-meta">{{ confidenceLabel }}</span>
+                <span class="status-meta">{{ cloudCoverLabel }}</span>
+                <span class="status-meta">{{ pixelCountLabel }}</span>
+                <span class="status-meta">{{ searchWindowLabel }}</span>
+            </div>
+        </div>
+
+        <div class="live-metrics" *ngIf="pageData">
+            <div class="metric-chip" *ngFor="let metric of liveMetricCards">
+                <span class="metric-chip-label">{{ metric.shortLabel }}</span>
+                <strong class="metric-chip-title">{{ metric.title }}</strong>
+                <p class="metric-chip-description">{{ metric.description }}</p>
+                <div class="metric-chip-footer">
+                    <strong class="metric-chip-value">{{ formatRecommendationValue(metric.value) }}</strong>
+                    <span class="metric-chip-code">{{ metric.key | uppercase }}</span>
+                </div>
             </div>
         </div>
 

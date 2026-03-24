@@ -5,8 +5,13 @@ import { LucideAngularModule, Droplet, Waves, Calendar, Activity, AlertCircle, M
 import { WaterIrrigationService, IrrigationStatus } from '../../services/water-irrigation/water-irrigation.service';
 import { BlockService } from '../../shared/services/block.service';
 import { Block } from '../../shared/models';
-import { Subject, takeUntil, interval } from 'rxjs';
+import { Subject, takeUntil, interval, of } from 'rxjs';
+import { switchMap, takeWhile, take, finalize } from 'rxjs/operators';
 import * as L from 'leaflet';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
+import { AuthService } from '../../core/services/auth.service';
+import { UserDataService } from '../../core/services/user-data.service';
 
 @Component({
   selector: 'app-water-irrigation',
@@ -40,13 +45,20 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
   private centroidMarker?: L.CircleMarker;
   private polygonLayer?: L.GeoJSON;
   private mapTileLayer?: L.TileLayer;
+  private movePreviewMarker?: L.CircleMarker;
   private isBrowser: boolean;
+  isMoveMode = false;
+  pendingLat: number | null = null;
+  pendingLon: number | null = null;
 
   private destroy$ = new Subject<void>();
 
   constructor(
     private waterIrrigationService: WaterIrrigationService,
     private blockService: BlockService,
+    private http: HttpClient,
+    private userDataService: UserDataService,
+    private authService: AuthService,
     private cdr: ChangeDetectorRef,
     @Inject(PLATFORM_ID) platformId: Object
   ) {
@@ -124,7 +136,222 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       minZoom: 3
     }).addTo(this.map);
+    this.configureMapInteractions();
     this.renderSpatialLayers();
+  }
+
+  private configureMapInteractions(): void {
+    if (!this.map) {
+      return;
+    }
+
+    this.map.on('click', (e: L.LeafletMouseEvent) => {
+      if (!this.isMoveMode) return;
+      const { lat, lng } = e.latlng;
+      this.pendingLat = lat;
+      this.pendingLon = lng;
+      if (this.movePreviewMarker) {
+        this.movePreviewMarker.setLatLng([lat, lng]);
+      } else {
+        this.movePreviewMarker = L.circleMarker([lat, lng], {
+          radius: 6,
+          color: '#1d4ed8',
+          weight: 2,
+          fillColor: '#93c5fd',
+          fillOpacity: 0.92
+        }).bindPopup('New location preview').addTo(this.map);
+      }
+    });
+  }
+
+  toggleMoveMode(): void {
+    this.isMoveMode = !this.isMoveMode;
+    if (!this.isMoveMode) {
+      this.pendingLat = null;
+      this.pendingLon = null;
+      if (this.movePreviewMarker) {
+        this.map.removeLayer(this.movePreviewMarker);
+        this.movePreviewMarker = undefined;
+      }
+    }
+  }
+
+  saveNewLocation(): void {
+    if (!this.selectedBlock || this.pendingLat === null || this.pendingLon === null) {
+      return;
+    }
+
+    const selectedUser = this.authService.getCurrentUser() || this.userDataService.getUsers()[0];
+    if (!selectedUser) {
+      return;
+    }
+
+    const baseUrl = environment.apiBaseUrl.replace(/\/$/, '');
+    this.http
+      .post<any>(`${baseUrl}/api/blocks/location`, {
+        user_id: selectedUser.userId,
+        lanslu: this.selectedBlock.lan,
+        lat: this.pendingLat,
+        lon: this.pendingLon
+      })
+      .subscribe({
+        next: (result) => {
+          const updated = result?.block;
+          if (!updated) {
+            return;
+          }
+
+          this.latitude = updated.centroid_lat ?? this.latitude;
+          this.longitude = updated.centroid_lon ?? this.longitude;
+
+          const blocks = this.blockService.getBlocks();
+          const nextBlocks = blocks.map((block) => {
+            if (block.lan !== updated.lanslu) {
+              return block;
+            }
+            return {
+              ...block,
+              size: updated.area_ha ?? block.size,
+              lat: updated.centroid_lat ?? block.lat,
+              lon: updated.centroid_lon ?? block.lon,
+              polygon: updated.block_polygon ?? block.polygon
+            };
+          });
+          this.blockService.setBlocks(nextBlocks);
+          this.toggleMoveMode();
+          this.renderSpatialLayers();
+          this.map.invalidateSize();
+          this.refreshAfterGeometryChange();
+        },
+        error: (error: any) => {
+          console.error('Failed to set block location', error);
+        }
+      });
+  }
+
+  clearBoundary(): void {
+    if (!this.selectedBlock) {
+      return;
+    }
+    const selectedUser = this.authService.getCurrentUser() || this.userDataService.getUsers()[0];
+    if (!selectedUser) {
+      return;
+    }
+    const baseUrl = environment.apiBaseUrl.replace(/\/$/, '');
+    this.http
+      .delete<any>(`${baseUrl}/api/blocks/geometry`, {
+        params: {
+          user_id: selectedUser.userId,
+          lanslu: this.selectedBlock.lan
+        }
+      })
+      .subscribe({
+        next: (result) => {
+          const updated = result?.block;
+          if (!updated) {
+            return;
+          }
+          const blocks = this.blockService.getBlocks();
+          const nextBlocks = blocks.map((block) => {
+            if (block.lan !== updated.lanslu) {
+              return block;
+            }
+            return {
+              ...block,
+              size: updated.area_ha ?? block.size,
+              lat: updated.centroid_lat ?? block.lat,
+              lon: updated.centroid_lon ?? block.lon,
+              polygon: updated.block_polygon ?? null
+            };
+          });
+          this.blockService.setBlocks(nextBlocks);
+          this.renderSpatialLayers();
+          this.map.invalidateSize();
+          this.refreshAfterGeometryChange();
+        },
+        error: (error: any) => {
+          console.error('Failed to clear block geometry', error);
+        }
+      });
+  }
+  uploadShapefile(event: any): void {
+    const file: File | undefined = event?.target?.files?.[0];
+    if (!file || !this.selectedBlock) {
+      return;
+    }
+    const selectedUser = this.authService.getCurrentUser() || this.userDataService.getUsers()[0];
+    if (!selectedUser) {
+      return;
+    }
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('user_id', selectedUser.userId);
+    formData.append('lanslu', this.selectedBlock.lan);
+
+    const baseUrl = environment.apiBaseUrl.replace(/\/$/, '');
+    this.http.post<any>(`${baseUrl}/api/blocks/upload-shapefile`, formData).subscribe({
+      next: (result) => {
+        const updated = result?.block;
+        if (!updated) {
+          return;
+        }
+        const blocks = this.blockService.getBlocks();
+        const nextBlocks = blocks.map((block) => {
+          if (block.lan !== updated.lanslu) {
+            return block;
+          }
+          return {
+            ...block,
+            size: updated.area_ha ?? block.size,
+            lat: updated.centroid_lat ?? block.lat,
+            lon: updated.centroid_lon ?? block.lon,
+            polygon: updated.block_polygon ?? block.polygon
+          };
+        });
+        this.blockService.setBlocks(nextBlocks);
+        this.renderSpatialLayers();
+        this.map.invalidateSize();
+        this.refreshAfterGeometryChange();
+      },
+      error: (error: any) => {
+        console.error('Shapefile upload failed', error);
+        const serverMessage = error?.error?.detail || error?.message || 'Unknown error';
+        alert(`Failed to upload shapefile: ${serverMessage}`);
+      }
+    });
+  }
+  deleteSelectedBlock(): void {
+    if (!this.selectedBlock) {
+      return;
+    }
+
+    const selectedUser = this.authService.getCurrentUser() || this.userDataService.getUsers()[0];
+    if (!selectedUser) {
+      return;
+    }
+
+    const confirmed = window.confirm(`Delete block ${this.selectedBlock.lan}? This will remove the block and its cached satellite data.`);
+    if (!confirmed) {
+      return;
+    }
+
+    const baseUrl = environment.apiBaseUrl.replace(/\/$/, '');
+    this.http
+      .delete<any>(`${baseUrl}/api/blocks`, {
+        params: {
+          user_id: selectedUser.userId,
+          lanslu: this.selectedBlock.lan
+        }
+      })
+      .subscribe({
+        next: () => {
+          const remainingBlocks = this.blockService.getBlocks().filter((block) => block.lan !== this.selectedBlock?.lan);
+          this.blockService.setBlocks(remainingBlocks);
+        },
+        error: (error: any) => {
+          console.error('Failed to delete block', error);
+        }
+      });
   }
 
   onBlockChange(blockLan: string): void {
@@ -170,6 +397,63 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
         this.isLoading = false;
       }
     });
+  }
+
+  private refreshAfterGeometryChange(): void {
+    const blockId = this.currentLan;
+    // Do not flip global loading; keep UX stable and only update map/values.
+
+    this.waterIrrigationService.getIrrigationStatus(blockId, true).pipe(
+      switchMap((initial) => {
+        this.irrigationStatus = initial;
+        this.updateTileFromStatus();
+        const needsPolling = initial.dataQuality === 'no_data' || initial.ndwi === null;
+        if (!needsPolling) {
+          return of(initial);
+        }
+        return interval(5000).pipe(
+          take(24),
+          switchMap(() => this.waterIrrigationService.getIrrigationStatus(blockId, false)),
+          takeWhile((status) => status.dataQuality === 'no_data' || status.ndwi === null, true)
+        );
+      }),
+      finalize(() => {
+        // No global re-render here; keep experience smooth
+      })
+    ).subscribe({
+      next: (status) => {
+        this.irrigationStatus = status;
+        this.updateTileFromStatus();
+      },
+      error: (error: any) => {
+        console.error('Failed to refresh irrigation data after geometry change:', error);
+        // Do not surface a global error; keep the map stable
+      }
+    });
+  }
+
+  private updateTileFromStatus(): void {
+    if (!this.map) return;
+    const url = this.irrigationStatus?.mapTileUrl || null;
+    if (url) {
+      if (this.mapTileLayer && typeof (this.mapTileLayer as any).setUrl === 'function') {
+        (this.mapTileLayer as any).setUrl(url);
+      } else {
+        if (this.mapTileLayer) {
+          this.map.removeLayer(this.mapTileLayer);
+        }
+        const tileLabel = this.irrigationStatus?.mapTileType?.toUpperCase() || 'NDWI';
+        this.mapTileLayer = L.tileLayer(url, {
+          opacity: 0.7,
+          zIndex: 1000,
+          attribution: `${tileLabel} overlay © Sentinel-2 / Google Earth Engine`
+        }).addTo(this.map);
+        this.mapTileLayer.bringToFront();
+      }
+    } else if (this.mapTileLayer) {
+      this.map.removeLayer(this.mapTileLayer);
+      this.mapTileLayer = undefined;
+    }
   }
 
   ngAfterViewInit(): void {
