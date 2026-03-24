@@ -24,6 +24,14 @@ interface Opportunity {
     sourceUrl: string;
 }
 
+interface LiveMetricCard {
+    key: 'ndvi' | 'ndwi' | 'evi' | 'ndre' | 'lai';
+    shortLabel: string;
+    title: string;
+    description: string;
+    value: number | null;
+}
+
 @Component({
     selector: 'app-growing-opportunities',
     standalone: true,
@@ -198,7 +206,7 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
             return 'Showing stale cache while refresh runs';
         }
 
-        return this.pageData.source === 'gee' ? 'Freshly refreshed from GEE' : 'Fresh cache intelligence';
+        return 'Fresh satellite composite available';
     }
 
     get freshnessLabel(): string {
@@ -206,7 +214,10 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
             return 'Composite date unavailable';
         }
 
-        return `Composite date: ${this.formatDate(this.pageData.composite_date_to)}`;
+        const ageSuffix = this.pageData.data_age_days !== null
+            ? ` (${this.pageData.data_age_days} day${this.pageData.data_age_days === 1 ? '' : 's'} old)`
+            : '';
+        return `Composite date: ${this.formatDate(this.pageData.composite_date_to)}${ageSuffix}`;
     }
 
     get qualityLabel(): string {
@@ -215,6 +226,78 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
         }
 
         return `Data quality: ${this.pageData.data_quality.replace('_', ' ')}`;
+    }
+
+    get confidenceLabel(): string {
+        if (!this.pageData) {
+            return 'Confidence: unknown';
+        }
+
+        return `Confidence: ${this.pageData.confidence}`;
+    }
+
+    get cloudCoverLabel(): string {
+        if (this.pageData?.cloud_cover_pct === null || this.pageData?.cloud_cover_pct === undefined) {
+            return 'Cloud cover: unavailable';
+        }
+
+        return `Cloud cover: ${this.pageData.cloud_cover_pct.toFixed(0)}%`;
+    }
+
+    get pixelCountLabel(): string {
+        if (!this.pageData) {
+            return 'Valid pixels: unknown';
+        }
+
+        return `Valid pixels: ${this.pageData.pixel_count}`;
+    }
+
+    get searchWindowLabel(): string {
+        if (!this.pageData?.search_window_from || !this.pageData?.search_window_to) {
+            return 'Search window unavailable';
+        }
+
+        return `Search window: ${this.formatDate(this.pageData.search_window_from)} to ${this.formatDate(this.pageData.search_window_to)}`;
+    }
+
+    get liveMetricCards(): LiveMetricCard[] {
+        return [
+            {
+                key: 'ndvi',
+                shortLabel: 'Plant health',
+                title: 'Overall vine health',
+                description: 'Shows how healthy and active the canopy looks overall.',
+                value: this.pageData?.ndvi ?? null
+            },
+            {
+                key: 'ndwi',
+                shortLabel: 'Water stress',
+                title: 'Water pressure',
+                description: 'Shows whether vines may be drying down and needing irrigation soon.',
+                value: this.pageData?.ndwi ?? null
+            },
+            {
+                key: 'evi',
+                shortLabel: 'Canopy growth',
+                title: 'Canopy density',
+                description: 'Shows how full or dense the canopy is across the block.',
+                value: this.pageData?.evi ?? null
+            },
+            {
+                key: 'ndre',
+                shortLabel: 'Nutrient signal',
+                title: 'Leaf nutrient activity',
+                description: 'Shows whether chlorophyll activity suggests nutrient weakness.',
+                value: this.pageData?.ndre ?? null
+            },
+            {
+                key: 'lai',
+                shortLabel: 'Leaf volume',
+                title: 'Leaf area level',
+                description: 'Shows how much leaf area is present, which helps indicate canopy size.',
+                value: this.pageData?.lai ?? null
+            }
+        ];
     }
 
     get hasLiveAlerts(): boolean {

@@ -118,6 +118,64 @@
     color: var(--gray-600);
 }
 
+.live-metrics {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.9rem;
+}
+
+.metric-chip {
+    padding: 0.95rem 1rem;
+    border-radius: 1rem;
+    border: 1px solid #d8e4d1;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbf5 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.metric-chip-label {
+    display: block;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--gray-500);
+}
+
+.metric-chip-title {
+    font-size: 1rem;
+    color: #10213a;
+    line-height: 1.3;
+}
+
+.metric-chip-description {
+    margin: 0;
+    min-height: 2.7rem;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: var(--gray-600);
+}
+
+.metric-chip-footer {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: auto;
+}
+
+.metric-chip-value {
+    font-size: 1.2rem;
+    color: #10213a;
+}
+
+.metric-chip-code {
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--gray-500);
+}
+
 .inline-warning {
     padding: 0.9rem 1rem;
     border-radius: var(--radius-md);
@@ -711,6 +769,7 @@
 
 /* Responsive Design */
 @media (max-width: 1024px) {
+    .live-metrics,
     .recommendations-grid,
     .opportunities-grid {
         grid-template-columns: 1fr;
