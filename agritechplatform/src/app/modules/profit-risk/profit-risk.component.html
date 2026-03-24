@@ -18,14 +18,17 @@
         </div>
         <div class="forecast-metrics">
             <div class="forecast-metric">
-                <span class="forecast-label">Projected tonnage</span>
+                <span class="forecast-label">Expected harvest</span>
                 <strong>{{ projectedTonnageRange()?.total || '--' }}</strong>
-                <small>{{ projectedTonnageRange()?.perHa || 'Waiting for LAI-based estimate' }}</small>
+                <small>{{ expectedHarvestSummary() }}</small>
+                <small>{{ perHectareSummary() }}</small>
+                <small>{{ harvestPotentialSummary() }}</small>
             </div>
             <div class="forecast-metric">
                 <span class="forecast-label">Forecast confidence</span>
                 <strong>{{ forecastConfidence() }}</strong>
                 <small>{{ freshnessSummary() }}</small>
+                <small>{{ confidenceSummary() }}</small>
             </div>
             <div class="forecast-metric">
                 <span class="forecast-label">Profit outlook</span>

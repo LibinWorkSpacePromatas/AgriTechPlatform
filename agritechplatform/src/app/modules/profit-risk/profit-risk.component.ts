@@ -67,6 +67,14 @@ interface LiveWineGrapeEconomics {
   yearsToProfit: number | string;
 }
 
+interface LaiForecastBand {
+  bandLabel: string;
+  advisoryTitle: string;
+  advisoryMessage: string;
+  rangePerHa: [number, number];
+  revisionSignal: 'up' | 'down' | 'steady';
+}
+
 @Component({
   selector: 'app-profit-risk',
   standalone: true,
@@ -224,24 +232,70 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
 
   liveLai = computed(() => this.liveInsights()?.metrics.lai.raw ?? null);
 
+  private getLaiForecastBand(lai: number): LaiForecastBand {
+    if (lai > 5) {
+      return {
+        bandLabel: 'Very high yield potential',
+        advisoryTitle: 'Yield advisory',
+        advisoryMessage: 'Canopy density suggests above-average yield potential for this block. Review quality settings so stronger volume does not dilute fruit quality.',
+        rangePerHa: [4.8, 6.2],
+        revisionSignal: 'up'
+      };
+    }
+
+    if (lai < 2) {
+      return {
+        bandLabel: 'Below-average canopy development',
+        advisoryTitle: 'Yield warning',
+        advisoryMessage: 'Below-average canopy development means harvest tonnage should be revised downward for this block.',
+        rangePerHa: [1.8, 3.4],
+        revisionSignal: 'down'
+      };
+    }
+
+    if (lai < 3) {
+      return {
+        bandLabel: 'Moderate yield potential',
+        advisoryTitle: 'Forecast tracking carefully',
+        advisoryMessage: 'Leaf area is below the strongest production zone, so this block should be monitored closely as the next composite arrives.',
+        rangePerHa: [3.0, 4.2],
+        revisionSignal: 'steady'
+      };
+    }
+
+    return {
+      bandLabel: 'Good yield potential',
+      advisoryTitle: 'Forecast tracking normally',
+      advisoryMessage: 'Leaf area is in the healthy production range, so the current tonnage outlook is broadly on track.',
+      rangePerHa: [4.0, 5.2],
+      revisionSignal: 'steady'
+    };
+  }
+
   projectedTonnageRange = computed(() => {
     const block = this.selectedBlock();
-    const lai = this.liveInsights()?.metrics.lai.raw ?? null;
-    if (!block || lai === null) {
+    const insights = this.liveInsights();
+    const lai = insights?.metrics.lai.raw ?? null;
+    if (!block || lai === null || !insights) {
       return null;
     }
 
-    const tonnesPerHaCenter = Math.max(1.2, Math.min(5.8, 1.15 + lai * 0.78));
-    const lowerPerHa = tonnesPerHaCenter * 0.85;
-    const upperPerHa = tonnesPerHaCenter * 1.15;
+    const band = this.getLaiForecastBand(lai);
+    const confidenceSpreadMultiplier = insights.confidence === 'high' ? 0.9 : insights.confidence === 'medium' ? 1 : 1.1;
+    const centerPerHa = (band.rangePerHa[0] + band.rangePerHa[1]) / 2;
+    const halfRange = ((band.rangePerHa[1] - band.rangePerHa[0]) / 2) * confidenceSpreadMultiplier;
+    const lowerPerHa = Math.max(0.8, centerPerHa - halfRange);
+    const upperPerHa = Math.max(lowerPerHa + 0.2, centerPerHa + halfRange);
     const totalLower = lowerPerHa * block.size;
     const totalUpper = upperPerHa * block.size;
 
     return {
-      centerPerHa: tonnesPerHaCenter,
+      centerPerHa,
       perHa: `${lowerPerHa.toFixed(1)}-${upperPerHa.toFixed(1)} t/ha`,
-      totalCenter: ((lowerPerHa + upperPerHa) / 2) * block.size,
+      totalCenter: centerPerHa * block.size,
       total: `${totalLower.toFixed(1)}-${totalUpper.toFixed(1)} t`,
+      bandLabel: band.bandLabel,
+      revisionSignal: band.revisionSignal,
     };
   });
 
@@ -316,7 +370,60 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
   freshnessSummary = computed(() => {
     const insights = this.liveInsights();
     if (!insights?.compositeDateTo) return 'Composite date unavailable';
-    return `Composite date: ${this.formatInsightDate(insights.compositeDateTo)}`;
+    const ageSuffix = insights.dataAgeDays > 0 ? ` (${insights.dataAgeDays} days old)` : '';
+    return `Composite date: ${this.formatInsightDate(insights.compositeDateTo)}${ageSuffix}`;
+  });
+
+  confidenceSummary = computed(() => {
+    const insights = this.liveInsights();
+    if (!insights) {
+      return 'Confidence will update when the satellite forecast loads.';
+    }
+
+    if (insights.pixelCount < 20) {
+      return 'Confidence is limited because very few usable pixels were available for this block.';
+    }
+
+    if ((insights.cloudCoverPct ?? 0) > 50 || insights.dataQuality === 'degraded') {
+      return 'Confidence is moderate because cloud cover reduced the quality of the latest composite.';
+    }
+
+    return 'Confidence is supported by usable pixels and clear enough imagery in the latest composite.';
+  });
+
+  expectedHarvestSummary = computed(() => {
+    const tonnage = this.projectedTonnageRange();
+    if (!tonnage) {
+      return 'Expected harvest for this block will appear after the next usable satellite update.';
+    }
+
+    return `About ${tonnage.total} is expected from this block under current conditions.`;
+  });
+
+  perHectareSummary = computed(() => {
+    const tonnage = this.projectedTonnageRange();
+    if (!tonnage) {
+      return 'Per-hectare estimate will appear once the LAI forecast is ready.';
+    }
+
+    return `That is roughly ${tonnage.perHa} across each hectare.`;
+  });
+
+  harvestPotentialSummary = computed(() => {
+    const tonnage = this.projectedTonnageRange();
+    if (!tonnage) {
+      return 'Harvest potential is waiting on the latest satellite reading.';
+    }
+
+    if (tonnage.revisionSignal === 'up') {
+      return 'This points to stronger-than-usual harvest potential.';
+    }
+
+    if (tonnage.revisionSignal === 'down') {
+      return 'This points to below-average harvest potential and tighter profit expectations.';
+    }
+
+    return 'This points to an average harvest for current conditions.';
   });
 
   laiAdvisory = computed(() => {
@@ -329,26 +436,11 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
       };
     }
 
-    if (lai > 5) {
-      return {
-        title: 'Above-average yield advisory',
-        message: 'Leaf area is high for this block. Review canopy and quality settings so strong volume does not reduce fruit quality.',
-        severity: 'positive'
-      };
-    }
-
-    if (lai < 2) {
-      return {
-        title: 'Yield warning',
-        message: 'Leaf area is below target, so harvest tonnage and profit expectations should be revised downward.',
-        severity: 'critical'
-      };
-    }
-
+    const band = this.getLaiForecastBand(lai);
     return {
-      title: 'Forecast tracking normally',
-      message: 'Leaf area is in the workable production range. Continue monitoring every new satellite refresh.',
-      severity: 'neutral'
+      title: band.advisoryTitle,
+      message: band.advisoryMessage,
+      severity: band.revisionSignal === 'up' ? 'positive' : band.revisionSignal === 'down' ? 'critical' : 'neutral'
     };
   });
 
@@ -357,6 +449,15 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
     const wineEconomics = this.liveWineGrapeEconomics();
     if (!insights || !wineEconomics) {
       return 'Profit impact unavailable while the live forecast loads.';
+    }
+
+    const tonnage = this.projectedTonnageRange();
+    if (tonnage?.revisionSignal === 'down') {
+      return `Current LAI suggests a reduced harvest range of ${tonnage.total}, so profit expectations should be revised downward.`;
+    }
+
+    if (tonnage?.revisionSignal === 'up') {
+      return `Current LAI suggests an above-average harvest range of ${tonnage.total}, provided fruit quality is maintained.`;
     }
 
     if (wineEconomics.netMarginPerHa < 0) {
@@ -395,7 +496,7 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
     return {
       title: 'Live block impact',
       message: `Wine grapes are currently tracking at ${wineEconomics.tonnesPerHaRangeLabel} with ${marginText}.`,
-      warning: `${this.forecastConfidence()} at ${this.waterAllocation()}% water allocation. ${wineEconomics.guidance}`
+      warning: `${this.forecastConfidence()} at ${this.waterAllocation()}% water allocation. ${this.confidenceSummary()}`
     };
   });
 
