@@ -1,95 +1,160 @@
-# 📈 Profit & Risk Analysis Page
+# Profit & Risk Analysis Page
 
-This module powers the **Profit & Risk Analysis** page, which compares wine grapes against alternative crops using real crisis data, risk adjustments, and capital payback logic. It is built as an **Angular Standalone Component** using **signals** and **computed** values for a fully reactive UI.
+This module powers the **Profit & Risk Analysis** page for the AgriTech platform.
 
----
+The page is no longer just a static economics comparison screen. In the current implementation it combines:
 
-## 🏗 High-Level Architecture
+- a **live block forecast layer** driven by backend satellite insights
+- a **wine-grape-specific profit/risk adjustment** based on live `LAI`
+- a **comparison toolkit** for alternative crops
+- a **global market quadrant** view for higher-level strategic positioning
 
-- **Component**: `ProfitRiskComponent` (`src/app/modules/profit-risk/profit-risk.component.ts`)
-- **Template**: `profit-risk.component.html` (`src/app/modules/profit-risk/profit-risk.component.html`)
-- **Styles**: `profit-risk.component.css` (`src/app/modules/profit-risk/profit-risk.component.css`)
-- **Shared State**: `BlockService` (`src/app/shared/services/block.service.ts`) provides the selected block for the header.
-- **Pattern**: Pure client-side logic (no backend), all economics and risk math live in the component.
+The page is designed to answer two connected questions:
 
-### Block Selection & Header
-
-- The `BlockService` exposes `selectedBlock$` as an observable.
-- `toSignal` converts it into a signal `selectedBlock`, which drives:
-  - Block name
-  - Location
-  - Display text in the subtitle (e.g. "2024-2026 Riverland SA crop economics for Block A • Renmark").
+1. `What is the latest block-level production and profit outlook for my current vineyard block?`
+2. `How does that compare with alternative crop options and broader market choices?`
 
 ---
 
-## 🧮 Economic Model & Data Structures
+## Current Architecture
 
-### `Crop` Interface
+### Frontend Files
 
-Each row and chart in the page is ultimately derived from the `Crop` interface:
+- Component: `agritechplatform/src/app/modules/profit-risk/profit-risk.component.ts`
+- Template: `agritechplatform/src/app/modules/profit-risk/profit-risk.component.html`
+- Styles: `agritechplatform/src/app/modules/profit-risk/profit-risk.component.css`
 
-- `name`: Crop label (Wine Grapes, Olives, Almonds, Citrus, Table Grapes).
-- `yieldPerHa`: Tonnes per hectare.
-- `pricePerTon`: Dollar price per tonne.
-- `waterMLPerHa`: Megalitres per hectare.
-- `variableCosts`: Operating/input costs per hectare.
-- `fixedCosts`: Overhead per hectare.
-- `volatilityFactor`: 0–1 risk factor applied to revenue per ML.
-- `color`: Brand color for the crop in charts.
-- `type`: `'core'` (Wine Grapes) or `'alternative'` (Olmonds, Olives, Citrus, Table Grapes).
-- `marginParams`: Reference revenue/cost pair used for the Net Margin chart:
-  - `revenueAt100`: Revenue per hectare at 100% water allocation.
-  - `costsAt100`: Input costs per hectare at 100% allocation.
-- `capitalCost`: One-off conversion/establishment capex (where applicable).
-- `yearsStr`: Human-readable payback period or "Ongoing losses".
-- `riskLevel`: `'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'` used for badges and styling.
-- `badges`: Optional tags such as `"2024 Crisis"` or `"PIRSA"` for credibility.
+### Supporting Services
 
-> All source numbers (prices, yields, costs) are aligned with WGCSA 2024 Crush Report and PIRSA/industry factsheets where available.
+- Block selection: `agritechplatform/src/app/shared/services/block.service.ts`
+- Satellite/dashboard contract mapping: `agritechplatform/src/app/core/services/dashboard-api.service.ts`
 
-### Core Signals
+### Pattern
 
-- `waterAllocation: signal<number>`:
-  - Represents allocation in percent (50–100% range on the slider).
-  - Drives **all** revenue and Net Margin recalculations.
-- `showBankruptcyImpact: signal<boolean>`:
-  - Toggles whether bankruptcy-risk is applied to Wine Grapes.
-- `selectedScenario: signal<'alternative' | 'global'>`:
-  - Switches between the **Alternative Crops** view and **Global Market Quadrant** view.
-- `selectedCropName: signal<string>`:
-  - Currently focused crop for the cost structure donut chart and narrative cards.
-- `hoveredSegment`, `hoveredRevenueCrop`, `hoveredCrop`, `selectedQuadrantCrop`:
-  - Drive tooltips and modals for charts and quadrant bubbles.
+The page is an Angular standalone component built with:
+
+- `signals`
+- `computed`
+- `inject`
+- `toSignal`
+- RxJS block subscription flow
+
+The implementation is hybrid:
+
+- the **top forecast section** is live and block-specific
+- the **rest of the page** is still comparison-oriented and uses configured crop assumptions
+- the **wine grape row and baseline economics** are adjusted by the live satellite forecast
 
 ---
 
-## 📊 Computed Metrics (How the Numbers Are Calculated)
+## What The Page Does
 
-### 1. `cropMetrics`
+The page has four major functional areas.
 
-This is the main economic engine used across charts and tables.
+### 1. Live Forecast Panel
 
-Given the current `waterAllocation`:
+This is the top section of the page and is powered by backend insights for the selected block.
 
-1. **Revenue per Hectare (standard)**  
-   - `adjustedYield = yieldPerHa × (waterAllocation / 100)`
-   - `revenuePerHaStandard = adjustedYield × pricePerTon`
-2. **Revenue per ML**  
-   - `revenuePerML = revenuePerHaStandard / waterMLPerHa` (guarded for zero water).
-3. **Risk-Adjusted Revenue per ML**  
-   - `riskAdjustedRevenuePerML = revenuePerML × (1 - volatilityFactor)`  
-   - Higher volatility = larger discount.
-4. **Net Margin per Hectare**  
-   Uses `marginParams` for consistency with reference material:
-   - `marginRevenue = revenueAt100 × (waterAllocation / 100)`
-   - `marginCosts = costsAt100`
-   - `netMarginPerHa = marginRevenue - marginCosts`
-5. **Years to Payback (Capital)**  
-   - For positive margins: `yearsToProfit = ceil(30000 / netMarginPerHa)`
-   - For negative margins: `"Ongoing losses"`.
+It shows:
 
-Each `Crop` is enriched with:
+- live block forecast headline
+- projected tonnage range
+- forecast confidence
+- freshness/composite date
+- profit outlook label
+- warning banner if imagery quality or freshness is poor
 
+### 2. Alternative Crop Scenario
+
+This section compares wine grapes against alternatives using:
+
+- Revenue per ML
+- Net Margin per Hectare
+- Risk-Adjusted Revenue per ML
+- Crop Comparison Matrix
+- Cost Structure chart
+
+### 3. Global Market Quadrant
+
+This section positions crops visually in a strategic “opportunity vs exit” style view.
+
+It includes:
+
+- crop bubbles
+- tooltips
+- crop detail modal
+- strategic action summaries
+
+### 4. Support & Resources
+
+This remains a supporting educational section and contains:
+
+- crisis framing
+- support reminders
+- resource-oriented messaging
+
+---
+
+## Live Forecast Layer
+
+The live forecast section is the most important implementation change in the current version.
+
+It uses backend satellite insights for the selected block and exposes:
+
+- `LAI`
+- status
+- data quality
+- warning
+- composite date
+- confidence
+
+### Live Block Subscription Flow
+
+On `ngOnInit()`:
+
+1. the component gets the active user
+2. subscribes to `blockService.block$`
+3. ignores null values
+4. ignores repeated block selections with the same `lan`
+5. loads live forecast data whenever the selected block changes
+
+The HTTP load happens in:
+
+- `loadLiveForecast(block: Block)`
+
+That method:
+
+- clears previous warning state
+- requests `getBlockInsights(block.lan || block.id)`
+- stores the response in `liveInsights`
+- stores the warning in `profitRiskWarning`
+- falls back to an error message if the request fails
+
+---
+
+## Main Data Structures
+
+## `Crop`
+
+Each crop comparison entry is represented by `Crop`.
+
+Important fields:
+
+- `name`
+- `yieldPerHa`
+- `adjustedYieldPerHa`
+- `pricePerTon`
+- `waterMLPerHa`
+- `variableCosts`
+- `fixedCosts`
+- `volatilityFactor`
+- `color`
+- `type`
+- `marginParams`
+- `capitalCost`
+- `yearsStr`
+- `riskLevel`
+- `badges`
 - `revenuePerHa`
 - `totalCostsPerHa`
 - `netMarginPerHa`
@@ -97,211 +162,576 @@ Each `Crop` is enriched with:
 - `riskAdjustedRevenuePerML`
 - `yearsToProfit`
 
-These values feed:
+### Why `marginParams` exists
 
-- Revenue per ML chart
-- Net Margin per Hectare chart
-- Comparison matrix
-- Cost structure donut chart
+The page uses `marginParams` for the comparison margin model so the Net Margin chart stays stable and comparable across crop types. This is different from raw price × yield math and is part of the page’s configured business model.
 
-### 2. `riskAdjustedMetrics`
+## `LiveWineGrapeEconomics`
 
-- Filters to **alternative** crops only.
-- Sorts by `riskAdjustedRevenuePerML` to rank crops in the risk-adjusted space.
-- Used in parts of the UI where ordering by risk-adjusted efficiency matters.
+This internal computed structure is the bridge between live satellite data and the rest of the economics page.
 
-### 3. `cropMetricsFixedOrder`
+It stores:
 
-- Ensures a fixed order for the **Revenue per ML** chart:  
-  `['Wine Grapes', 'Almonds', 'Olives', 'Table Grapes', 'Citrus']`.
-- Keeps visuals stable even as values change with the slider.
+- `tonnesPerHaCenter`
+- `tonnesPerHaRangeLabel`
+- `totalTonnageLabel`
+- `yieldAdjustmentFactor`
+- `revenuePerHa`
+- `netMarginPerHa`
+- `revenuePerML`
+- `riskAdjustedRevenuePerML`
+- `projectedLoss`
+- `outlookLabel`
+- `guidance`
+- `yearsToProfit`
 
-### 4. `selectedCropMetrics`
-
-Provides a structured object for the **Cost Structure** panel:
-
-- Basic metrics: `revenue`, `costs`, `margin`, `capital`, `isCritical`.
-- For `riskLevel === 'CRITICAL'` (wine grapes):
-  - 2-segment donut: **Revenue vs Costs** only.
-- For non-critical crops:
-  - 3-segment donut: **Input Costs**, **Capital**, **Net Margin**.
-- Percentages are calculated based on each segment’s share of the total pie.
-
-### 5. Helper Methods
-
-- `getHoveredPercentage` / `getHoveredValue` / `getHoveredLabel`:
-  - Drive the donut tooltip when hovering over segments.
-- `getBarHeightPercentage` and `getZeroLinePosition`:
-  - Convert `netMarginPerHa` into CSS percentages and maintain a zero baseline in the net margin chart.
-- `isPositive`:
-  - Used for styling positive vs negative values.
+This object is used to replace the default wine-grape economics with live forecast-adjusted values.
 
 ---
 
-## 💥 Bankruptcy Impact Toggle
+## Live Forecast Calculations
 
-The toggle switches between **standard revenue per ML** and **bankruptcy-adjusted revenue** for Wine Grapes.
+## 1. `liveLai`
 
-- `getBankruptcyAdjustedRevenue(cropName)`:
-  - Looks up the crop’s `revenuePerML`.
-  - If `showBankruptcyImpact` is `false`, returns the baseline `revenuePerML`.
-  - If `true` and the crop’s `riskLevel` is `'CRITICAL'`, applies a **35% haircut**:
-    - `revenuePerML × 0.65`.
-  - Non-critical crops ignore the toggle.
-- `getDisplayRevenue(crop)`:
-  - Wrapper used by the chart to pick adjusted or unadjusted revenue.
-- `getPercentageVsWineGrapes(cropName)`:
-  - Compares each crop’s revenue per ML against Wine Grapes.
-  - Percentage difference = `(cropRevenue - wineGrapesRevenue) / wineGrapesRevenue × 100`.
+Reads the block’s latest `LAI` from:
 
-This logic ensures:
+- `liveInsights()?.metrics.lai.raw`
 
-- Only crisis crops (Wine Grapes) are penalized when you enable the toggle.
-- Alternative crops are displayed consistently, highlighting their relative advantage.
+This is the main live driver for the top forecast.
 
----
+## 2. `projectedTonnageRange`
 
-## 🧭 Global Market Quadrant View
+This computed block transforms live `LAI` into a yield estimate.
 
-When `selectedScenario === 'global'`, the UI renders a 2×2 quadrant chart that compares crops on **Risk** vs **Reward**.
+Current formula:
 
-### `quadrantCrops` Constant
+- `tonnesPerHaCenter = clamp(1.15 + lai * 0.78, 1.2, 5.8)`
+- lower bound = `center * 0.85`
+- upper bound = `center * 1.15`
 
-- A precomputed array inside the component with one entry per crop bubble:
-  - `name`, `icon`, `color`
-  - `quadrantX`, `quadrantY`: Percentage positions on the chart (0–100).
-  - `bubbleSize`: Relative size of each bubble.
-  - `zIndex`: Stacking order.
-  - `revenuePerML`: Reference revenue per ML for that crop in the global context.
-  - `percentageVsWine`: Precalculated uplift vs Wine Grapes.
-  - `quadrant`: Label string (e.g. `"Quadrant 1 - OPPORTUNITY"`, `"Quadrant 2 - REDUCE/EXIT"`).
-  - `badges`: Optional credibility badges (e.g. `"✓ PIRSA 2025 VALIDATED"`).
-  - `metrics`: Bullet list of key facts shown in the tooltip/modal.
-  - `strategicAction`: Plain language recommendation.
-  - `source`: Data source attribution.
-  - `hasFactsheet`: Flag for showing a "factsheet" call-to-action where applicable.
+Then it multiplies by block area to calculate total tonnage range.
 
-### Interaction
+Returned values include:
 
-- Hovering a bubble shows a rich tooltip with:
-  - Uplift vs Wine Grapes.
-  - High-level metrics.
-  - Strategic action and source.
-- Clicking a bubble sets `selectedQuadrantCrop` and opens a modal:
-  - Top banner summarizing quadrant and action.
-  - Revenue/cost KPIs for the chosen crop.
-  - Detailed bullet metrics and recommended strategy.
+- center yield per hectare
+- display label for yield per hectare range
+- center total tonnage
+- display label for total tonnage range
 
----
+This is what feeds the “Projected tonnage” card in the hero panel.
 
-## 🖥 UI Layout & Flow
+## 3. `liveWineGrapeEconomics`
 
-### 1. Crisis Alert
+This converts live yield into live wine-grape economics.
 
-- Banner at the top of the page:
-  - Flags the **2024 Wine Grape crisis**.
-  - Shows benchmark loss figures (`-$1,775/ha`).
-  - Includes data sources and a **"not financial advice"** disclaimer.
+Steps:
 
-### 2. Scenario & Water Controls
+1. read the current tonnage estimate
+2. read the currently selected water allocation
+3. compare the live per-hectare forecast to the baseline reference `4.2 t/ha`
+4. calculate a `yieldAdjustmentFactor`
+5. apply that factor to the configured wine-grape revenue baseline
+6. derive:
+   - revenue per hectare
+   - net margin per hectare
+   - revenue per ML
+   - risk-adjusted revenue per ML
+   - projected loss
+   - outlook label
 
-- **Scenario Toggle**:
-  - Switches between:
-    - Alternative crop comparison view.
-    - Global Market Quadrant view.
-- **Water Allocation Slider**:
-  - Range: 50–100%.
-  - Updates `waterAllocation` and triggers recomputation of all metrics.
-  - Uses `getSliderBackground()` to draw a green-to-gray gradient behind the slider track.
+### `yieldAdjustmentFactor`
 
-### 3. Revenue per ML Chart
+Current formula:
 
-- Horizontal bar chart comparing crops by **Revenue per ML of water**.
-- Bars:
-  - Wine Grapes shown in red.
-  - Alternatives in green/blue/purple brand colors.
-- Bankruptcy toggle directly affects Wine Grapes’ bar only.
-- Tooltips and labels:
-  - Show revenue per ML.
-  - Show uplift vs Wine Grapes as a percentage.
+- `yieldAdjustmentFactor = clamp(tonnesPerHaCenter / 4.2, 0.45, 1.55)`
 
-### 4. Net Margin per Hectare Chart
+This prevents the live forecast from pushing the economics unrealistically low or high.
 
-- Vertical bar chart with a visible zero line:
-  - Positive margins draw above the zero line.
-  - Negative margins draw below, using `getZeroLinePosition()` for consistent alignment.
-- Each bar is driven by `netMarginPerHa` from `cropMetrics`.
-- Tooltips show:
-  - Revenue.
-  - Costs.
-  - Net margin.
+### `projectedLoss`
 
-### 5. Comparison Matrix Table
+Current formula:
 
-- Tabular summary including:
-  - `Revenue/ML`.
-  - `Net Margin/ha`.
-  - `Capital Cost`.
-  - `Years to Profit` or `"Ongoing losses"`.
-  - `riskLevel` with colored **risk-badge** (CRITICAL, MEDIUM, LOW).
-- Uses CSS classes (`risk-critical`, `risk-medium`, `risk-low`) to apply pill styling and colors.
+- `max(0, baseline revenue at current allocation - adjusted revenue)`
 
-### 6. Cost Structure Panel
+This provides a simple downward-pressure estimate when the live block yield is underperforming its configured baseline.
 
-- Right-hand card bound to `selectedCropMetrics()`:
-  - Shows crop name, risk status, and narrative description.
-  - Donut chart:
-    - Wine Grapes (CRITICAL): Revenue vs Costs only.
-    - Alternatives: Input Costs vs Capital vs Net Margin.
-  - Metric tiles:
-    - Revenue/ha.
-    - Input Costs/ha.
-    - Capital Investment.
-    - Net Margin/ha (colored red/green depending on sign).
+## 4. `forecastConfidence`
 
-### 7. Support & Resources
+This maps backend confidence values to user-facing labels:
 
-- Static section at the bottom:
-  - Official data banner (WGCSA, Wine Australia, PIRSA/CCW).
-  - Support bullets for:
-    - Advisor conversations.
-    - Co-op support.
-    - Grants or program links (non-functional in the MVP).
+- `high` -> `High confidence`
+- `medium` -> `Moderate confidence`
+- otherwise -> `Low confidence`
 
----
+## 5. `liveForecastStatus`
 
-## 🔧 How to Extend or Modify
+This converts backend status/quality into a readable summary:
 
-### Add a New Crop
+- loading
+- refresh in progress
+- stale cache
+- reduced image quality
+- no usable satellite data
+- refreshed from satellite data
+- loaded from cache
 
-1. Open `profit-risk.component.ts`.
-2. Add a new `Crop` object to the `crops` array:
-   - Choose `type: 'core' | 'alternative'`.
-   - Provide `yieldPerHa`, `pricePerTon`, `waterMLPerHa`, `variableCosts`, `fixedCosts`.
-   - Set `volatilityFactor` based on how risky the crop is.
-   - Add `marginParams` so the Net Margin chart has correct reference values.
-   - Optionally set `capitalCost`, `yearsStr`, `riskLevel`, and `badges`.
-3. If you want the crop in the fixed-order revenue chart:
-   - Update the `order` array in `cropMetricsFixedOrder`.
-4. Optionally add a corresponding bubble in `quadrantCrops` for the global view.
+## 6. `freshnessSummary`
 
-### Adjust Risk or Crisis Settings
+This shows:
 
-- Change `volatilityFactor` on any crop to adjust how heavily its revenue per ML is discounted.
-- Update the `0.65` bankruptcy factor in `getBankruptcyAdjustedRevenue` if crisis assumptions change.
-- Modify `riskLevel` and `badges` to keep risk labels aligned with the latest industry guidance.
+- `Composite date: ...`
 
-### Tuning Chart Ranges
+based on `compositeDateTo`.
 
-- `MARGIN_MAX`, `MARGIN_MIN`, and `MARGIN_RANGE` can be tuned in `ProfitRiskComponent`:
-  - Use higher values if you add more profitable crops.
-  - Keep the zero line visually centered by adjusting both min and max.
+## 7. `laiAdvisory`
+
+This drives the main live forecast headline and summary text.
+
+Rules:
+
+- if no `LAI`
+  - `Waiting for live tonnage forecast`
+- if `LAI > 5`
+  - `Above-average yield advisory`
+- if `LAI < 2`
+  - `Yield warning`
+- otherwise
+  - `Forecast tracking normally`
+
+This is the main alert/recommendation logic for the Profit & Risk page.
+
+## 8. `profitForecastSummary`
+
+This provides the short narrative under “Profit outlook”.
+
+Rules:
+
+- if live data is unavailable
+  - show unavailable state
+- if wine-grape margin is negative
+  - show downside versus break-even
+- else if projected loss is positive
+  - show projected profit risk
+- otherwise
+  - show no immediate loss message
+
+## 9. `profitOutlookHeadline`
+
+Displays:
+
+- `Stable`
+- `Downside risk`
+- `Upside potential`
+
+based on `liveWineGrapeEconomics.outlookLabel`.
+
+## 10. `keyInsight`
+
+This is the short operational summary in the alternative-crop scenario section.
+
+It shows:
+
+- current live wine-grape yield range
+- margin pressure or margin estimate
+- confidence + water allocation context
+- guidance sentence based on live forecast strength
 
 ---
 
-## 📂 File Reference
+## Current Page Structure
 
-- `profit-risk.component.ts`: Economic engine, signals, computed metrics, and quadrant configuration.
-- `profit-risk.component.html`: Layout, cards, charts, tables, and modal structure.
-- `profit-risk.component.css`: Styling for the page container, crisis banner, charts, tables, risk badges, quadrant chart, and responsive layout.
+## Header
 
+Shows:
+
+- page icon
+- page title
+- block-aware subtitle with selected block name and location
+
+## Live Forecast Panel
+
+Shows:
+
+- `Live Block Forecast`
+- advisory title
+- advisory message
+- status text
+- projected tonnage card
+- forecast confidence card
+- profit outlook card
+
+## Warning Banner
+
+Rendered only when:
+
+- backend warning exists
+- or local `profitRiskWarning` exists
+
+## Crisis Alert
+
+A static crisis context banner remains visible below the live forecast panel.
+
+It is informational and not calculated from live data.
+
+## Scenario Toggle
+
+Two view modes:
+
+- `alternative`
+- `global`
+
+This is controlled by:
+
+- `selectedScenario`
+
+## Alternative Crop Scenario
+
+Contains:
+
+- water allocation slider
+- bankruptcy impact toggle
+- key insight panel
+- revenue per ML chart
+- net margin chart
+- risk-adjusted revenue chart
+- crop comparison matrix
+- cost structure panel
+
+## Global Market Quadrant
+
+Contains:
+
+- strategic crop bubble plot
+- tooltip interaction
+- crop detail modal
+
+## Support & Resources
+
+Visible as supporting content below the main analytical surfaces.
+
+---
+
+## Comparison Engine
+
+## `cropMetrics`
+
+This is the main economics engine for the page.
+
+It does two things at once:
+
+1. computes metrics for all crops
+2. overrides wine-grape economics with live satellite-adjusted values when available
+
+### For all crops
+
+Base values include:
+
+- adjusted yield from water allocation
+- revenue per hectare standard
+- revenue per ML
+- risk-adjusted revenue per ML
+- configured margin model
+- years to profit
+
+### For Wine Grapes specifically
+
+If live block economics are available, the component replaces the default wine-grape row with:
+
+- live adjusted yield
+- live revenue per hectare
+- live net margin per hectare
+- live revenue per ML
+- live risk-adjusted revenue per ML
+- live payback/loss interpretation
+
+This is the most important difference from the older implementation.
+
+It means the wine-grape baseline used in the charts and comparison matrix is no longer fixed if live data exists.
+
+## `riskAdjustedMetrics`
+
+Filters to alternative crops and sorts them by `riskAdjustedRevenuePerML`.
+
+## `cropMetricsFixedOrder`
+
+Maintains a fixed display order for the Revenue per ML chart:
+
+- Wine Grapes
+- Almonds
+- Olives
+- Table Grapes
+- Citrus
+
+## `selectedCropMetrics`
+
+Builds the data object used by the cost structure panel.
+
+For critical crops:
+
+- 2-segment layout: revenue vs costs
+
+For non-critical crops:
+
+- 3-segment layout: input costs, capital, margin
+
+---
+
+## User Controls
+
+## Water Allocation Slider
+
+Controlled by:
+
+- `waterAllocation`
+
+Range:
+
+- 50 to 100
+
+Used by:
+
+- comparison economics
+- key insight warning text
+- live wine-grape economic adjustment
+
+## Bankruptcy Impact Toggle
+
+Controlled by:
+
+- `showBankruptcyImpact`
+
+Used only for Wine Grapes.
+
+Logic:
+
+- if off -> show regular wine-grape revenue per ML
+- if on and crop is `CRITICAL` -> apply a 35% haircut
+
+Method:
+
+- `getBankruptcyAdjustedRevenue(...)`
+
+## Scenario Toggle
+
+Controlled by:
+
+- `selectedScenario`
+
+Values:
+
+- `alternative`
+- `global`
+
+---
+
+## Chart and Table Helpers
+
+## `getDisplayRevenue`
+
+Returns the chart revenue value, including bankruptcy haircut when enabled.
+
+## `getPercentageVsWineGrapes`
+
+Compares crop revenue per ML against the current wine-grape display revenue.
+
+## `wineGrapeRiskAdjustedBaseline`
+
+Uses the current wine-grape risk-adjusted revenue as the comparison baseline.
+
+This means the risk-adjusted chart updates when live wine-grape economics change.
+
+## `getRiskAdjustedDifferenceVsWineGrapes`
+
+Computes the uplift vs the current wine-grape baseline.
+
+## `getHoveredPercentage`, `getHoveredValue`, `getHoveredLabel`
+
+These power the cost-structure donut hover tooltips.
+
+## `getBarHeightPercentage`, `getZeroLinePosition`, `isPositive`
+
+These support the Net Margin per Hectare chart rendering.
+
+## `getSliderBackground`
+
+Draws the water slider gradient.
+
+---
+
+## Global Market Quadrant
+
+The quadrant view is still largely a configured strategic layer, not a live satellite-calculated model.
+
+`quadrantCrops` is a static configuration array that contains:
+
+- crop name
+- icon
+- color
+- plot position
+- bubble size
+- revenue per ML
+- uplift vs wine grapes
+- quadrant label
+- badges
+- metrics
+- strategic action
+- source
+
+This is designed to support strategic thinking, not to replace the live block forecast.
+
+---
+
+## What Is Live vs What Is Static
+
+## Live / Dynamic
+
+- selected block context
+- top forecast panel
+- `LAI`-driven projected tonnage
+- confidence
+- freshness status
+- warning state
+- wine-grape row economics in the comparison layer
+- wine-grape baseline in the risk-adjusted chart
+- key insight panel messaging
+
+## Static / Configured
+
+- alternative crop assumptions
+- crisis alert copy
+- global market quadrant positions and facts
+- support resources copy
+- crop prices/cost assumptions in the configured alternatives
+
+---
+
+## Important Design Reality
+
+The current page is a hybrid implementation, not a fully satellite-driven economic simulator for every crop.
+
+What is currently true:
+
+- the page now uses live satellite data where it matters most for the current block
+- the wine-grape outlook adjusts with live `LAI`
+- the top risk/profit summary is live
+- the comparison tooling remains configured and strategic
+
+So the page is best described as:
+
+- **live block forecast at the top**
+- **configured strategic comparison tool underneath**
+
+---
+
+## Extending the Page
+
+## Add a New Live Forecast Signal
+
+Update:
+
+- `dashboard-api.service.ts`
+- `profit-risk.component.ts`
+- `profit-risk.component.html`
+
+Typical flow:
+
+1. expose the backend field in the mapped dashboard response
+2. create a computed signal
+3. wire it into a card/banner/summary
+
+## Change LAI Yield Logic
+
+Update:
+
+- `projectedTonnageRange`
+- `liveWineGrapeEconomics`
+
+This is where the live `LAI` to yield and yield to economics conversions happen.
+
+## Change Confidence Rules
+
+Confidence text currently depends on the backend-mapped confidence label.
+
+Update:
+
+- `forecastConfidence`
+
+If deeper confidence explanation is needed, that can be expanded in the template.
+
+## Add Another Comparison Crop
+
+Update:
+
+- `crops` array
+- `cropMetricsFixedOrder`
+- optionally `quadrantCrops`
+
+## Adjust Bankruptcy Haircut
+
+Update:
+
+- `getBankruptcyAdjustedRevenue`
+
+Current haircut:
+
+- `0.65` multiplier for crisis crop display
+
+---
+
+## Testing Notes
+
+When validating this page, check:
+
+- block switch reloads live forecast
+- no-data block shows waiting state
+- degraded imagery shows warning state
+- `LAI < 2` shows yield warning
+- `LAI > 5` shows above-average yield advisory
+- projected tonnage changes with live `LAI`
+- wine-grape economics in charts/tables change when live data changes
+- comparison against wine grapes updates correctly
+- scenario toggle still switches cleanly
+- bankruptcy toggle still only affects wine grapes
+
+Recommended manual test areas:
+
+- fresh block with normal LAI
+- low-LAI block
+- high-LAI block
+- stale/degraded block
+- no-data block
+
+---
+
+## File Reference
+
+Main module:
+
+- `agritechplatform/src/app/modules/profit-risk/profit-risk.component.ts`
+- `agritechplatform/src/app/modules/profit-risk/profit-risk.component.html`
+- `agritechplatform/src/app/modules/profit-risk/profit-risk.component.css`
+
+Supporting service:
+
+- `agritechplatform/src/app/core/services/dashboard-api.service.ts`
+
+Block selection:
+
+- `agritechplatform/src/app/shared/services/block.service.ts`
+
+---
+
+## Summary
+
+The current Profit & Risk page is a mixed operational + strategic page.
+
+At the top, it gives the grower a live block-specific view of:
+
+- expected production
+- confidence
+- freshness
+- likely profit pressure or upside
+
+Under that, it still provides a broader strategic comparison toolkit for crop decisions, water efficiency, and longer-term market thinking.
+
+The key implementation change from the old version is that the current wine-grape economic picture is now adjusted by live satellite forecast data rather than staying completely fixed.
