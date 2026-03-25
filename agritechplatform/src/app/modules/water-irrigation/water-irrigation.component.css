@@ -789,6 +789,43 @@
   box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1);
 }
 
+.boundary-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0.55rem 0.9rem;
+  border-radius: 0.65rem;
+  border: 1px solid transparent;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.boundary-action-btn.clear {
+  background: #fff7ed;
+  border-color: #fdba74;
+  color: #c2410c;
+}
+
+.boundary-action-btn.clear:hover {
+  background: #ffedd5;
+  border-color: #fb923c;
+}
+
+.boundary-action-btn.upload {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.boundary-action-btn.upload:hover {
+  background: #dbeafe;
+  border-color: #60a5fa;
+}
+
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }

@@ -13,18 +13,20 @@ def build_limitations(
     block_area_ha: float | None,
     ndvi: float | None,
     lai: float | None,
+    block_name: str | None = None,
     today: date | None = None,
     settings: Settings | None = None,
 ) -> list[str]:
     active_settings = settings or get_settings()
     limitations: list[str] = []
+    block_label = block_name.strip() if block_name and block_name.strip() else "Block"
 
     if data_quality == "degraded" or (
         cloud_cover_pct is not None
         and cloud_cover_pct > active_settings.satellite_degraded_cloud_threshold_pct
     ):
         limitations.append(
-            f"Cloud degradation - cloud cover above {active_settings.satellite_degraded_cloud_threshold_pct:.0f}% makes this composite less reliable."
+            f"Satellite data for {block_label} may be degraded due to cloud cover."
         )
 
     limitations.append("Satellite delay - data is not real-time (Sentinel-2 revisit is about 5 days).")

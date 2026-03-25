@@ -35,10 +35,9 @@
             </div>
 
             <div class="block-selector">
-              <span class="label">ACTIONS</span>
-              <button class="retry-btn" (click)="deleteSelectedBlock()">Delete block</button>
-              <button class="retry-btn" (click)="clearBoundary()">Clear boundary</button>
-              <label class="retry-btn" style="display:inline-block;">
+              <span class="label">BOUNDARY TOOLS</span>
+              <button class="boundary-action-btn clear" (click)="clearBoundary()">Clear boundary</button>
+              <label class="boundary-action-btn upload">
                 Upload shapefile (.zip)
                 <input type="file" (change)="uploadShapefile($event)" accept=".zip,.shp" style="display:none;">
               </label>

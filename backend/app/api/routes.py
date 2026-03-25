@@ -71,14 +71,14 @@ def _analyze_block_geometry(db: Session, geojson_str: str) -> dict[str, Any]:
         text(
             """
             WITH prepared AS (
-                SELECT ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326)) AS g
+                SELECT ST_RemoveRepeatedPoints(ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326))) AS g
             )
             SELECT
                 ST_IsValid(g) AS is_valid,
                 ST_IsEmpty(g) AS is_empty,
                 GeometryType(g) AS geometry_type,
                 ST_Dimension(g) AS geometry_dimension,
-                ST_Area(ST_Transform(g, 3857)) / 10000.0 AS area_ha,
+                ST_Area(g::geography) / 10000.0 AS area_ha,
                 ST_AsGeoJSON(g) AS block_polygon,
                 ST_Y(ST_Centroid(g)) AS centroid_lat,
                 ST_X(ST_Centroid(g)) AS centroid_lon
@@ -134,7 +134,7 @@ def _upsert_block_geometry(
                     crop = COALESCE(:crop, crop),
                     description = COALESCE(:description, description),
                     area_ha = :area_ha,
-                    geom = ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326))
+                    geom = ST_RemoveRepeatedPoints(ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326)))
                 WHERE id = :block_id
                 """
             ),
@@ -160,7 +160,7 @@ def _upsert_block_geometry(
                     :crop,
                     :description,
                     :area_ha,
-                    ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326))
+                    ST_RemoveRepeatedPoints(ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326)))
                 )
                 """
             ),
@@ -455,10 +455,10 @@ def set_block_location(request: BlockLocationRequest, db: Session = Depends(get_
                 SELECT ST_Transform(ST_Buffer(ST_Transform(p, 3857), 20.0), 4326) AS g FROM pt
             )
             SELECT
-                ST_Area(ST_Transform(g, 3857)) / 10000.0 AS area_ha,
-                ST_AsGeoJSON(ST_MakeValid(g)) AS block_polygon,
-                ST_Y(ST_Centroid(ST_MakeValid(g))) AS centroid_lat,
-                ST_X(ST_Centroid(ST_MakeValid(g))) AS centroid_lon
+                ST_Area(g::geography) / 10000.0 AS area_ha,
+                ST_AsGeoJSON(ST_RemoveRepeatedPoints(ST_MakeValid(g))) AS block_polygon,
+                ST_Y(ST_Centroid(ST_RemoveRepeatedPoints(ST_MakeValid(g)))) AS centroid_lat,
+                ST_X(ST_Centroid(ST_RemoveRepeatedPoints(ST_MakeValid(g)))) AS centroid_lon
             FROM buf
             """
         ),
@@ -477,7 +477,7 @@ def set_block_location(request: BlockLocationRequest, db: Session = Depends(get_
                 UPDATE blocks
                 SET
                     area_ha = :area_ha,
-                    geom = ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326))
+                    geom = ST_RemoveRepeatedPoints(ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326)))
                 WHERE id = :block_id
                 """
             ),
@@ -553,8 +553,8 @@ def clear_block_geometry(
                 SELECT ST_Transform(ST_Buffer(ST_Transform(p, 3857), 20.0), 4326) AS g FROM pt
             )
             SELECT
-                ST_Area(ST_Transform(g, 3857)) / 10000.0 AS area_ha,
-                ST_AsGeoJSON(ST_MakeValid(g)) AS block_polygon
+                ST_Area(g::geography) / 10000.0 AS area_ha,
+                ST_AsGeoJSON(ST_RemoveRepeatedPoints(ST_MakeValid(g))) AS block_polygon
             FROM buf
             """
         ),
@@ -570,7 +570,7 @@ def clear_block_geometry(
                 UPDATE blocks
                 SET
                     area_ha = :area_ha,
-                    geom = ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326))
+                    geom = ST_RemoveRepeatedPoints(ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326)))
                 WHERE id = :block_id
                 """
             ),

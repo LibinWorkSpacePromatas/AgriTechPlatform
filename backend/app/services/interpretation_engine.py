@@ -65,7 +65,7 @@ STATUS_CODE_MAP: dict[MetricKey, dict[str, MetricStatusCode]] = {
 def interpret_metric(metric: MetricKey, value: float | None) -> dict[str, Any]:
     interpretation = interpret_table_metric(metric, value)
     status = interpretation["status"]
-    alert = next((item for item in build_alerts({metric: value}) if item.metric == metric), None)
+    alert = next((item for item in build_alerts({metric: value}, "Block") if item.metric == metric), None)
     code = alert.code if alert is not None else STATUS_CODE_MAP[metric][status]
     color_class, dashboard_status = _presentation_state(metric, status)
     message = f"{metric.upper()} status: {status}."
@@ -84,7 +84,7 @@ def interpret_metric(metric: MetricKey, value: float | None) -> dict[str, Any]:
 
 
 def interpret_satellite_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    alerts = build_alerts(payload)
+    alerts = build_alerts(payload, "Block")
     interpretations = {
         metric: interpret_metric(metric, _as_nullable_float(payload.get(metric)))
         for metric in INTERPRETATION_KEYS

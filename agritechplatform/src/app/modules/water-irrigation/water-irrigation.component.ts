@@ -300,8 +300,11 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     }
     try {
       const ring = geometry.coordinates?.[0] || [];
-      const unique = ring.slice(0, -1);
-      return unique.length >= 4;
+      const withoutClosing = ring.slice(0, -1);
+      const uniqueVertices = new Set(
+        withoutClosing.map((coord: number[]) => `${coord[0]},${coord[1]}`)
+      );
+      return uniqueVertices.size >= 4;
     } catch {
       return false;
     }

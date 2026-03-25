@@ -54,7 +54,7 @@ class GrowerGPTResponse(SatelliteContractResponse):
 
 
 class GrowerGPTInsight(BaseModel):
-    type: Literal["irrigation", "nutrient", "health"]
+    type: Literal["water", "health", "nutrient", "canopy", "yield"]
     severity: Literal["critical", "warning", "info", "positive"]
     message: str
     action_window: str

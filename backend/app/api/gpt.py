@@ -15,6 +15,21 @@ from app.schemas.insights import GrowerGPTInsight, GrowerGPTResponse, MetricInsi
 
 router = APIRouter()
 
+PRIORITY_ORDER = {
+    "ndwi": 1,
+    "ndvi": 2,
+    "ndre": 3,
+    "evi": 4,
+    "lai": 5,
+}
+INSIGHT_TYPE_BY_METRIC = {
+    "ndwi": "water",
+    "ndvi": "health",
+    "ndre": "nutrient",
+    "evi": "canopy",
+    "lai": "yield",
+}
+
 
 class ChatRequest(BaseModel):
     message: str
@@ -158,10 +173,10 @@ async def user_gpt(user_id: str):
             all_insights,
             key=lambda item: (
                 item.freshness_status != "fresh",
+                PRIORITY_ORDER.get(item.insight.metric, 999),
                 item.block_name,
-                item.insight.metric,
             ),
-        )[:5]
+        )[:3]
 
         return UserGPTResponse(
             user_id=user_id,
@@ -192,117 +207,47 @@ def _build_metric_insights(satellite_response) -> list[MetricInsight]:
 
 def _build_metric_insights_for_user(satellite_response) -> list[MetricInsight]:
     insights = _build_metric_insights(satellite_response)
-    priority = {"ndwi": 0, "ndre": 1, "ndvi": 2, "evi": 3, "lai": 4}
-    return sorted(insights, key=lambda insight: priority.get(insight.metric, 999))[:3]
+    alert_metrics = {
+        alert.metric
+        for alert in satellite_response.alerts
+        if alert.metric in PRIORITY_ORDER
+    }
+    if alert_metrics:
+        insights = [insight for insight in insights if insight.metric in alert_metrics]
+    return sorted(insights, key=lambda insight: PRIORITY_ORDER.get(insight.metric, 999))[:3]
 
 
 def _build_action_insights(satellite_response) -> list[GrowerGPTInsight]:
-    ndwi = satellite_response.ndwi
-    ndre = satellite_response.ndre
-    ndvi = satellite_response.ndvi
-    evi = satellite_response.evi
-    lai = satellite_response.lai
+    actionable_metrics = {"ndwi", "ndvi", "ndre", "evi", "lai"}
+    prioritized_alerts = sorted(
+        [alert for alert in satellite_response.alerts if alert.metric in actionable_metrics],
+        key=lambda alert: PRIORITY_ORDER.get(alert.metric, 999),
+    )[:3]
 
-    insights: list[GrowerGPTInsight] = []
-
-    irrigation_insight = _build_irrigation_insight(ndwi)
-    if irrigation_insight is not None:
-        insights.append(irrigation_insight)
-
-    nutrient_insight = _build_nutrient_insight(ndre)
-    if nutrient_insight is not None:
-        insights.append(nutrient_insight)
-
-    health_insight = _build_health_insight(ndvi, evi, lai)
-    if health_insight is not None:
-        insights.append(health_insight)
-
-    priority = {"irrigation": 0, "nutrient": 1, "health": 2}
-    return sorted(insights, key=lambda insight: priority[insight.type])[:3]
-
-
-def _build_irrigation_insight(ndwi: float | None) -> GrowerGPTInsight | None:
-    if ndwi is None:
-        return None
-    if ndwi < -0.30:
-        return GrowerGPTInsight(
-            type="irrigation",
-            severity="critical",
-            message="Severe water stress. Irrigate immediately.",
-            action_window="today",
-            reason=f"NDWI = {round(ndwi, 4)} (< -0.30)",
+    return [
+        GrowerGPTInsight(
+            type=INSIGHT_TYPE_BY_METRIC[alert.metric],
+            severity=alert.severity,
+            message=alert.message,
+            action_window=_action_window_for_alert(alert.metric, alert.severity),
+            reason=f"{alert.metric.upper()} = {alert.value} ({alert.threshold})",
         )
-    if ndwi < -0.15:
-        return GrowerGPTInsight(
-            type="irrigation",
-            severity="warning",
-            message="Water stress detected. Irrigate today.",
-            action_window="today",
-            reason=f"NDWI = {round(ndwi, 4)} (< -0.15)",
-        )
-    return None
+        for alert in prioritized_alerts
+    ]
 
 
-def _build_nutrient_insight(ndre: float | None) -> GrowerGPTInsight | None:
-    if ndre is None:
-        return None
-    if ndre < 0.12:
-        return GrowerGPTInsight(
-            type="nutrient",
-            severity="critical",
-            message="Severe nutrient stress likely. Prioritise foliar nutrient review.",
-            action_window="this week",
-            reason=f"NDRE = {round(ndre, 4)} (< 0.12)",
-        )
-    if ndre < 0.25:
-        return GrowerGPTInsight(
-            type="nutrient",
-            severity="warning",
-            message="Nutrient deficiency likely. Plan a foliar nutrient check.",
-            action_window="this week",
-            reason=f"NDRE = {round(ndre, 4)} (< 0.25)",
-        )
-    return None
-
-
-def _build_health_insight(ndvi: float | None, evi: float | None, lai: float | None) -> GrowerGPTInsight | None:
-    if ndvi is not None:
-        if ndvi < 0.20:
-            return GrowerGPTInsight(
-                type="health",
-                severity="critical",
-                message="Critical vine stress. Inspect immediately.",
-                action_window="today",
-                reason=f"NDVI = {round(ndvi, 4)} (< 0.20)",
-            )
-        if ndvi < 0.35:
-            return GrowerGPTInsight(
-                type="health",
-                severity="warning",
-                message="Vine health declining. Inspect soon.",
-                action_window="this week",
-                reason=f"NDVI = {round(ndvi, 4)} (< 0.35)",
-            )
-
-    if evi is not None and evi > 0.50:
-        return GrowerGPTInsight(
-            type="health",
-            severity="warning",
-            message="Dense canopy detected. Review leaf removal and airflow.",
-            action_window="this week",
-            reason=f"EVI = {round(evi, 4)} (> 0.50)",
-        )
-
-    if lai is not None and lai < 2.0:
-        return GrowerGPTInsight(
-            type="health",
-            severity="warning",
-            message="Low yield potential signal. Review block constraints and stress drivers.",
-            action_window="this week",
-            reason=f"LAI = {round(lai, 4)} (< 2.0)",
-        )
-
-    return None
+def _action_window_for_alert(metric: str, severity: str) -> str:
+    if metric == "ndwi":
+        return "today" if severity == "critical" else "2-3 days"
+    if metric == "ndvi":
+        return "today" if severity == "critical" else "this week"
+    if metric == "ndre":
+        return "this week"
+    if metric == "evi":
+        return "this week"
+    if metric == "lai":
+        return "this week"
+    return "this week"
 
 def _build_alert_summaries(satellite_response) -> list[str]:
     return [f"{alert.metric.upper()}: {alert.message}" for alert in satellite_response.alerts]

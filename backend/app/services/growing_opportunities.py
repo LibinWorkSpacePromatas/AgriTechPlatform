@@ -104,7 +104,7 @@ class GrowingOpportunitiesService:
         evi = self._as_float(payload.get("evi"))
         ndwi = self._as_float(payload.get("ndwi"))
 
-        if insights.data_quality == "no_data" or (ndre is None and evi is None and ndwi is None):
+        if insights.data_quality == "no_data" or (ndre is None and evi is None):
             return [
                 GrowingOpportunityRecommendation(
                     id="system-waiting",
@@ -117,7 +117,7 @@ class GrowingOpportunitiesService:
                     threshold="Live insight required",
                     recommended_action="Retry after the next satellite refresh.",
                     message="This block does not yet have enough usable satellite data for recommendation generation.",
-                    detail="Growing Opportunities needs valid NDRE, EVI, and NDWI readings before block actions can be generated from the Sentinel-2 composite.",
+                    detail="Growing Opportunities needs valid NDRE and EVI readings before block actions can be generated from the Sentinel-2 composite.",
                     trend_note=None,
                     message_to_farmer=f"Satellite recommendations are not ready yet for {block_label}.",
                 )
@@ -159,30 +159,6 @@ class GrowingOpportunitiesService:
                         trend_note=self._metric_momentum_note(observed_series, "evi", "canopy density"),
                         message_to_farmer=f"Dense canopy in {block_label}. Leaf removal may improve airflow and reduce mildew risk.",
                     )
-            )
-
-        if ndwi is not None and ndwi < -0.10:
-            urgent = ndwi < -0.30
-            recommendations.append(
-                GrowingOpportunityRecommendation(
-                    id="irrigation-opportunity",
-                    title="Irrigation Opportunity",
-                    category="irrigation",
-                    severity="critical" if urgent else "warning",
-                    metric_key="ndwi",
-                    metric_label="NDWI",
-                        current_value=round(ndwi, 4),
-                        threshold="< -0.10",
-                        recommended_action="Irrigate today." if urgent else "Consider irrigation within 2-3 days.",
-                        message=f"Water stress is being detected in {block_label}.",
-                        detail="The latest reading suggests this block is drying down, so irrigation timing should be reviewed before stress deepens.",
-                        trend_note=self._metric_momentum_note(observed_series, "ndwi", "water status"),
-                        message_to_farmer=(
-                            f"Severe water deficit in {block_label}. Irrigate today. Yield damage risk."
-                        if urgent
-                        else f"Water stress detected in {block_label}. Consider irrigation within 2-3 days."
-                    ),
-                )
             )
 
         if ndre is not None and 0.25 <= ndre <= 0.40 and self._is_declining_over_two_passes(observed_series, "ndre"):
@@ -228,17 +204,9 @@ class GrowingOpportunitiesService:
     def _build_warning(self, block: Block, insights: BlockInsightsResponse) -> str | None:
         block_label = block.lanslu or str(block.id)
         if insights.cloud_cover_pct is not None and insights.cloud_cover_pct > 50:
-            next_pass_days = self._estimate_days_to_next_pass(insights.data_age_days)
-            return (
-                f"Satellite data for {block_label} may be degraded due to cloud cover "
-                f"({insights.cloud_cover_pct:.0f}% cloud). Next clear pass estimated in {next_pass_days} days."
-            )
+            return f"Satellite data for {block_label} may be degraded due to cloud cover."
         if insights.data_quality == "degraded":
-            next_pass_days = self._estimate_days_to_next_pass(insights.data_age_days)
-            return (
-                f"Satellite data for {block_label} may be degraded due to cloud contamination or low usable pixels. "
-                f"Next clear pass estimated in {next_pass_days} days."
-            )
+            return f"Satellite data for {block_label} may be degraded due to cloud cover."
         if insights.data_quality == "no_data":
             if insights.status == "updating":
                 return "Satellite intelligence is still being prepared for this block."
