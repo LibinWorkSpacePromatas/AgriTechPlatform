@@ -53,6 +53,8 @@ export const satelliteContractSchema = z.object({
   lai: laiSchema.default(null),
   cloud_cover_pct: z.number().min(0).max(100).nullable().default(null),
   pixel_count: z.number().int().nonnegative().default(0),
+  ndvi_tile_url: z.string().nullable().default(null),
+  ndwi_tile_url: z.string().nullable().default(null),
   map_tile_url: z.string().nullable().default(null),
   map_tile_type: z.enum(['ndvi', 'ndwi']).nullable().default(null),
   data_quality: dataQualitySchema,

@@ -23,6 +23,7 @@ from app.schemas.growing_opportunities import (
     GrowingOpportunityFeedbackRequest,
     GrowingOpportunityFeedbackResponse,
 )
+from app.schemas.insights import DashboardBlockInsightsResponse
 from app.schemas.satellite import BlockInsightsResponse as GEEInsightsResponse, SatelliteTimeseriesPoint
 from app.services.satellite_events import satellite_event_broker
 from app.services.satellite_access import satellite_access_service
@@ -615,7 +616,7 @@ def get_block_timeseries(block_identifier: str):
         raise HTTPException(status_code=500, detail=f"Database error while fetching block time series: {exc}") from exc
 
 
-@router.get("/api/blocks/{block_id}/insights", response_model=GEEInsightsResponse, tags=["satellite-insights"])
+@router.get("/api/blocks/{block_id}/insights", response_model=DashboardBlockInsightsResponse, tags=["satellite-insights"])
 def get_block_dashboard_insights(block_id: str, refresh: bool = Query(default=False)):
     try:
         snapshot = satellite_access_service.get_block_snapshot(block_id, force_refresh=refresh)

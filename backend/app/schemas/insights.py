@@ -5,7 +5,7 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from app.schemas.satellite import SatelliteContractResponse
+from app.schemas.satellite import BlockInsightsResponse, SatelliteContractResponse
 
 
 class MetricInsight(BaseModel):
@@ -14,7 +14,9 @@ class MetricInsight(BaseModel):
     status: str
 
 
-class DashboardBlockInsightsResponse(SatelliteContractResponse):
+class DashboardBlockInsightsResponse(BlockInsightsResponse):
+    ndvi_tile_url: str | None = None
+    ndwi_tile_url: str | None = None
     crop: Optional[str] = None
     data_age_days: int = 0
     confidence: str = "high"
