@@ -5,7 +5,7 @@ const eviSchema = z.number().nullable();
 const laiSchema = z.number().nonnegative().nullable();
 const isoDateSchema = z.string().min(1).nullable();
 
-export const metricKeySchema = z.enum(['ndvi', 'ndwi', 'ndre', 'evi', 'lai']);
+export const metricKeySchema = z.enum(['ndvi', 'ndwi', 'ndre', 'evi', 'lai', 'cloud_cover']);
 export const freshnessStatusSchema = z.enum(['fresh', 'stale', 'updating']);
 export const sourceSchema = z.enum(['real', 'simulated']);
 export const dataQualitySchema = z.enum(['good', 'degraded', 'no_data']);
@@ -53,6 +53,8 @@ export const satelliteContractSchema = z.object({
   lai: laiSchema.default(null),
   cloud_cover_pct: z.number().min(0).max(100).nullable().default(null),
   pixel_count: z.number().int().nonnegative().default(0),
+  ndvi_tile_url: z.string().nullable().default(null),
+  ndwi_tile_url: z.string().nullable().default(null),
   map_tile_url: z.string().nullable().default(null),
   map_tile_type: z.enum(['ndvi', 'ndwi']).nullable().default(null),
   data_quality: dataQualitySchema,
@@ -139,8 +141,17 @@ export const growerGptBlockSummarySchema = satelliteContractSchema.extend({
   date: isoDateSchema.default(null),
   data_age_days: z.number().int().nonnegative().default(0),
   confidence: z.string().min(1).default('low'),
-  insights: z.array(metricInsightSchema).default([]),
-  message: z.string().nullable().default(null)
+  insights: z.array(
+    z.object({
+      type: z.enum(['water', 'health', 'nutrient', 'canopy', 'yield']),
+      severity: z.enum(['critical', 'warning', 'info', 'positive']),
+      message: z.string().min(1),
+      action_window: z.string().min(1),
+      reason: z.string().min(1)
+    })
+  ).default([]),
+  message: z.string().nullable().default(null),
+  reason: z.string().nullable().default(null)
 });
 
 export type SatelliteContract = z.infer<typeof satelliteContractSchema>;

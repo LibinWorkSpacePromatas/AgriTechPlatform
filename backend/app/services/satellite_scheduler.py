@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.db.database import SessionLocal
 from app.db.models import Block, SatelliteRefreshJob
+from app.services.earth_engine import EarthEngineAuthError
 from app.services.satellite_events import satellite_event_broker
 from app.services.satellite_insights import SatelliteInsightsUnavailableError, satellite_insights_service
 
@@ -294,6 +295,14 @@ class SatelliteRefreshScheduler:
                         step_days=self._settings.satellite_backfill_step_days,
                     )
                     processed_blocks += 1
+                except EarthEngineAuthError as exc:
+                    db.rollback()
+                    logger.error(
+                        "event=satellite_backfill_auth_failure block_id=%s "
+                        "hint=sync_system_clock error=%s",
+                        block_id, exc,
+                    )
+                    break  # No point processing more blocks if auth is broken.
                 except SatelliteInsightsUnavailableError as exc:
                     db.rollback()
                     logger.warning("event=satellite_backfill_failed block_id=%s error=%s", block_id, exc)
@@ -386,6 +395,14 @@ class SatelliteRefreshScheduler:
                     data_quality=response.data_quality,
                     latency_ms=response.latency_ms,
                 )
+            except EarthEngineAuthError as exc:
+                db.rollback()
+                logger.error(
+                    "event=satellite_job_auth_failure worker=%s block_id=%s "
+                    "hint=sync_system_clock error=%s",
+                    worker_number, block_id, exc,
+                )
+                self._mark_job_failed(db, block_id, f"GEE auth error (clock skew?): {exc}", started_at)
             except SatelliteInsightsUnavailableError as exc:
                 db.rollback()
                 self._mark_job_failed(db, block_id, str(exc), started_at)

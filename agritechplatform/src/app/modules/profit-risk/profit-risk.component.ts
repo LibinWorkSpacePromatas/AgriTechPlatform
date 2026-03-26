@@ -5,7 +5,6 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { Subject, distinctUntilChanged, filter, takeUntil } from 'rxjs';
 import { AdelaideTimePipe } from '../../shared/pipes/adelaide-time.pipe';
 import { BlockService } from '../../shared/services/block.service';
-import { DashboardApiService, DashboardInsightsResponse } from '../../core/services/dashboard-api.service';
 import { 
   LucideAngularModule, 
   TrendingUp, 
@@ -26,6 +25,8 @@ import {
 import { UserDataService } from '../../core/services/user-data.service';
 import { AuthService } from '../../core/services/auth.service';
 import { User } from '../../core/models/user.model';
+import { DashboardApiService, DashboardInsightsResponse } from '../../core/services/dashboard-api.service';
+import { Block } from '../../shared/models';
 
 export interface Crop {
   name: string;
@@ -49,6 +50,21 @@ export interface Crop {
   revenuePerML?: number;
   riskAdjustedRevenuePerML?: number;
   yearsToProfit?: number | string;
+}
+
+interface LiveWineGrapeEconomics {
+  tonnesPerHaCenter: number;
+  tonnesPerHaRangeLabel: string;
+  totalTonnageLabel: string;
+  yieldAdjustmentFactor: number;
+  revenuePerHa: number;
+  netMarginPerHa: number;
+  revenuePerML: number;
+  riskAdjustedRevenuePerML: number;
+  projectedLoss: number;
+  outlookLabel: string;
+  guidance: string;
+  yearsToProfit: number | string;
 }
 
 @Component({
@@ -87,6 +103,7 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
   private blockService = inject(BlockService);
   selectedBlock = toSignal(this.blockService.selectedBlock$);
   private dashboardApiService = inject(DashboardApiService);
+  private authService = inject(AuthService);
 
   // State
   waterAllocation = signal<number>(100); // Default 100% as requested
@@ -98,8 +115,7 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
   hoveredCrop = signal<any>(null); // For quadrant tooltip
   selectedQuadrantCrop = signal<any>(null); // For detail modal
   liveInsights = signal<DashboardInsightsResponse | null>(null);
-  isSatelliteLoading = signal<boolean>(false);
-  satelliteError = signal<string | null>(null);
+  profitRiskWarning = signal<string | null>(null);
 
   // Constants
   readonly WATER_PRICE_PER_ML = 150; // Assumed temporary value, adjust if needed
@@ -185,10 +201,7 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
       }
   ];
 
-  constructor(
-    private userDataService: UserDataService,
-    private authService: AuthService
-  ) {}
+  constructor(private userDataService: UserDataService) {}
 
   ngOnInit() {
     this.user = this.authService.getCurrentUser() || this.userDataService.getUsers()[0];
@@ -200,7 +213,7 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
         distinctUntilChanged((previous, current) => previous.lan === current.lan)
       )
       .subscribe(block => {
-        this.loadSatelliteYield(block.lan || block.id);
+        this.loadLiveForecast(block);
       });
   }
 
@@ -209,29 +222,221 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  liveLai = computed(() => this.liveInsights()?.metrics.lai.raw ?? null);
+
+  projectedTonnageRange = computed(() => {
+    const block = this.selectedBlock();
+    const lai = this.liveInsights()?.metrics.lai.raw ?? null;
+    if (!block || lai === null) {
+      return null;
+    }
+
+    const tonnesPerHaCenter = Math.max(1.2, Math.min(5.8, 1.15 + lai * 0.78));
+    const lowerPerHa = tonnesPerHaCenter * 0.85;
+    const upperPerHa = tonnesPerHaCenter * 1.15;
+    const totalLower = lowerPerHa * block.size;
+    const totalUpper = upperPerHa * block.size;
+
+    return {
+      centerPerHa: tonnesPerHaCenter,
+      perHa: `${lowerPerHa.toFixed(1)}-${upperPerHa.toFixed(1)} t/ha`,
+      totalCenter: ((lowerPerHa + upperPerHa) / 2) * block.size,
+      total: `${totalLower.toFixed(1)}-${totalUpper.toFixed(1)} t`,
+    };
+  });
+
+  liveWineGrapeEconomics = computed<LiveWineGrapeEconomics | null>(() => {
+    const tonnage = this.projectedTonnageRange();
+    const insights = this.liveInsights();
+    if (!tonnage || !insights) {
+      return null;
+    }
+
+    const allocation = this.waterAllocation() / 100;
+    const baseCrop = this.crops.find(crop => crop.name === 'Wine Grapes');
+    if (!baseCrop) {
+      return null;
+    }
+
+    const tonnesPerHaCenter = tonnage.centerPerHa;
+    const baselineForecastPerHa = 4.2;
+    const yieldAdjustmentFactor = Math.max(0.45, Math.min(1.55, tonnesPerHaCenter / baselineForecastPerHa));
+    const revenuePerHa = baseCrop.marginParams.revenueAt100 * allocation * yieldAdjustmentFactor;
+    const netMarginPerHa = revenuePerHa - baseCrop.marginParams.costsAt100;
+    const revenuePerML = baseCrop.waterMLPerHa > 0 ? revenuePerHa / baseCrop.waterMLPerHa : 0;
+    const riskAdjustedRevenuePerML = revenuePerML * (1 - baseCrop.volatilityFactor);
+    const projectedLoss = Math.max(0, (baseCrop.marginParams.revenueAt100 * allocation) - revenuePerHa);
+
+    let outlookLabel = 'Stable';
+    let guidance = 'Yield and return expectations are broadly in line with the current block plan.';
+    if (tonnesPerHaCenter < 2 || projectedLoss >= 40) {
+      outlookLabel = 'Downside risk';
+      guidance = 'Lower canopy strength is pulling the block below its expected return, so budget and harvest planning should be tightened.';
+    } else if (tonnesPerHaCenter > 5 || projectedLoss <= 10) {
+      outlookLabel = 'Upside potential';
+      guidance = 'This block is running ahead of the base forecast, so there is room for a stronger-than-usual return if fruit quality holds.';
+    }
+
+    const yearsToProfit = netMarginPerHa > 0 ? 1 : 'Ongoing losses';
+
+    return {
+      tonnesPerHaCenter,
+      tonnesPerHaRangeLabel: tonnage.perHa,
+      totalTonnageLabel: tonnage.total,
+      yieldAdjustmentFactor,
+      revenuePerHa,
+      netMarginPerHa,
+      revenuePerML,
+      riskAdjustedRevenuePerML,
+      projectedLoss,
+      outlookLabel,
+      guidance,
+      yearsToProfit
+    };
+  });
+
+  forecastConfidence = computed(() => {
+    const insights = this.liveInsights();
+    if (!insights) return 'Waiting';
+    if (insights.dataQuality === 'good' && insights.source === 'real') return 'High confidence';
+    if (insights.dataQuality === 'degraded' || insights.source === 'simulated') return 'Moderate confidence';
+    return 'Low confidence';
+  });
+
+  liveForecastStatus = computed(() => {
+    const insights = this.liveInsights();
+    if (!insights) return 'Loading live forecast';
+    if (insights.status === 'updating') return 'Live forecast refresh in progress';
+    if (insights.status === 'stale') return 'Showing cached forecast while refresh runs';
+    if (insights.dataQuality === 'degraded') return 'Forecast available with reduced image quality';
+    if (insights.dataQuality === 'no_data') return 'No usable satellite data available';
+    return insights.source === 'real' ? 'Forecast refreshed from satellite data' : 'Forecast loaded from cache';
+  });
+
+  freshnessSummary = computed(() => {
+    const insights = this.liveInsights();
+    if (!insights?.compositeDateTo) return 'Composite date unavailable';
+    return `Composite date: ${this.formatInsightDate(insights.compositeDateTo)}`;
+  });
+
+  laiAdvisory = computed(() => {
+    const lai = this.liveInsights()?.metrics.lai.raw ?? null;
+    if (lai === null) {
+      return {
+        title: 'Waiting for live tonnage forecast',
+        message: 'The next clear satellite composite will update the yield outlook for this block.',
+        severity: 'info'
+      };
+    }
+
+    if (lai > 5) {
+      return {
+        title: 'Above-average yield advisory',
+        message: 'Leaf area is high for this block. Review canopy and quality settings so strong volume does not reduce fruit quality.',
+        severity: 'positive'
+      };
+    }
+
+    if (lai < 2) {
+      return {
+        title: 'Yield warning',
+        message: 'Leaf area is below target, so harvest tonnage and profit expectations should be revised downward.',
+        severity: 'critical'
+      };
+    }
+
+    return {
+      title: 'Forecast tracking normally',
+      message: 'Leaf area is in the workable production range. Continue monitoring every new satellite refresh.',
+      severity: 'neutral'
+    };
+  });
+
+  profitForecastSummary = computed(() => {
+    const insights = this.liveInsights();
+    const wineEconomics = this.liveWineGrapeEconomics();
+    if (!insights || !wineEconomics) {
+      return 'Profit impact unavailable while the live forecast loads.';
+    }
+
+    if (wineEconomics.netMarginPerHa < 0) {
+      return `Current block forecast implies about ${this.formatCompactCurrency(Math.abs(wineEconomics.netMarginPerHa))}/ha downside versus break-even.`;
+    }
+
+    if (wineEconomics.projectedLoss > 0) {
+      return `Projected profit risk: ${this.formatCompactCurrency(wineEconomics.projectedLoss)} under current block conditions.`;
+    }
+
+    return 'No immediate profit loss is implied by the current block forecast.';
+  });
+
+  profitOutlookHeadline = computed(() => {
+    const wineEconomics = this.liveWineGrapeEconomics();
+    if (!wineEconomics) {
+      return '--';
+    }
+    return wineEconomics.outlookLabel;
+  });
+
+  keyInsight = computed(() => {
+    const wineEconomics = this.liveWineGrapeEconomics();
+    if (!wineEconomics) {
+      return {
+        title: 'Key Insight',
+        message: 'Waiting for the latest satellite forecast before updating the block-level profit picture.',
+        warning: 'This section refreshes when a new LAI composite is available.'
+      };
+    }
+
+    const marginText = wineEconomics.netMarginPerHa >= 0
+      ? `+$${Math.round(wineEconomics.netMarginPerHa).toLocaleString()}/ha margin estimate`
+      : `-$${Math.round(Math.abs(wineEconomics.netMarginPerHa)).toLocaleString()}/ha margin pressure`;
+
+    return {
+      title: 'Live block impact',
+      message: `Wine grapes are currently tracking at ${wineEconomics.tonnesPerHaRangeLabel} with ${marginText}.`,
+      warning: `${this.forecastConfidence()} at ${this.waterAllocation()}% water allocation. ${wineEconomics.guidance}`
+    };
+  });
+
   // Computed Values
   cropMetrics = computed(() => {
       const allocation = this.waterAllocation() / 100;
-      const yieldFactor = 1;
+      const wineEconomics = this.liveWineGrapeEconomics();
 
       return this.crops.map(crop => {
           const effectiveWaterProportion = allocation;
-          const adjustedYield = crop.yieldPerHa * effectiveWaterProportion * yieldFactor;
+          const adjustedYield = crop.yieldPerHa * effectiveWaterProportion;
           const revenuePerHaStandard = adjustedYield * crop.pricePerTon;
-          const revenuePerML = crop.waterMLPerHa > 0 ? revenuePerHaStandard / crop.waterMLPerHa : 0;
-          const riskAdjustedRevenuePerML = revenuePerML * (1 - crop.volatilityFactor);
+          let revenuePerML = crop.waterMLPerHa > 0 ? revenuePerHaStandard / crop.waterMLPerHa : 0;
+          let riskAdjustedRevenuePerML = revenuePerML * (1 - crop.volatilityFactor);
 
-          const marginRevenue = revenuePerHaStandard;
-          const marginCosts = crop.variableCosts + crop.fixedCosts;
-          const netMarginPerHa = marginRevenue - marginCosts;
+          // Logic for Net Margin Chart (Specific Targets)
+          // Revenue scales with allocation, Costs stay fixed
+          let marginRevenue = (crop.marginParams?.revenueAt100 || 0) * allocation;
+          const marginCosts = crop.marginParams?.costsAt100 || 0;
+          let netMarginPerHa = marginRevenue - marginCosts;
 
-          const yearsToProfit = netMarginPerHa > 0 ? Math.ceil(30000 / netMarginPerHa) : 'Ongoing losses';
+          let yearsToProfit: number | string = netMarginPerHa > 0 ? Math.ceil(30000 / netMarginPerHa) : 'Ongoing losses';
+          let yearsStr = crop.yearsStr;
+
+          if (crop.name === 'Wine Grapes' && wineEconomics) {
+              marginRevenue = wineEconomics.revenuePerHa;
+              netMarginPerHa = wineEconomics.netMarginPerHa;
+              revenuePerML = wineEconomics.revenuePerML;
+              riskAdjustedRevenuePerML = wineEconomics.riskAdjustedRevenuePerML;
+              yearsToProfit = wineEconomics.yearsToProfit;
+              yearsStr = typeof yearsToProfit === 'number' ? `${yearsToProfit} year` : 'Ongoing losses';
+          }
+
 
           return {
               ...crop,
-              adjustedYieldPerHa: adjustedYield,
-              revenuePerHa: marginRevenue,
-              totalCostsPerHa: marginCosts,
+              yieldPerHa: crop.name === 'Wine Grapes' && wineEconomics ? wineEconomics.tonnesPerHaCenter : crop.yieldPerHa,
+              yearsStr,
+              adjustedYieldPerHa: crop.name === 'Wine Grapes' && wineEconomics ? wineEconomics.tonnesPerHaCenter * effectiveWaterProportion : adjustedYield,
+              revenuePerHa: marginRevenue, // Use margin revenue for tooltip
+              totalCostsPerHa: marginCosts, // Use margin costs for tooltip
               netMarginPerHa,
               revenuePerML,
               riskAdjustedRevenuePerML,
@@ -300,16 +505,9 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
 
   readonly WINE_GRAPE_BASELINE = 493.44512195121956;
 
-  liveLai = computed(() => this.liveInsights()?.metrics.lai.raw ?? null);
-  liveLaiStatus = computed(() => this.liveInsights()?.metrics.lai.label ?? 'No data');
-
-  currentYieldMode = computed(() => {
-      const insights = this.liveInsights();
-      if (!insights || insights.source !== 'real' || insights.dataQuality === 'no_data' || this.liveLai() === null) {
-          return 'Baseline market assumptions (live LAI unavailable)';
-      }
-
-      return `Live LAI ${this.liveLai()!.toFixed(2)} (${this.liveLaiStatus()}) shown for yield context`;
+  wineGrapeRiskAdjustedBaseline = computed(() => {
+      const wineGrapes = this.cropMetrics().find(c => c.name === 'Wine Grapes');
+      return wineGrapes?.riskAdjustedRevenuePerML ?? this.WINE_GRAPE_BASELINE;
   });
 
   wineGrapeMetrics = computed(() => {
@@ -423,8 +621,55 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
       return ((cropRevenue - wineGrapesRevenue) / wineGrapesRevenue) * 100;
   }
 
-  getProjectedYieldForCrop(cropName: string): number {
-      return this.cropMetrics().find(c => c.name === cropName)?.adjustedYieldPerHa ?? 0;
+  getRiskAdjustedDifferenceVsWineGrapes(crop: Crop): number {
+      const baseline = this.wineGrapeRiskAdjustedBaseline();
+      const riskAdjustedRevenue = crop.riskAdjustedRevenuePerML ?? 0;
+      if (!baseline || this.waterAllocation() === 0) {
+          return 0;
+      }
+
+      return (((riskAdjustedRevenue / (this.waterAllocation() / 100)) - baseline) / baseline) * 100;
+  }
+
+  private loadLiveForecast(block: Block): void {
+      this.profitRiskWarning.set(null);
+      this.dashboardApiService.getBlockInsights(block.lan || block.id)
+          .pipe(takeUntil(this.destroy$))
+          .subscribe({
+          next: insights => {
+              this.liveInsights.set(insights);
+              this.profitRiskWarning.set(insights.warning);
+          },
+          error: error => {
+              console.error('Profit & Risk forecast failed to load.', error);
+              this.liveInsights.set(null);
+              this.profitRiskWarning.set('Unable to load the live satellite forecast for this block.');
+          }
+      });
+  }
+
+  private formatInsightDate(value: string): string {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+          return value;
+      }
+
+      return date.toLocaleDateString('en-US', {
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric'
+      });
+  }
+
+  private formatCompactCurrency(value: number): string {
+      const absValue = Math.abs(value);
+      if (absValue >= 1000000) {
+          return `$${(absValue / 1000000).toFixed(1)}M`;
+      }
+      if (absValue >= 1000) {
+          return `$${(absValue / 1000).toFixed(1)}k`;
+      }
+      return `$${Math.round(absValue)}`;
   }
 
     // Quadrant positioning for Global Market Quadrant view
@@ -538,23 +783,4 @@ export class ProfitRiskComponent implements OnInit, OnDestroy {
         ];
     })();
 
-  private loadSatelliteYield(blockId: string): void {
-      this.isSatelliteLoading.set(true);
-      this.satelliteError.set(null);
-
-      this.dashboardApiService.getBlockInsights(blockId)
-          .pipe(takeUntil(this.destroy$))
-          .subscribe({
-              next: response => {
-                  this.liveInsights.set(response);
-                  this.isSatelliteLoading.set(false);
-              },
-              error: error => {
-                  console.error('Profit & Risk satellite load failed.', error);
-                  this.liveInsights.set(null);
-                  this.satelliteError.set('Unable to load live LAI for this block.');
-                  this.isSatelliteLoading.set(false);
-              }
-          });
-  }
 }

@@ -9,16 +9,34 @@
             selectedBlock()?.location }}</p>
     </div>
 
-    <div class="modal-disclaimer">
-        <h5>Data Basis</h5>
-        <p>
-            <strong>Satellite-derived:</strong>
-            <span *ngIf="liveLai() !== null; else noLiveLai">LAI {{ liveLai() | number:'1.2-2' }} ({{ liveLaiStatus() }}) is shown as live satellite context.</span>
-            <ng-template #noLiveLai>Live LAI is unavailable for this block.</ng-template>
-        </p>
-        <p><strong>Assumed / economic model:</strong> Water allocation, prices, variable costs, fixed costs, volatility, and capital inputs remain the fixed assumptions used by this module.</p>
-        <p>{{ currentYieldMode() }}</p>
-        <p *ngIf="satelliteError()">{{ satelliteError() }}</p>
+    <div class="live-forecast-panel">
+        <div class="forecast-copy">
+            <div class="forecast-kicker">Live Block Forecast</div>
+            <h2>{{ laiAdvisory().title }}</h2>
+            <p class="forecast-summary">{{ laiAdvisory().message }}</p>
+            <p class="forecast-status">{{ liveForecastStatus() }}</p>
+        </div>
+        <div class="forecast-metrics">
+            <div class="forecast-metric">
+                <span class="forecast-label">Projected tonnage</span>
+                <strong>{{ projectedTonnageRange()?.total || '--' }}</strong>
+                <small>{{ projectedTonnageRange()?.perHa || 'Waiting for LAI-based estimate' }}</small>
+            </div>
+            <div class="forecast-metric">
+                <span class="forecast-label">Forecast confidence</span>
+                <strong>{{ forecastConfidence() }}</strong>
+                <small>{{ freshnessSummary() }}</small>
+            </div>
+            <div class="forecast-metric">
+                <span class="forecast-label">Profit outlook</span>
+                <strong>{{ profitOutlookHeadline() }}</strong>
+                <small>{{ profitForecastSummary() }}</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="forecast-warning" *ngIf="liveInsights()?.warning || profitRiskWarning()">
+        {{ liveInsights()?.warning || profitRiskWarning() }}
     </div>
 
     <!-- Crisis Alert -->
@@ -258,13 +276,13 @@
             <div class="insight-content">
                 <i-lucide [img]="Lightbulb" class="insight-icon"></i-lucide>
                 <div>
-                    <h4 class="insight-title">Key Insight</h4>
+                    <h4 class="insight-title">{{ keyInsight().title }}</h4>
                     <p class="insight-text">
-                        Wine grapes now project {{ getProjectedYieldForCrop('Wine Grapes') | number:'1.1-1' }} t/ha under baseline economics, with live LAI shown separately for context.
+                        {{ keyInsight().message }}
                     </p>
                     <p class="insight-warning">
                         <i-lucide [img]="AlertTriangle" class="icon-sm"></i-lucide>
-                        Showing impact at {{ waterAllocation() }}% water allocation using {{ currentYieldMode() }}
+                        {{ keyInsight().warning }}
                     </p>
                 </div>
             </div>
@@ -430,7 +448,7 @@
             <p class="chart-subtitle">Revenue adjusted for price volatility risk vs wine grapes baseline</p>
 
             <div style="text-align: center; font-size: 0.75rem; color: var(--gray-500); margin-bottom: 0.5rem;">
-                Difference vs Wine Grapes baseline [${{WINE_GRAPE_BASELINE}}/ML risk-adjusted]
+                Difference vs Wine Grapes baseline [${{ wineGrapeRiskAdjustedBaseline() | number:'1.0-0' }}/ML risk-adjusted]
             </div>
 
             <div class="revenue-chart-container">
@@ -447,16 +465,13 @@
                                     +${{crop.riskAdjustedRevenuePerML | number:'1.0-0'}}/ML
                                 </div>
                                 <div class="tooltip-comparison">
-                                    +{{ (((crop.riskAdjustedRevenuePerML / (waterAllocation() / 100)) -
-                                    WINE_GRAPE_BASELINE)
-                                    / WINE_GRAPE_BASELINE) * 100 | number:'1.0-0' }}%
-                                    <span class="comparison-text">vs Wine Grapes ($493.44512195121956/ML)</span>
+                                    +{{ getRiskAdjustedDifferenceVsWineGrapes(crop) | number:'1.0-0' }}%
+                                    <span class="comparison-text">vs Wine Grapes (${{ wineGrapeRiskAdjustedBaseline() | number:'1.0-0' }}/ML)</span>
                                 </div>
                             </div>
                         </div>
                         <span class="bar-value diff-label">
-                            +{{ (((crop.riskAdjustedRevenuePerML / (waterAllocation() / 100)) - WINE_GRAPE_BASELINE) /
-                            WINE_GRAPE_BASELINE) * 100 | number:'1.0-0' }}%
+                            +{{ getRiskAdjustedDifferenceVsWineGrapes(crop) | number:'1.0-0' }}%
                         </span>
                     </div>
                 </div>

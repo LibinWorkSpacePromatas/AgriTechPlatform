@@ -10,6 +10,11 @@ from threading import Lock
 from time import perf_counter
 from typing import Any
 
+try:
+    from google.auth.exceptions import RefreshError as GoogleRefreshError
+except ImportError:  # pragma: no cover
+    GoogleRefreshError = Exception  # type: ignore[assignment,misc]
+
 from app.core.config import Settings, get_settings
 
 
@@ -30,6 +35,11 @@ class EarthEngineConfigurationError(RuntimeError):
     pass
 
 
+class EarthEngineAuthError(RuntimeError):
+    """Raised when GEE credentials are rejected (e.g. clock skew, expired key)."""
+    pass
+
+
 class EarthEngineExecutionError(RuntimeError):
     pass
 
@@ -46,6 +56,8 @@ class SatelliteComputation:
     data_quality: str
     composite_date_from: date | None
     composite_date_to: date | None
+    ndvi_tile_url: str | None
+    ndwi_tile_url: str | None
     map_tile_url: str | None
     image_count: int
     actual_dates: list[date]
@@ -117,13 +129,23 @@ class EarthEngineClient:
                     "GEE service account email is missing. Set GEE_SERVICE_ACCOUNT_EMAIL or include client_email in GEE_SERVICE_ACCOUNT_JSON."
                 )
 
-            credentials = self._ee.ServiceAccountCredentials(
-                service_account,
-                key_data=self._settings.gee_service_account_json,
-            )
-            self._ee.Initialize(credentials=credentials, project=self._settings.gee_project)
-            self._initialized = True
-            logger.info("Earth Engine initialized for project %s.", self._settings.gee_project)
+            try:
+                credentials = self._ee.ServiceAccountCredentials(
+                    service_account,
+                    key_data=self._settings.gee_service_account_json,
+                )
+                self._ee.Initialize(credentials=credentials, project=self._settings.gee_project)
+                self._initialized = True
+                logger.info("Earth Engine initialized for project %s.", self._settings.gee_project)
+            except GoogleRefreshError as exc:
+                # Do NOT set _initialized=True — allow the next attempt to retry auth.
+                logger.error(
+                    "event=gee_auth_failed reason=jwt_refresh_error hint=check_system_clock error=%s", exc
+                )
+                raise EarthEngineAuthError(
+                    f"GEE credentials were rejected by Google (invalid_grant / clock skew). "
+                    f"Fix: sync your system clock (W32tm /resync) and restart. Detail: {exc}"
+                ) from exc
 
     def compute_block_insights(
         self,
@@ -214,6 +236,8 @@ class EarthEngineClient:
                     data_quality="no_data",
                     composite_date_from=date_from_candidate,
                     composite_date_to=date_to,
+                    ndvi_tile_url=None,
+                    ndwi_tile_url=None,
                     map_tile_url=None,
                     image_count=0,
                     actual_dates=[],
@@ -232,12 +256,13 @@ class EarthEngineClient:
                 cloud_cover_pct=cloud_cover_pct,
                 image_count=image_count,
             )
-            map_tile_url = None
+            ndvi_tile_url = None
+            ndwi_tile_url = None
 
             if generate_tile_url or (generate_tile_url is None and self._settings.satellite_enable_tile_urls):
-                # PDF Requirement: NDWI zone map (spatial visualization)
-                # min=-0.5, max=0.5, palette=["red", "orange", "yellow", "green"]
-                map_tile_url = self._build_ndwi_tile_url(indices.select("ndwi").clip(geometry))
+                ndvi_tile_url = self._build_tile_url(indices.select("ndvi").clip(geometry))
+                # Water screen keeps using the NDWI zone map.
+                ndwi_tile_url = self._build_ndwi_tile_url(indices.select("ndwi").clip(geometry))
 
             return SatelliteComputation(
                 ndvi=self._validate_ratio_index(stats.get("ndvi_mean"), index_name="ndvi"),
@@ -250,7 +275,9 @@ class EarthEngineClient:
                 data_quality="no_data" if pixel_count == 0 else data_quality,
                 composite_date_from=self._parse_iso_date(metadata_summary.get("composite_date_from")) or date_from_candidate,
                 composite_date_to=self._parse_iso_date(metadata_summary.get("composite_date_to")) or date_to,
-                map_tile_url=map_tile_url,
+                ndvi_tile_url=ndvi_tile_url,
+                ndwi_tile_url=ndwi_tile_url,
+                map_tile_url=ndwi_tile_url,
                 image_count=image_count,
                 actual_dates=actual_dates,
                 execution_ms=int((perf_counter() - started_at) * 1000),

@@ -5,7 +5,7 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from app.schemas.satellite import SatelliteContractResponse
+from app.schemas.satellite import BlockInsightsResponse, SatelliteContractResponse
 
 
 class MetricInsight(BaseModel):
@@ -14,7 +14,9 @@ class MetricInsight(BaseModel):
     status: str
 
 
-class DashboardBlockInsightsResponse(SatelliteContractResponse):
+class DashboardBlockInsightsResponse(BlockInsightsResponse):
+    ndvi_tile_url: str | None = None
+    ndwi_tile_url: str | None = None
     crop: Optional[str] = None
     data_age_days: int = 0
     confidence: str = "high"
@@ -48,8 +50,17 @@ class GrowerGPTResponse(SatelliteContractResponse):
     date: Optional[date_type] = None
     data_age_days: int = 0
     confidence: str = "high"
-    insights: List[MetricInsight] = Field(default_factory=list)
+    insights: List["GrowerGPTInsight"] = Field(default_factory=list)
     message: Optional[str] = None
+    reason: Optional[str] = None
+
+
+class GrowerGPTInsight(BaseModel):
+    type: Literal["water", "health", "nutrient", "canopy", "yield"]
+    severity: Literal["critical", "warning", "info", "positive"]
+    message: str
+    action_window: str
+    reason: str
 
 
 class UserGPTInsight(BaseModel):
