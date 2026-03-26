@@ -371,7 +371,7 @@
 
                     <div class="detail-chart-shell">
                         <app-line-chart *ngIf="currentSensorHasData; else noDetailHistory"
-                            [data]="currentSensorData" [labels]="currentSensorLabels" [height]="190" color="#15803d"
+                            [data]="currentSensorData" [labels]="currentSensorLabels" [pointColors]="currentSensorPointColors" [height]="190" color="#15803d"
                             [showAxes]="true">
                         </app-line-chart>
                         <ng-template #noDetailHistory>
@@ -384,70 +384,72 @@
             </div>
         </div>
 
-        <div class="satellite-trend-card">
-            <div class="trend-card-header">
-                <div>
-                    <div class="section-label trend-section-label">
-                        <i-lucide [img]="LeafIcon" size="16"></i-lucide>
-                        Block History
+        <div class="satellite-insights-row">
+            <div class="satellite-trend-card satellite-insight-panel">
+                <div class="trend-card-header">
+                    <div>
+                        <div class="section-label trend-section-label">
+                            <i-lucide [img]="LeafIcon" size="16"></i-lucide>
+                            Block History
+                        </div>
+                        <p class="trend-card-subtitle">This chart groups satellite observations by day. The green line is the main plant-health signal, and the blue, purple, and amber lines add supporting context.</p>
                     </div>
-                    <p class="trend-card-subtitle">This chart groups satellite observations by day. The green line is the main plant-health signal, and the blue, purple, and amber lines add supporting context.</p>
+                    <div class="trend-card-meta">{{ dashboardFreshnessLabel }}</div>
                 </div>
-                <div class="trend-card-meta">{{ dashboardFreshnessLabel }}</div>
-            </div>
 
-            <div class="trend-chip-row" *ngIf="satelliteTrendSummary as summary">
-                <span class="trend-chip" [ngClass]="getTrendBadgeClass(summary.ndvi.direction)">
-                    NDVI {{ getTrendLabel(summary.ndvi.direction) }}
-                </span>
-                <span class="trend-chip neutral" *ngIf="summary.anomalyMessage">{{ summary.anomalyMessage }}</span>
-            </div>
-
-            <div class="trend-summary-grid" *ngIf="satelliteTrendSummary as summary">
-                <div class="trend-summary-item">
-                    <div class="trend-summary-label">Main signal trend</div>
-                    <div class="trend-summary-text">{{ summary.ndvi.message }}</div>
-                </div>
-                <div class="trend-summary-item">
-                    <div class="trend-summary-label">How to use it</div>
-                    <div class="trend-summary-text">Use this history for change over time. Use the cards above for a simpler daily reading.</div>
-                </div>
-            </div>
-
-            <div class="trend-chart-shell" *ngIf="hasSatelliteTrendData; else emptyTrendState">
-                <app-line-chart [series]="satelliteTrendSeries" [labels]="satelliteTrendLabels" [height]="240"
-                    [showAxes]="true" [minY]="-1" [maxY]="1">
-                </app-line-chart>
-            </div>
-
-            <ng-template #emptyTrendState>
-                <div class="trend-empty-state">
-                    Historical block data is still being collected. The full trend chart will appear once at least two refresh cycles are available.
-                </div>
-            </ng-template>
-        </div>
-
-        <div class="ndvi-map-card card-box" *ngIf="currentBlock">
-            <div class="trend-card-header">
-                <div>
-                    <div class="section-label trend-section-label">
-                        <i-lucide [img]="LayersIcon" size="16"></i-lucide>
-                        NDVI Map
-                    </div>
-                    <p class="trend-card-subtitle">This block map uses the latest NDVI overlay from the satellite pipeline when imagery is available. If tiles are unavailable, the dashboard still shows the block outline for spatial context.</p>
-                </div>
-                <div class="ndvi-map-meta">
-                    <span class="trend-chip" [ngClass]="isNdviMapAvailable ? 'good' : 'neutral'">
-                        {{ mapAvailabilityLabel }}
+                <div class="trend-chip-row" *ngIf="satelliteTrendSummary as summary">
+                    <span class="trend-chip" [ngClass]="getTrendBadgeClass(summary.ndvi.direction)">
+                        NDVI {{ getTrendLabel(summary.ndvi.direction) }}
                     </span>
-                    <span class="trend-chip neutral">{{ mapOverlayLabel }}</span>
+                    <span class="trend-chip neutral" *ngIf="summary.anomalyMessage">{{ summary.anomalyMessage }}</span>
                 </div>
+
+                <div class="trend-summary-grid" *ngIf="satelliteTrendSummary as summary">
+                    <div class="trend-summary-item">
+                        <div class="trend-summary-label">Main signal trend</div>
+                        <div class="trend-summary-text">{{ summary.ndvi.message }}</div>
+                    </div>
+                    <div class="trend-summary-item">
+                        <div class="trend-summary-label">How to use it</div>
+                        <div class="trend-summary-text">Use this history for change over time. Use the cards above for a simpler daily reading.</div>
+                    </div>
+                </div>
+
+                <div class="trend-chart-shell" *ngIf="hasSatelliteTrendData; else emptyTrendState">
+                    <app-line-chart [series]="satelliteTrendSeries" [labels]="satelliteTrendLabels" [height]="240"
+                        [showAxes]="true" [minY]="-1" [maxY]="1">
+                    </app-line-chart>
+                </div>
+
+                <ng-template #emptyTrendState>
+                    <div class="trend-empty-state">
+                        Historical block data is still being collected. The full trend chart will appear once at least two refresh cycles are available.
+                    </div>
+                </ng-template>
             </div>
 
-            <div class="ndvi-map-shell">
-                <div #ndviMapContainer class="ndvi-map-canvas"></div>
-                <div class="ndvi-map-overlay" *ngIf="!isNdviMapAvailable">
-                    {{ mapEmptyStateMessage }}
+            <div class="ndvi-map-card card-box satellite-insight-panel" *ngIf="currentBlock">
+                <div class="trend-card-header">
+                    <div>
+                        <div class="section-label trend-section-label">
+                            <i-lucide [img]="LayersIcon" size="16"></i-lucide>
+                            NDVI Map
+                        </div>
+                        <p class="trend-card-subtitle">This block map uses the latest NDVI overlay from the satellite pipeline when imagery is available. If tiles are unavailable, the dashboard still shows the block outline for spatial context.</p>
+                    </div>
+                    <div class="ndvi-map-meta">
+                        <span class="trend-chip" [ngClass]="isNdviMapAvailable ? 'good' : 'neutral'">
+                            {{ mapAvailabilityLabel }}
+                        </span>
+                        <span class="trend-chip neutral">{{ mapOverlayLabel }}</span>
+                    </div>
+                </div>
+
+                <div class="ndvi-map-shell">
+                    <div #ndviMapContainer class="ndvi-map-canvas"></div>
+                    <div class="ndvi-map-overlay" *ngIf="!isNdviMapAvailable">
+                        {{ mapEmptyStateMessage }}
+                    </div>
                 </div>
             </div>
         </div>
@@ -475,7 +477,6 @@
                         <h3>Current Weather <span class="location">&mdash; {{ currentBlock?.location?.name || 'Loading...' }}</span>
                         </h3>
                     </div>
-                    <p class="weather-summary-text">{{ getWeatherSummary() }}</p>
                 </div>
                 <button class="btn btn-sm btn-light" (click)="refreshWeather()" [disabled]="isLoading">
                     <i-lucide [img]="RefreshCwIcon" size="14" [class.spin]="isLoading"></i-lucide>
@@ -553,7 +554,8 @@
                     [labels]="chartLabels"
                     [height]="150"
                     [showAxes]="true"
-                    [forceAllLabels]="chartMode === 'forecast'">
+                    [forceAllLabels]="chartMode === 'forecast'"
+                    [labelStep]="chartMode === 'hourly' ? 3 : null">
                 </app-line-chart>
             </div>
 
