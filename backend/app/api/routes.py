@@ -12,7 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.api import auth, scan
+from app.api import auth, scan, sensors
 from app.db.session import SessionLocal
 from app.db.models import Block, User
 from fastapi import Query
@@ -35,6 +35,7 @@ from app.services.growing_opportunities import growing_opportunities_service
 router = APIRouter()
 router.include_router(auth.router, prefix="/auth", tags=["auth"])
 router.include_router(scan.router, prefix="/scan", tags=["scan"])
+router.include_router(sensors.router, prefix="/api", tags=["sensors"])
 
 
 class BlockUpsertRequest(BaseModel):

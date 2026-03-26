@@ -3,6 +3,7 @@ import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { distinctUntilChanged, filter, interval, Subject, Subscription, takeUntil } from 'rxjs';
 import {
   AlertTriangle,
+  Beaker,
   CheckCircle,
   CloudRain,
   Cpu,
@@ -37,6 +38,13 @@ import {
   DashboardTrendDirection,
   DashboardTrendSummary
 } from '../../core/services/dashboard-api.service';
+import {
+  BlockIotSensorsResponse,
+  IotSensorHistoryPoint,
+  IotSensorStatus,
+  IotSensorType,
+  IotSensorsApiService
+} from '../../core/services/iot-sensors-api.service';
 import { SatelliteRefreshEvent, SatelliteRefreshEventsService } from '../../core/services/satellite-refresh-events.service';
 
 interface DashboardBlock extends Omit<SharedBlock, 'location'> {
@@ -68,6 +76,26 @@ interface DashboardSensor {
   historyDays: Array<number | null>;
   labelsDays: string[];
   historyWeeks: Array<number | null>;
+  labelsWeeks: string[];
+  suggestedMin?: number;
+  suggestedMax?: number;
+}
+
+interface IotDashboardSensor {
+  sensorId: string;
+  sensorType: IotSensorType;
+  label: string;
+  value: number;
+  unit: string;
+  displayUnit: string;
+  status: IotSensorStatus;
+  icon: any;
+  observedAt: string;
+  historyHours: number[];
+  labelsHours: string[];
+  historyDays: number[];
+  labelsDays: string[];
+  historyWeeks: number[];
   labelsWeeks: string[];
   suggestedMin?: number;
   suggestedMax?: number;
@@ -117,12 +145,15 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   private weatherInterval?: Subscription;
   private weatherRequest?: Subscription;
   private insightsRequest?: Subscription;
+  private iotSensorsRequest?: Subscription;
   private refreshEventsSubscription?: Subscription;
+  private iotSensorInterval?: Subscription;
   private pendingInsightReload = false;
 
   activeTab: 'overview' | 'advisor' = 'overview';
-  chartMode: 'hourly' | 'daily' = 'hourly';
+  chartMode: 'hourly' | 'daily' | 'forecast' = 'hourly';
   activeSensorTab: 'recent' | 'daily' | 'weekly' = 'recent';
+  activeIotSensorTab: 'recent' | 'daily' | 'weekly' = 'recent';
 
   weatherData: WeatherData | null = null;
   isDaytime = true;
@@ -143,6 +174,9 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   private ndviCentroidMarker?: L.CircleMarker;
 
   sensors: DashboardSensor[] = [];
+  iotSensors: IotDashboardSensor[] = [];
+  isIotSensorsLoading = false;
+  iotSensorErrorMessage: string | null = null;
   advisorData = {
     lastUpdated: 'Waiting for backend insight refresh',
     sensorAnalysis: [
@@ -158,7 +192,9 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   hoveredSensor: DashboardSensor | null = null;
   lockedSensor: DashboardSensor | null = null;
   selectedSensor: DashboardSensor | null = null;
+  selectedIotSensor: IotDashboardSensor | null = null;
   isModalOpen = false;
+  isIotSensorModalOpen = false;
   isSatelliteDataPopoverOpen = false;
   isTrendDataFromPopoverOpen = false;
 
@@ -166,6 +202,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     public weatherService: WeatherService,
     private blockService: BlockService,
     private dashboardApiService: DashboardApiService,
+    private iotSensorsApiService: IotSensorsApiService,
     private satelliteRefreshEventsService: SatelliteRefreshEventsService,
     @Inject(PLATFORM_ID) platformId: object
   ) {
@@ -298,6 +335,42 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
 
   get currentSensorHasData(): boolean {
     return this.currentSensorData.some(value => typeof value === 'number');
+  }
+
+  get currentIotSensorLabels(): string[] {
+    const sensor = this.selectedIotSensor;
+    if (!sensor) return [];
+
+    switch (this.activeIotSensorTab) {
+      case 'recent':
+        return [...sensor.labelsHours];
+      case 'daily':
+        return [...sensor.labelsDays];
+      case 'weekly':
+        return [...sensor.labelsWeeks];
+      default:
+        return [...sensor.labelsHours];
+    }
+  }
+
+  get currentIotSensorData(): number[] {
+    const sensor = this.selectedIotSensor;
+    if (!sensor) return [];
+
+    switch (this.activeIotSensorTab) {
+      case 'recent':
+        return [...sensor.historyHours];
+      case 'daily':
+        return [...sensor.historyDays];
+      case 'weekly':
+        return [...sensor.historyWeeks];
+      default:
+        return [...sensor.historyHours];
+    }
+  }
+
+  get currentIotSensorHasData(): boolean {
+    return this.currentIotSensorData.length > 0;
   }
 
   get primarySensor(): DashboardSensor | null {
@@ -480,17 +553,35 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
       ];
     }
 
-    const recentDaily = this.getRecentDailyWeather();
+    if (this.chartMode === 'daily') {
+      const recentDaily = this.getRecentDailyWeather();
+      return [
+        {
+          name: 'Max Temp',
+          data: recentDaily.maxTemperature,
+          color: '#f59e0b',
+          unit: 'C'
+        },
+        {
+          name: 'Min Temp',
+          data: recentDaily.minTemperature,
+          color: '#3b82f6',
+          unit: 'C'
+        }
+      ];
+    }
+
+    const forecastDaily = this.getForecastDailyWeather();
     return [
       {
         name: 'Max Temp',
-        data: recentDaily.maxTemperature,
+        data: forecastDaily.maxTemperature,
         color: '#f59e0b',
         unit: 'C'
       },
       {
         name: 'Min Temp',
-        data: recentDaily.minTemperature,
+        data: forecastDaily.minTemperature,
         color: '#3b82f6',
         unit: 'C'
       }
@@ -499,9 +590,47 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
 
   get chartLabels(): string[] {
     if (!this.weatherData) return [];
-    return this.chartMode === 'hourly'
-      ? this.formatHourlyLabels(this.getRecentHourlyWeather().times)
-      : this.formatDailyLabels(this.getRecentDailyWeather().dates);
+    if (this.chartMode === 'hourly') {
+      return this.formatHourlyLabels(this.getRecentHourlyWeather().times);
+    }
+
+    if (this.chartMode === 'daily') {
+      return this.formatDailyLabels(this.getRecentDailyWeather().dates);
+    }
+
+    return this.formatForecastLabels(this.getForecastDailyWeather().dates);
+  }
+
+  get weatherChartSubtitle(): string {
+    if (this.chartMode === 'forecast') {
+      return 'The next 7 days of forecasted block weather to support scheduling and field planning.';
+    }
+
+    return 'Review recent weather history for the selected block.';
+  }
+
+  get forecastSummaryText(): string {
+    const forecast = this.getForecastDailyWeather();
+    if (!forecast.dates.length) {
+      return 'Forecast data is loading for the next 7 days.';
+    }
+
+    const hottestDay = forecast.dates.reduce((bestIndex, date, index, dates) =>
+      forecast.maxTemperature[index] > forecast.maxTemperature[bestIndex] ? index : bestIndex, 0);
+    const wettestDay = forecast.dates.reduce((bestIndex, date, index, dates) =>
+      forecast.precipitation[index] > forecast.precipitation[bestIndex] ? index : bestIndex, 0);
+    const highestRainChanceDay = forecast.dates.reduce((bestIndex, date, index, dates) =>
+      forecast.precipitationProbability[index] > forecast.precipitationProbability[bestIndex] ? index : bestIndex, 0);
+
+    const hottestLabel = this.formatForecastDayName(forecast.dates[hottestDay]);
+    const wettestLabel = this.formatForecastDayName(forecast.dates[wettestDay]);
+    const highestRainChanceLabel = this.formatForecastDayName(forecast.dates[highestRainChanceDay]);
+    const hottestTemp = forecast.maxTemperature[hottestDay];
+    const wettestRain = forecast.precipitation[wettestDay];
+    const rainChance = forecast.precipitationProbability[highestRainChanceDay];
+    const condition = this.weatherService.getWeatherDescription(forecast.weatherCode[0]).toLowerCase();
+
+    return `Forecast outlook: ${hottestLabel} is the warmest day at ${hottestTemp.toFixed(1)} C, ${wettestLabel} is expected to be the wettest at ${wettestRain.toFixed(1)} mm, and the highest rain chance is ${rainChance.toFixed(0)}% on ${highestRainChanceLabel}. The next forecast period begins with ${condition}.`;
   }
 
   private getRecentHourlyWeather(): {
@@ -557,6 +686,48 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     };
   }
 
+  private getForecastDailyWeather(): {
+    dates: string[];
+    maxTemperature: number[];
+    minTemperature: number[];
+    precipitation: number[];
+    precipitationProbability: number[];
+    weatherCode: number[];
+  } {
+    if (!this.weatherData) {
+      return {
+        dates: [],
+        maxTemperature: [],
+        minTemperature: [],
+        precipitation: [],
+        precipitationProbability: [],
+        weatherCode: []
+      };
+    }
+
+    const todayKey = this.toDateKey(this.weatherData.current.time);
+    const rows = this.weatherData.daily.time
+      .map((date, index) => ({
+        date,
+        maxTemperature: this.weatherData!.daily.temperature_2m_max[index],
+        minTemperature: this.weatherData!.daily.temperature_2m_min[index],
+        precipitation: this.weatherData!.daily.precipitation_sum[index],
+        precipitationProbability: this.weatherData!.daily.precipitation_probability_max[index],
+        weatherCode: this.weatherData!.daily.weather_code[index]
+      }))
+      .filter(row => this.toDateKey(row.date) >= todayKey)
+      .slice(0, 7);
+
+    return {
+      dates: rows.map(row => row.date),
+      maxTemperature: rows.map(row => row.maxTemperature),
+      minTemperature: rows.map(row => row.minTemperature),
+      precipitation: rows.map(row => row.precipitation),
+      precipitationProbability: rows.map(row => row.precipitationProbability),
+      weatherCode: rows.map(row => row.weatherCode)
+    };
+  }
+
   ngOnInit(): void {
     this.blockService.block$
       .pipe(
@@ -567,15 +738,26 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
       .subscribe(block => {
         this.currentBlock = this.mapSharedBlock(block);
         this.pendingInsightReload = false;
+        this.selectedIotSensor = null;
+        this.isIotSensorModalOpen = false;
         this.subscribeToSatelliteRefreshEvents(this.currentBlock);
         this.refreshWeather();
         this.loadBlockInsights(this.currentBlock);
+        this.loadIotSensors(this.currentBlock);
         this.queueNdviMapSync();
       });
 
     this.weatherInterval = interval(300000)
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => this.refreshWeather());
+
+    this.iotSensorInterval = interval(30000)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        if (this.currentBlock) {
+          this.loadIotSensors(this.currentBlock, { silent: true });
+        }
+      });
   }
 
   ngAfterViewInit(): void {
@@ -588,7 +770,9 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     this.weatherInterval?.unsubscribe();
     this.weatherRequest?.unsubscribe();
     this.insightsRequest?.unsubscribe();
+    this.iotSensorsRequest?.unsubscribe();
     this.refreshEventsSubscription?.unsubscribe();
+    this.iotSensorInterval?.unsubscribe();
     this.teardownNdviMap();
   }
 
@@ -762,6 +946,112 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  private loadIotSensors(block: DashboardBlock, options: { silent?: boolean } = {}): void {
+    const silent = options.silent ?? false;
+    if (!silent) {
+      this.isIotSensorsLoading = true;
+      this.iotSensorErrorMessage = null;
+      this.iotSensors = [];
+    }
+
+    this.iotSensorsRequest?.unsubscribe();
+    this.iotSensorsRequest = this.iotSensorsApiService.getBlockSensors(block.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: response => {
+          this.iotSensors = this.mapIotSensors(response);
+          this.iotSensorErrorMessage = null;
+          this.isIotSensorsLoading = false;
+
+          if (this.selectedIotSensor) {
+            this.selectedIotSensor = this.iotSensors.find(
+              sensor => sensor.sensorId === this.selectedIotSensor?.sensorId
+            ) || null;
+            this.isIotSensorModalOpen = !!this.selectedIotSensor;
+          }
+        },
+        error: error => {
+          console.error('Failed to fetch IoT sensor readings.', error);
+          this.iotSensorErrorMessage = 'IoT sensor readings are temporarily unavailable.';
+          this.isIotSensorsLoading = false;
+        }
+      });
+  }
+
+  private mapIotSensors(response: BlockIotSensorsResponse): IotDashboardSensor[] {
+    return response.sensors.map(sensor => ({
+      sensorId: sensor.sensor_id,
+      sensorType: sensor.sensor_type,
+      label: sensor.label,
+      value: sensor.value,
+      unit: sensor.unit,
+      displayUnit: sensor.unit === 'C' ? '\u00B0C' : sensor.unit,
+      status: sensor.status,
+      icon: this.getIotSensorIcon(sensor.sensor_type),
+      observedAt: sensor.observed_at,
+      historyHours: sensor.histories.hourly.map(point => point.value),
+      labelsHours: this.buildIotHistoryLabels(sensor.histories.hourly, 'recent'),
+      historyDays: sensor.histories.daily.map(point => point.value),
+      labelsDays: this.buildIotHistoryLabels(sensor.histories.daily, 'daily'),
+      historyWeeks: sensor.histories.weekly.map(point => point.value),
+      labelsWeeks: this.buildIotHistoryLabels(sensor.histories.weekly, 'weekly'),
+      suggestedMin: sensor.suggested_min ?? undefined,
+      suggestedMax: sensor.suggested_max ?? undefined
+    }));
+  }
+
+  private buildIotHistoryLabels(
+    points: IotSensorHistoryPoint[],
+    mode: 'recent' | 'daily' | 'weekly'
+  ): string[] {
+    return points.map((point, index) => {
+      const parsed = this.parseDateValue(point.observed_at);
+      if (Number.isNaN(parsed.getTime())) {
+        return point.observed_at;
+      }
+
+      const isLatest = index === points.length - 1;
+      if (mode === 'recent') {
+        if (isLatest) {
+          return 'Now';
+        }
+        return parsed.toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          hour12: false
+        });
+      }
+
+      if (mode === 'daily') {
+        if (isLatest) {
+          return 'Today';
+        }
+        return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      }
+
+      return `Week of ${parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+    });
+  }
+
+  private getIotSensorIcon(sensorType: IotSensorType): any {
+    const iconMap: Record<IotSensorType, any> = {
+      soil_moisture: Droplets,
+      soil_temperature: Thermometer,
+      air_temperature: Wind,
+      humidity: CloudRain,
+      ph_level: Beaker
+    };
+
+    return iconMap[sensorType];
+  }
+
+  private formatIotDisplayUnit(unit: string): string {
+    if (unit === 'C') {
+      return '°C';
+    }
+
+    return unit;
+  }
+
   private findSensorById(id?: DashboardMetricKey): DashboardSensor | null {
     if (!id) return null;
     return this.sensors.find(sensor => sensor.id === id) || null;
@@ -840,6 +1130,10 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     return Sprout;
   }
 
+  getIotSensorTooltip(observedAt: string): string {
+    return `Last updated ${this.formatInsightsTimestamp(observedAt)}`;
+  }
+
   private formatInsightsTimestamp(timestamp: string): string {
     const date = this.parseDateValue(timestamp);
     if (Number.isNaN(date.getTime())) {
@@ -885,9 +1179,20 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     this.isModalOpen = true;
   }
 
+  openIotSensorHistory(sensor: IotDashboardSensor): void {
+    this.selectedIotSensor = sensor;
+    this.activeIotSensorTab = 'recent';
+    this.isIotSensorModalOpen = true;
+  }
+
   closeModal(): void {
     this.isModalOpen = false;
     this.selectedSensor = null;
+  }
+
+  closeIotSensorModal(): void {
+    this.isIotSensorModalOpen = false;
+    this.selectedIotSensor = null;
   }
 
   toggleTrendDataFromPopover(event: Event): void {
@@ -962,6 +1267,10 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     this.activeSensorTab = tab;
   }
 
+  setIotSensorTab(tab: 'recent' | 'daily' | 'weekly'): void {
+    this.activeIotSensorTab = tab;
+  }
+
   setActiveTab(tab: 'overview' | 'advisor'): void {
     this.activeTab = tab;
     if (tab === 'overview') {
@@ -972,7 +1281,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     this.teardownNdviMap();
   }
 
-  toggleChart(mode: 'hourly' | 'daily'): void {
+  toggleChart(mode: 'hourly' | 'daily' | 'forecast'): void {
     this.chartMode = mode;
   }
 
@@ -1293,6 +1602,21 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  formatForecastLabels(dates: string[]): string[] {
+    return dates.map((dateValue, index) => {
+      const parsed = this.parseDateValue(dateValue);
+      if (Number.isNaN(parsed.getTime())) {
+        return dateValue;
+      }
+
+      if (index === 0) {
+        return 'Today';
+      }
+
+      return parsed.toLocaleDateString('en-US', { weekday: 'short' });
+    });
+  }
+
   formatTimeseriesLabel(dateValue: string): string {
     const parsed = this.parseDateValue(dateValue);
     if (Number.isNaN(parsed.getTime())) {
@@ -1436,7 +1760,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     return 'Collecting';
   }
 
-  getStatusToneClass(status: DashboardSensor['status']): string {
+  getStatusToneClass(status: DashboardSensor['status'] | IotSensorStatus): string {
     if (status === 'Normal') return 'tone-good';
     if (status === 'Low') return 'tone-watch';
     return 'tone-alert';
@@ -1548,7 +1872,21 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
       return 'Humidity is high. Keep an eye on disease pressure in dense canopy areas.';
     }
 
-    return 'Conditions are fairly calm right now. Use the chart below to review the latest 24 hours and last 7 days.';
+    return 'Conditions are fairly calm right now. Use the chart below to review recent weather and the next 7-day forecast.';
+  }
+
+  formatForecastDayName(dateValue: string): string {
+    const parsed = this.parseDateValue(dateValue);
+    if (Number.isNaN(parsed.getTime())) {
+      return dateValue;
+    }
+
+    const todayKey = this.weatherData ? this.toDateKey(this.weatherData.current.time) : null;
+    if (todayKey && this.toDateKey(dateValue) === todayKey) {
+      return 'Today';
+    }
+
+    return parsed.toLocaleDateString('en-US', { weekday: 'long' });
   }
 
   getSensorTrendSummary(sensor: DashboardSensor | null): string {

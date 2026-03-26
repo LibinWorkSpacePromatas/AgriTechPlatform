@@ -47,17 +47,58 @@
 
     <!-- OVERVIEW TAB CONTENT -->
     <div *ngIf="activeTab === 'overview'" class="fade-in">
-        <div class="overview-intro-card card-box">
-            <div>
-                <div class="overview-kicker">Simple farm view</div>
-                <h3 class="overview-intro-title">The dashboard is organized to highlight the primary crop condition first, with supporting charts and history presented in a consistent section below for easier field review.</h3>
+        <div class="iot-sensors-section card-box">
+            <div class="iot-sensors-header">
+                <div class="iot-sensors-copy">
+                    <div class="section-title iot-section-title">
+                        <span class="iot-section-icon">
+                            <i-lucide [img]="CpuIcon" size="18" class="icon-green"></i-lucide>
+                        </span>
+                        <span>IoT Sensor Readings</span>
+                    </div>
+                </div>
             </div>
-            <div class="overview-intro-status">
-                <div class="overview-status-label">Satellite status</div>
-                <div class="overview-status-value">{{ insightsStatusLabel }}</div>
-                <div class="overview-status-meta">{{ insightsLatencyLabel }}</div>
-                <div class="overview-status-meta">{{ dashboardFreshnessLabel }}</div>
+
+            <div class="iot-sensor-inline-error" *ngIf="iotSensorErrorMessage">{{ iotSensorErrorMessage }}</div>
+
+            <div class="iot-sensors-grid" *ngIf="iotSensors.length; else iotSensorEmptyState">
+                <button
+                    *ngFor="let sensor of iotSensors"
+                    type="button"
+                    class="iot-sensor-card"
+                    [ngClass]="getStatusToneClass(sensor.status)"
+                    [title]="getIotSensorTooltip(sensor.observedAt)"
+                    (click)="openIotSensorHistory(sensor)">
+                    <div class="iot-card-topbar">
+                        <span class="iot-status-indicator" [ngClass]="getStatusToneClass(sensor.status)"></span>
+                        <span class="iot-card-status-text" [ngClass]="getStatusToneClass(sensor.status)">{{ sensor.status }}</span>
+                    </div>
+
+                    <div class="iot-card-main">
+                        <i-lucide [img]="sensor.icon" size="22" class="iot-card-icon"></i-lucide>
+                        <div class="iot-card-copy">
+                            <div class="iot-card-label" [title]="sensor.label">{{ sensor.label }}</div>
+                        </div>
+                    </div>
+
+                    <div class="iot-card-reading-row">
+                        <div class="iot-card-value" [title]="(sensor.value | number:'1.1-1') + sensor.displayUnit">
+                            {{ sensor.value | number:'1.1-1' }}
+                            <span class="unit" *ngIf="sensor.displayUnit">{{ sensor.displayUnit }}</span>
+                        </div>
+                    </div>
+
+                    <div class="iot-card-footer">
+                        <span class="iot-card-action">View history</span>
+                    </div>
+                </button>
             </div>
+
+            <ng-template #iotSensorEmptyState>
+                <div class="trend-empty-state">
+                    {{ isIotSensorsLoading ? 'Loading IoT sensor readings for this block.' : 'IoT sensor readings are not available for this block yet.' }}
+                </div>
+            </ng-template>
         </div>
 
         <ng-container *ngIf="!showNoRealDataState">
@@ -501,13 +542,23 @@
                 <div class="toggle-bar">
                     <span [class.active]="chartMode === 'hourly'" (click)="toggleChart('hourly')">Last 24h</span>
                     <span [class.active]="chartMode === 'daily'" (click)="toggleChart('daily')">Last 7 days</span>
+                    <span [class.active]="chartMode === 'forecast'" (click)="toggleChart('forecast')">Forecast</span>
                 </div>
             </div>
 
             <!-- Weather Graph -->
             <div class="weather-graph-container" *ngIf="weatherData">
-                <app-line-chart [series]="chartDataSeries" [labels]="chartLabels" [height]="150" [showAxes]="true">
+                <app-line-chart
+                    [series]="chartDataSeries"
+                    [labels]="chartLabels"
+                    [height]="150"
+                    [showAxes]="true"
+                    [forceAllLabels]="chartMode === 'forecast'">
                 </app-line-chart>
+            </div>
+
+            <div class="weather-forecast-summary" *ngIf="weatherData && chartMode === 'forecast'">
+                {{ forecastSummaryText }}
             </div>
 
             <!-- Climate Outlook -->
@@ -655,6 +706,43 @@
             <div class="stat-box">
                 <span class="label">Max</span>
                 <span class="value">{{ getMax(selectedSensor.history) }}{{ selectedSensor.unit }}</span>
+            </div>
+        </div>
+    </div>
+</app-modal>
+
+<app-modal [isOpen]="isIotSensorModalOpen" [title]="selectedIotSensor?.label + ' History'" (close)="closeIotSensorModal()">
+    <div *ngIf="selectedIotSensor as sensor">
+        <div class="popup-tabs detail-tabs iot-modal-tabs">
+            <button class="popup-tab" [class.active]="activeIotSensorTab === 'recent'"
+                (click)="setIotSensorTab('recent')">Recent</button>
+            <button class="popup-tab" [class.active]="activeIotSensorTab === 'daily'"
+                (click)="setIotSensorTab('daily')">Daily</button>
+            <button class="popup-tab" [class.active]="activeIotSensorTab === 'weekly'"
+                (click)="setIotSensorTab('weekly')">Weekly Avg</button>
+        </div>
+
+        <div class="modal-chart-wrapper" *ngIf="currentIotSensorHasData; else noIotModalHistory">
+            <app-line-chart [data]="currentIotSensorData" [labels]="currentIotSensorLabels" color="#15803d"
+                [height]="250" [showAxes]="true">
+            </app-line-chart>
+        </div>
+        <ng-template #noIotModalHistory>
+            <div class="trend-empty-state">Historical samples are not available for this sensor yet.</div>
+        </ng-template>
+
+        <div class="modal-stats">
+            <div class="stat-box">
+                <span class="label">Current</span>
+                <span class="value">{{ sensor.value | number:'1.1-1' }}{{ sensor.displayUnit }}</span>
+            </div>
+            <div class="stat-box">
+                <span class="label">Average</span>
+                <span class="value">{{ getAverage(currentIotSensorData) | number:'1.1-1' }}{{ sensor.displayUnit }}</span>
+            </div>
+            <div class="stat-box">
+                <span class="label">Max</span>
+                <span class="value">{{ getMax(currentIotSensorData) | number:'1.1-1' }}{{ sensor.displayUnit }}</span>
             </div>
         </div>
     </div>
