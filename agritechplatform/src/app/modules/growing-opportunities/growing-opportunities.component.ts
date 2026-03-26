@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subject, Subscription, takeUntil, distinctUntilChanged, filter } from 'rxjs';
-import { LucideAngularModule, Sprout, ChevronRight, X, ExternalLink, AlertTriangle, Droplets, Leaf, Layers, CheckCircle2, RefreshCw, ThumbsUp, ThumbsDown } from 'lucide-angular';
+import { LucideAngularModule, Sprout, ChevronRight, X, ExternalLink, AlertTriangle, Droplets, Leaf, Layers, CheckCircle2, RefreshCw, ThumbsUp, ThumbsDown, Info } from 'lucide-angular';
 import { UserDataService } from '../../core/services/user-data.service';
 import { AuthService } from '../../core/services/auth.service';
 import { User } from '../../core/models/user.model';
@@ -9,19 +9,22 @@ import { BlockService } from '../../shared/services/block.service';
 import { Block } from '../../shared/models';
 import {
     GrowingOpportunitiesService,
+    GrowingOpportunityNewsItem,
     GrowingOpportunitiesResponse,
     GrowingOpportunityRecommendation
 } from '../../core/services/growing-opportunities.service';
 
-interface Opportunity {
+interface OpportunityArticle {
     id: string;
     title: string;
     description: string;
     fullDescription: string;
-    keyPoints: string[];
     tags: string[];
     source: string;
     sourceUrl: string;
+    publishedAt: string | null;
+    region: string;
+    category: 'funding' | 'tools' | 'help' | 'general';
 }
 
 interface LiveMetricCard {
@@ -31,6 +34,9 @@ interface LiveMetricCard {
     description: string;
     value: number | null;
 }
+
+type GrowingOpportunitiesTab = 'recommendations' | 'updates';
+type NewsFilter = 'all' | 'funding' | 'tools' | 'help' | 'general';
 
 @Component({
     selector: 'app-growing-opportunities',
@@ -52,12 +58,13 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
     RefreshCwIcon = RefreshCw;
     ThumbsUpIcon = ThumbsUp;
     ThumbsDownIcon = ThumbsDown;
+    InfoIcon = Info;
 
     private readonly destroy$ = new Subject<void>();
     private insightsRequest?: Subscription;
     private feedbackRequest?: Subscription;
 
-    selectedOpportunity: Opportunity | null = null;
+    selectedOpportunity: OpportunityArticle | null = null;
     user: User | undefined;
     currentBlock: Block | null = null;
     pageData: GrowingOpportunitiesResponse | null = null;
@@ -65,89 +72,8 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
     pageWarning: string | null = null;
     feedbackMessage: string | null = null;
     feedbackState: Record<string, 'helpful' | 'not_helpful' | 'saving'> = {};
-
-    opportunities: Opportunity[] = [
-        {
-            id: 'olives-lower-water',
-            title: 'Olives: A Lower-Water Option for Riverland',
-            description: 'Olive cultivation offers Riverland growers a drought-tolerant alternative that thrives in the region\'s warm Mediterranean climate. With water requirements 30-40% lower than wine grapes, olives present an attractive option for growers...',
-            fullDescription: 'Olive cultivation offers Riverland growers a drought-tolerant alternative that thrives in the region\'s warm Mediterranean climate. With water requirements 30-40% lower than wine grapes, olives present an attractive option for growers facing water allocation pressures. The trees are also saline-tolerant, making them suitable for areas with marginally brackish irrigation water.',
-            keyPoints: [
-                'Water use 30-40% lower than grapes',
-                'Saline-tolerant varieties available',
-                'Mechanised harvesting reduces labour costs',
-                'Rising demand for Australian olive oil',
-                'Establishment costs recovered within 5-7 years'
-            ],
-            tags: ['olives', 'diversification', 'water-efficiency'],
-            source: 'Primary Industries SA',
-            sourceUrl: 'https://pir.sa.gov.au'
-        },
-        {
-            id: 'government-funding',
-            title: 'Government Funding to Support Diversification',
-            description: 'The South Australian Government and Central Cooperative Winery (CCW) have announced funding initiatives to help Riverland grape growers transition to more from low-value red grape varieties. Grants of up to $50,000 are available for...',
-            fullDescription: 'The South Australian Government and Central Cooperative Winery (CCW) have announced funding initiatives to help Riverland grape growers transition away from low-value red grape varieties. Grants of up to $50,000 are available for growers to replant with alternative crops or premium varieties, with additional support for business planning and market research.',
-            keyPoints: [
-                'Grants up to $50,000 for crop transition',
-                'Business planning support available',
-                'Market research assistance included',
-                'CCW offering vine removal rebates',
-                'Applications open until June 2026'
-            ],
-            tags: ['funding', 'government-support', 'grants'],
-            source: 'Government of South Australia',
-            sourceUrl: 'https://www.sa.gov.au/topics/business-and-trade/industry-support'
-        },
-        {
-            id: 'alternative-varieties',
-            title: 'Alternative Varieties & Premium Markets',
-            description: 'Mediterranean grape varieties like Nero d\'Avola, Fiano, and Vermentino are gaining traction in the Riverland, offering growers access to premium markets with being better adapted to warming conditions. These varieties typically...',
-            fullDescription: 'Mediterranean grape varieties like Nero d\'Avola, Fiano, and Vermentino are gaining traction in the Riverland, offering growers access to premium markets while being better adapted to warming conditions. These varieties typically command prices 2-3 times higher than bulk Shiraz and have shown strong resilience to heat stress events.',
-            keyPoints: [
-                'Premium varieties command higher prices',
-                'Better adapted to warming climate',
-                'Growing consumer interest in alternative varieties',
-                'Reduced water stress tolerance',
-                'Organic certification opportunities'
-            ],
-            tags: ['premium-varieties', 'alternative-grapes', 'organic'],
-            source: 'Wine Australia',
-            sourceUrl: 'https://www.wineaustralia.com/market-insights'
-        },
-        {
-            id: 'almonds-precision-irrigation',
-            title: 'Almonds & Precision Irrigation for Drought Resilience',
-            description: 'SARDI and the SA Drought Hub have been researching precision irrigation techniques that match water application to actual canopy requirements. For almond growers, this approach has shown 15-20% water savings without yield...',
-            fullDescription: 'SARDI and the SA Drought Hub have been researching precision irrigation techniques that match water application to actual canopy requirements. For almond growers, this approach has shown 15-20% water savings without yield reduction. The research also explores deficit irrigation strategies for existing grape blocks during water-scarce years.',
-            keyPoints: [
-                '15-20% water savings demonstrated',
-                'Canopy-matched irrigation techniques',
-                'Deficit irrigation strategies for grapes',
-                'Soil moisture monitoring integration',
-                'Real-time decision support tools'
-            ],
-            tags: ['almonds', 'precision-irrigation', 'drought-resilience'],
-            source: 'SARDI',
-            sourceUrl: 'https://pir.sa.gov.au/sardi'
-        },
-        {
-            id: 'multi-crop-strategies',
-            title: 'Multi-Crop Strategies Amid Oversupply',
-            description: 'Several successful Riverland growers have diversified their operations to include multiple crop types, reducing their exposure to single commodity price fluctuations. Examples include combining citrus with wine grapes, or adding oil...',
-            fullDescription: 'Several successful Riverland growers have diversified their operations to include multiple crop types, reducing their exposure to single-commodity price fluctuations. Examples include combining citrus with wine grapes, or adding olive groves to existing vineyard operations. This approach provides multiple income streams and spreads risk across different market cycles.',
-            keyPoints: [
-                'Multiple income streams reduce risk',
-                'Spread workload across seasons',
-                'Better utilization of infrastructure',
-                'Access to diverse export markets',
-                'Enhanced biodiversity and soil health'
-            ],
-            tags: ['diversification', 'risk-management', 'export-markets'],
-            source: 'AgriFutures Australia',
-            sourceUrl: 'https://agrifutures.com.au'
-        }
-    ];
+    activeTab: GrowingOpportunitiesTab = 'recommendations';
+    activeNewsFilter: NewsFilter = 'all';
 
     constructor(
         private userDataService: UserDataService,
@@ -179,7 +105,7 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
         this.destroy$.complete();
     }
 
-    openOpportunity(opportunity: Opportunity): void {
+    openOpportunity(opportunity: OpportunityArticle): void {
         this.selectedOpportunity = opportunity;
         document.body.classList.add('scroll-lock');
     }
@@ -189,75 +115,24 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
         document.body.classList.remove('scroll-lock');
     }
 
-    get insightsStatusLabel(): string {
-        if (this.isInsightsLoading) {
-            return 'Loading live block intelligence';
-        }
-
-        if (!this.pageData) {
-            return 'Waiting for block intelligence';
-        }
-
-        if (this.pageData.status === 'updating') {
-            return 'Background refresh in progress';
-        }
-
-        if (this.pageData.status === 'stale') {
-            return 'Showing stale cache while refresh runs';
-        }
-
-        return 'Fresh satellite composite available';
+    setActiveTab(tab: GrowingOpportunitiesTab): void {
+        this.activeTab = tab;
     }
 
-    get freshnessLabel(): string {
-        if (!this.pageData?.composite_date_to) {
-            return 'Composite date unavailable';
-        }
-
-        const ageSuffix = this.pageData.data_age_days !== null
-            ? ` (${this.pageData.data_age_days} day${this.pageData.data_age_days === 1 ? '' : 's'} old)`
-            : '';
-        return `Composite date: ${this.formatDate(this.pageData.composite_date_to)}${ageSuffix}`;
+    setActiveNewsFilter(filter: NewsFilter): void {
+        this.activeNewsFilter = filter;
     }
 
-    get qualityLabel(): string {
-        if (!this.pageData) {
-            return 'Quality unknown';
-        }
-
-        return `Data quality: ${this.pageData.data_quality.replace('_', ' ')}`;
+    isNewsFilterActive(filter: NewsFilter): boolean {
+        return this.activeNewsFilter === filter;
     }
 
-    get confidenceLabel(): string {
-        if (!this.pageData) {
-            return 'Confidence: unknown';
+    getNewsFilterCount(filter: NewsFilter): number {
+        if (filter === 'all') {
+            return this.newsItems.length;
         }
 
-        return `Confidence: ${this.pageData.confidence}`;
-    }
-
-    get cloudCoverLabel(): string {
-        if (this.pageData?.cloud_cover_pct === null || this.pageData?.cloud_cover_pct === undefined) {
-            return 'Cloud cover: unavailable';
-        }
-
-        return `Cloud cover: ${this.pageData.cloud_cover_pct.toFixed(0)}%`;
-    }
-
-    get pixelCountLabel(): string {
-        if (!this.pageData) {
-            return 'Valid pixels: unknown';
-        }
-
-        return `Valid pixels: ${this.pageData.pixel_count}`;
-    }
-
-    get searchWindowLabel(): string {
-        if (!this.pageData?.search_window_from || !this.pageData?.search_window_to) {
-            return 'Search window unavailable';
-        }
-
-        return `Search window: ${this.formatDate(this.pageData.search_window_from)} to ${this.formatDate(this.pageData.search_window_to)}`;
+        return this.newsItems.filter(item => item.category === filter).length;
     }
 
     get liveMetricCards(): LiveMetricCard[] {
@@ -300,8 +175,10 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
         ];
     }
 
-    get hasLiveAlerts(): boolean {
-        return (this.pageData?.recommendations || []).some(recommendation => recommendation.category !== 'system');
+    get liveMetricsCommandLine(): string {
+        return this.liveMetricCards
+            .map(metric => `${metric.key.toUpperCase()}: ${this.formatRecommendationValue(metric.value)} (${metric.shortLabel})`)
+            .join(' | ');
     }
 
     get primaryRecommendation(): GrowingOpportunityRecommendation | null {
@@ -310,6 +187,22 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
 
     get liveRecommendations(): GrowingOpportunityRecommendation[] {
         return this.pageData?.recommendations || [];
+    }
+
+    get newsItems(): OpportunityArticle[] {
+        return (this.pageData?.news_items || []).map(item => this.toOpportunityArticle(item));
+    }
+
+    get filteredNewsItems(): OpportunityArticle[] {
+        if (this.activeNewsFilter === 'all') {
+            return this.newsItems;
+        }
+
+        return this.newsItems.filter(item => item.category === this.activeNewsFilter);
+    }
+
+    get newsWarning(): string | null {
+        return this.pageData?.news_warning || null;
     }
 
     get pageHeadline(): string {
@@ -356,7 +249,7 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
         return recommendation.id;
     }
 
-    trackByOpportunity(_: number, opportunity: Opportunity): string {
+    trackByOpportunity(_: number, opportunity: OpportunityArticle): string {
         return opportunity.id;
     }
 
@@ -394,6 +287,92 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
         }
 
         return 'Watch';
+    }
+
+    getReadingStatusLabel(recommendation: GrowingOpportunityRecommendation): string {
+        const value = typeof recommendation.current_value === 'number'
+            ? recommendation.current_value
+            : Number(recommendation.current_value);
+
+        if (recommendation.metric_key === 'ndwi') {
+            if (!Number.isFinite(value)) {
+                return 'Water status unavailable';
+            }
+            if (value < -0.30) {
+                return 'Severe water stress';
+            }
+            if (value < -0.10) {
+                return 'Water stress building';
+            }
+            if (value <= 0.10) {
+                return 'Mild water stress';
+            }
+            return 'Well watered';
+        }
+
+        if (recommendation.metric_key === 'ndre') {
+            if (!Number.isFinite(value)) {
+                return 'Nutrient signal unavailable';
+            }
+            if (value < 0.25) {
+                return 'Low nutrient activity';
+            }
+            if (value <= 0.40) {
+                return 'Moderate nutrient activity';
+            }
+            return 'Strong nutrient activity';
+        }
+
+        if (recommendation.metric_key === 'evi') {
+            if (!Number.isFinite(value)) {
+                return 'Canopy signal unavailable';
+            }
+            if (value > 0.50) {
+                return 'Dense canopy';
+            }
+            if (value >= 0.30) {
+                return 'Balanced canopy growth';
+            }
+            return 'Light canopy growth';
+        }
+
+        return typeof recommendation.current_value === 'string'
+            ? recommendation.current_value
+            : 'Reading available';
+    }
+
+    getReadingMeaningTooltip(recommendation: GrowingOpportunityRecommendation): string[] {
+        if (recommendation.metric_key === 'ndwi') {
+            return [
+                'Above 0.10: vines are holding water well.',
+                '-0.10 to 0.10: mild stress, keep watching.',
+                '-0.30 to -0.10: stress is building, irrigation may be needed soon.',
+                'Below -0.30: severe water stress, act urgently.'
+            ];
+        }
+
+        if (recommendation.metric_key === 'ndre') {
+            return [
+                'Above 0.40: strong chlorophyll and nutrient activity.',
+                '0.25 to 0.40: moderate nutrient activity.',
+                'Below 0.25: likely nutrient weakness, inspect the block.',
+                'A falling trend makes low values more concerning.'
+            ];
+        }
+
+        if (recommendation.metric_key === 'evi') {
+            return [
+                'Above 0.50: canopy is dense, airflow may be tighter.',
+                '0.30 to 0.50: balanced canopy growth.',
+                'Below 0.30: lighter canopy or weaker vegetative growth.',
+                'Use this together with disease and vigor observations.'
+            ];
+        }
+
+        return [
+            'This reading is interpreted using the rule on the left.',
+            'Lower or higher values change the recommendation depending on the metric.'
+        ];
     }
 
     getPlainMetricLabel(recommendation: GrowingOpportunityRecommendation): string {
@@ -448,6 +427,23 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
         }
 
         return value;
+    }
+
+    formatNewsDate(value: string | null): string {
+        if (!value) {
+            return 'Date unavailable';
+        }
+
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return value;
+        }
+
+        return date.toLocaleDateString('en-AU', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
     }
 
     isFeedbackSelected(recommendationId: string, choice: 'helpful' | 'not_helpful'): boolean {
@@ -508,17 +504,27 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
             });
     }
 
-    private formatDate(value: string): string {
-        const date = new Date(value);
-        if (Number.isNaN(date.getTime())) {
+    private toOpportunityArticle(item: GrowingOpportunityNewsItem): OpportunityArticle {
+        return {
+            id: item.id,
+            title: item.title,
+            description: item.summary,
+            fullDescription: item.summary,
+            tags: item.tags,
+            source: item.source,
+            sourceUrl: item.source_url,
+            publishedAt: item.published_at,
+            region: item.region,
+            category: this.normalizeNewsCategory(item.category)
+        };
+    }
+
+    private normalizeNewsCategory(value: string): OpportunityArticle['category'] {
+        if (value === 'funding' || value === 'tools' || value === 'help' || value === 'general') {
             return value;
         }
 
-        return date.toLocaleDateString('en-US', {
-            month: 'long',
-            day: 'numeric',
-            year: 'numeric'
-        });
+        return 'general';
     }
 
 }

@@ -33,6 +33,18 @@ class GrowingOpportunityFeedbackResponse(BaseModel):
     feedback_id: str
 
 
+class GrowingOpportunityNewsItem(BaseModel):
+    id: str
+    title: str
+    summary: str
+    source: str
+    source_url: str
+    published_at: str | None = None
+    region: str = "South Australia"
+    category: str = "general"
+    tags: list[str] = []
+
+
 class GrowingOpportunitiesResponse(BaseModel):
     block_id: str
     crop: str | None = None
@@ -58,4 +70,6 @@ class GrowingOpportunitiesResponse(BaseModel):
     warning: str | None = None
     trend_summary: str | None = None
     recommendations: list[GrowingOpportunityRecommendation]
+    news_items: list[GrowingOpportunityNewsItem] = []
+    news_warning: str | None = None
     feedback_enabled: bool = True

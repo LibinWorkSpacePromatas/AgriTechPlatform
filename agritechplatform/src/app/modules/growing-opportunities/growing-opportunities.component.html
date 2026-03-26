@@ -9,40 +9,28 @@
         </div>
     </div>
 
-    <section class="live-section">
-        <div class="hero-panel">
-            <div class="hero-copy">
-                <p class="section-kicker">For {{ currentBlock?.name || 'your selected block' }}</p>
-                <h2>{{ pageHeadline }}</h2>
-                <p class="hero-summary">{{ pageSummary }}</p>
-            </div>
+    <div class="page-tabs" role="tablist" aria-label="Growing opportunities views">
+        <button
+            type="button"
+            class="page-tab"
+            [class.active]="activeTab === 'recommendations'"
+            [attr.aria-selected]="activeTab === 'recommendations'"
+            (click)="setActiveTab('recommendations')">
+            Recommendations
+            <span class="page-tab-count">{{ liveRecommendations.length }}</span>
+        </button>
+        <button
+            type="button"
+            class="page-tab"
+            [class.active]="activeTab === 'updates'"
+            [attr.aria-selected]="activeTab === 'updates'"
+            (click)="setActiveTab('updates')">
+            News & More
+            <span class="page-tab-count">{{ newsItems.length }}</span>
+        </button>
+    </div>
 
-            <div class="hero-meta">
-                <span class="status-pill" [class.loading]="isInsightsLoading">
-                    <i-lucide [img]="isInsightsLoading ? RefreshCwIcon : (hasLiveAlerts ? AlertTriangleIcon : CheckCircleIcon)"></i-lucide>
-                    {{ insightsStatusLabel }}
-                </span>
-                <span class="status-meta">{{ freshnessLabel }}</span>
-                <span class="status-meta">{{ qualityLabel }}</span>
-                <span class="status-meta">{{ confidenceLabel }}</span>
-                <span class="status-meta">{{ cloudCoverLabel }}</span>
-                <span class="status-meta">{{ pixelCountLabel }}</span>
-                <span class="status-meta">{{ searchWindowLabel }}</span>
-            </div>
-        </div>
-
-        <div class="live-metrics" *ngIf="pageData">
-            <div class="metric-chip" *ngFor="let metric of liveMetricCards">
-                <span class="metric-chip-label">{{ metric.shortLabel }}</span>
-                <strong class="metric-chip-title">{{ metric.title }}</strong>
-                <p class="metric-chip-description">{{ metric.description }}</p>
-                <div class="metric-chip-footer">
-                    <strong class="metric-chip-value">{{ formatRecommendationValue(metric.value) }}</strong>
-                    <span class="metric-chip-code">{{ metric.key | uppercase }}</span>
-                </div>
-            </div>
-        </div>
-
+    <section class="live-section" *ngIf="activeTab === 'recommendations'">
         <div class="section-heading">
             <div>
                 <p class="section-kicker">Recommended Actions</p>
@@ -52,10 +40,6 @@
 
         <div class="inline-warning" *ngIf="pageWarning">
             {{ pageWarning }}
-        </div>
-
-        <div class="trend-summary" *ngIf="pageData?.trend_summary">
-            {{ withFriendlyBlockName(pageData?.trend_summary) }}
         </div>
 
         <div class="feedback-banner" *ngIf="feedbackMessage">
@@ -90,8 +74,27 @@
                         <strong>{{ recommendation.threshold }}</strong>
                     </div>
                     <div class="glance-chip">
-                        <span class="glance-label">Current reading</span>
+                        <div class="glance-label-row">
+                            <div class="glance-label-group">
+                                <span class="glance-label">Current reading</span>
+                                <span class="reading-info">
+                                    <button
+                                        type="button"
+                                        class="info-trigger"
+                                        [attr.aria-label]="'What this reading means for ' + getPlainMetricLabel(recommendation)">
+                                        <i-lucide [img]="InfoIcon"></i-lucide>
+                                    </button>
+                                    <span class="reading-tooltip" role="tooltip">
+                                        <span class="reading-tooltip-title">What this value means</span>
+                                        <span class="reading-tooltip-line" *ngFor="let item of getReadingMeaningTooltip(recommendation)">
+                                            {{ item }}
+                                        </span>
+                                    </span>
+                                </span>
+                            </div>
+                        </div>
                         <strong>{{ formatRecommendationValue(recommendation.current_value) }}</strong>
+                        <div class="reading-status">{{ getReadingStatusLabel(recommendation) }}</div>
                     </div>
                 </div>
 
@@ -138,26 +141,80 @@
         </div>
     </section>
 
-    <section class="library-section">
+    <section class="library-section" *ngIf="activeTab === 'updates'">
         <div class="section-heading">
             <div>
-                <p class="section-kicker">Explore More</p>
-                <h2>Funding, diversification, and longer-term options</h2>
+                <p class="section-kicker">South Australia News</p>
+                <h2>Latest South Australia grower news from this year</h2>
             </div>
         </div>
 
-    <div class="opportunities-grid">
-        <div class="opportunity-card hover-lift" *ngFor="let opportunity of opportunities; trackBy: trackByOpportunity" (click)="openOpportunity(opportunity)">
-            <div class="card-content">
-                <h3 class="card-title">{{ opportunity.title }}</h3>
-                <p class="card-description">{{ opportunity.description }}</p>
-                <div class="card-tags">
-                    <span class="tag" *ngFor="let tag of opportunity.tags">{{ tag }}</span>
-                </div>
-            </div>
-            <i-lucide [img]="ChevronRightIcon" class="card-arrow"></i-lucide>
+        <div class="news-filter-row" aria-label="News filters">
+            <button
+                type="button"
+                class="news-filter-button"
+                [class.active]="isNewsFilterActive('all')"
+                (click)="setActiveNewsFilter('all')">
+                Latest
+                <span class="news-filter-count">{{ getNewsFilterCount('all') }}</span>
+            </button>
+            <button
+                type="button"
+                class="news-filter-button"
+                [class.active]="isNewsFilterActive('funding')"
+                (click)="setActiveNewsFilter('funding')">
+                Funding
+                <span class="news-filter-count">{{ getNewsFilterCount('funding') }}</span>
+            </button>
+            <button
+                type="button"
+                class="news-filter-button"
+                [class.active]="isNewsFilterActive('tools')"
+                (click)="setActiveNewsFilter('tools')">
+                Tools
+                <span class="news-filter-count">{{ getNewsFilterCount('tools') }}</span>
+            </button>
+            <button
+                type="button"
+                class="news-filter-button"
+                [class.active]="isNewsFilterActive('help')"
+                (click)="setActiveNewsFilter('help')">
+                Farmer Help
+                <span class="news-filter-count">{{ getNewsFilterCount('help') }}</span>
+            </button>
+            <button
+                type="button"
+                class="news-filter-button"
+                [class.active]="isNewsFilterActive('general')"
+                (click)="setActiveNewsFilter('general')">
+                Articles
+                <span class="news-filter-count">{{ getNewsFilterCount('general') }}</span>
+            </button>
         </div>
-    </div>
+
+        <div class="inline-warning" *ngIf="newsWarning">
+            {{ newsWarning }}
+        </div>
+
+        <div class="opportunities-grid">
+            <div class="opportunity-card hover-lift" *ngFor="let opportunity of filteredNewsItems; trackBy: trackByOpportunity" (click)="openOpportunity(opportunity)">
+                <div class="card-content">
+                    <div class="news-meta-row">
+                        <span class="news-meta-chip">{{ opportunity.source }}</span>
+                        <span class="news-date">{{ formatNewsDate(opportunity.publishedAt) }}</span>
+                    </div>
+                    <h3 class="card-title">{{ opportunity.title }}</h3>
+                    <p class="card-description">{{ opportunity.description }}</p>
+                    <div class="card-tags">
+                        <span class="tag" *ngFor="let tag of opportunity.tags">{{ tag }}</span>
+                    </div>
+                </div>
+                <i-lucide [img]="ChevronRightIcon" class="card-arrow"></i-lucide>
+            </div>
+        </div>
+        <div class="empty-news-state" *ngIf="!filteredNewsItems.length && !newsWarning">
+            No matching current-year South Australia agriculture headlines were found for this filter.
+        </div>
     </section>
 </div>
 
@@ -173,11 +230,19 @@
 
             <p class="modal-description">{{ selectedOpportunity.fullDescription }}</p>
 
-            <div class="modal-section">
-                <h3>Key Points</h3>
-                <ul class="key-points-list">
-                    <li *ngFor="let point of selectedOpportunity.keyPoints">{{ point }}</li>
-                </ul>
+            <div class="modal-highlights">
+                <div class="highlight-chip">
+                    <span class="highlight-label">Source</span>
+                    <strong>{{ selectedOpportunity.source }}</strong>
+                </div>
+                <div class="highlight-chip">
+                    <span class="highlight-label">Published</span>
+                    <strong>{{ formatNewsDate(selectedOpportunity.publishedAt) }}</strong>
+                </div>
+                <div class="highlight-chip">
+                    <span class="highlight-label">Region</span>
+                    <strong>{{ selectedOpportunity.region }}</strong>
+                </div>
             </div>
 
             <div class="modal-tags">
