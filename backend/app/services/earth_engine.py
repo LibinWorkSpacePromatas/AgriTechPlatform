@@ -56,6 +56,8 @@ class SatelliteComputation:
     data_quality: str
     composite_date_from: date | None
     composite_date_to: date | None
+    ndvi_tile_url: str | None
+    ndwi_tile_url: str | None
     map_tile_url: str | None
     image_count: int
     actual_dates: list[date]
@@ -234,6 +236,8 @@ class EarthEngineClient:
                     data_quality="no_data",
                     composite_date_from=date_from_candidate,
                     composite_date_to=date_to,
+                    ndvi_tile_url=None,
+                    ndwi_tile_url=None,
                     map_tile_url=None,
                     image_count=0,
                     actual_dates=[],
@@ -252,12 +256,13 @@ class EarthEngineClient:
                 cloud_cover_pct=cloud_cover_pct,
                 image_count=image_count,
             )
-            map_tile_url = None
+            ndvi_tile_url = None
+            ndwi_tile_url = None
 
             if generate_tile_url or (generate_tile_url is None and self._settings.satellite_enable_tile_urls):
-                # PDF Requirement: NDWI zone map (spatial visualization)
-                # min=-0.5, max=0.5, palette=["red", "orange", "yellow", "green"]
-                map_tile_url = self._build_ndwi_tile_url(indices.select("ndwi").clip(geometry))
+                ndvi_tile_url = self._build_tile_url(indices.select("ndvi").clip(geometry))
+                # Water screen keeps using the NDWI zone map.
+                ndwi_tile_url = self._build_ndwi_tile_url(indices.select("ndwi").clip(geometry))
 
             return SatelliteComputation(
                 ndvi=self._validate_ratio_index(stats.get("ndvi_mean"), index_name="ndvi"),
@@ -270,7 +275,9 @@ class EarthEngineClient:
                 data_quality="no_data" if pixel_count == 0 else data_quality,
                 composite_date_from=self._parse_iso_date(metadata_summary.get("composite_date_from")) or date_from_candidate,
                 composite_date_to=self._parse_iso_date(metadata_summary.get("composite_date_to")) or date_to,
-                map_tile_url=map_tile_url,
+                ndvi_tile_url=ndvi_tile_url,
+                ndwi_tile_url=ndwi_tile_url,
+                map_tile_url=ndwi_tile_url,
                 image_count=image_count,
                 actual_dates=actual_dates,
                 execution_ms=int((perf_counter() - started_at) * 1000),

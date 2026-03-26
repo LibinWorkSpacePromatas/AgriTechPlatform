@@ -56,6 +56,7 @@
                 <div class="overview-status-label">Satellite status</div>
                 <div class="overview-status-value">{{ insightsStatusLabel }}</div>
                 <div class="overview-status-meta">{{ insightsLatencyLabel }}</div>
+                <div class="overview-status-meta">{{ dashboardFreshnessLabel }}</div>
             </div>
         </div>
 
@@ -69,6 +70,15 @@
         </div>
 
         <ng-container *ngIf="!showNoRealDataState">
+        <div class="advisor-section card-box overview-warning-card" *ngIf="showDegradedDataWarning">
+            <div class="section-title warning-title">
+                <i-lucide [img]="AlertTriangleIcon" size="20" class="icon-orange"></i-lucide>
+                Data Quality Warning
+            </div>
+            <p class="warning-text">{{ degradedDataWarningMessage }}</p>
+            <p class="warning-text">{{ dashboardFreshnessLabel }}</p>
+        </div>
+
         <div class="overview-main-grid" *ngIf="primarySensor as ndviSensor">
             <div class="overview-primary-card card-box">
                 <div class="overview-kicker">Today's main crop condition</div>
@@ -102,7 +112,7 @@
                     </div>
 
                     <div class="reading-tile">
-                        <div class="reading-label">Latest update</div>
+                        <div class="reading-label">Data from</div>
                         <div class="reading-text">{{ satelliteTrendLastUpdated }}</div>
                         <div class="reading-help">Most recent satellite observation</div>
                     </div>
@@ -272,7 +282,7 @@
                     <div class="detail-summary-value">{{ getAverage(currentSensorData) | number:'1.1-1' }}</div>
                 </div>
                 <div class="detail-summary-card">
-                    <div class="detail-summary-label">Latest update</div>
+                    <div class="detail-summary-label">Data from</div>
                     <div class="detail-summary-value">{{ satelliteTrendLastUpdated }}</div>
                 </div>
             </div>
@@ -308,7 +318,7 @@
                     </div>
                     <p class="trend-card-subtitle">This chart groups satellite observations by day. The green line is the main plant-health signal, and the blue, purple, and amber lines add supporting context.</p>
                 </div>
-                <div class="trend-card-meta">Latest satellite observation: {{ satelliteTrendLastUpdated }}</div>
+                <div class="trend-card-meta">{{ dashboardFreshnessLabel }}</div>
             </div>
 
             <div class="trend-chip-row" *ngIf="satelliteTrendSummary as summary">
@@ -349,20 +359,20 @@
                         <i-lucide [img]="LayersIcon" size="16"></i-lucide>
                         NDVI Map
                     </div>
-                    <p class="trend-card-subtitle">This block map uses the NDVI tile when imagery is available. If tiles are unavailable, the dashboard still shows the block outline for spatial context.</p>
+                    <p class="trend-card-subtitle">This block map uses the latest NDVI overlay from the satellite pipeline when imagery is available. If tiles are unavailable, the dashboard still shows the block outline for spatial context.</p>
                 </div>
                 <div class="ndvi-map-meta">
                     <span class="trend-chip" [ngClass]="isNdviMapAvailable ? 'good' : 'neutral'">
-                        {{ isNdviMapAvailable ? 'NDVI overlay available' : 'Block outline only' }}
+                        {{ mapAvailabilityLabel }}
                     </span>
-                    <span class="trend-chip neutral">10 m resolution</span>
+                    <span class="trend-chip neutral">{{ mapOverlayLabel }}</span>
                 </div>
             </div>
 
             <div class="ndvi-map-shell">
                 <div #ndviMapContainer class="ndvi-map-canvas"></div>
                 <div class="ndvi-map-overlay" *ngIf="!isNdviMapAvailable">
-                    NDVI tiles are not available for this block yet. The dashboard is showing the block footprint until the backend tile URL is available.
+                    {{ mapEmptyStateMessage }}
                 </div>
             </div>
         </div>
@@ -487,7 +497,7 @@
                 <span class="brand">PromaSecure</span> |
                 <span class="block-ref">{{ currentBlock?.name }}</span> |
                 <span class="page-title">INTERPRETATION REFERENCE</span> |
-                <span class="date">Last updated: {{ advisorData.lastUpdated }}</span>
+                <span class="date">{{ dashboardFreshnessLabel }}</span>
                 <div class="sub-text">
                     Powered by backend block insights -
                     <span class="refresh-indicator">

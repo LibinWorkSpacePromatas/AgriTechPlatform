@@ -104,6 +104,8 @@ export interface DashboardInsightsResponse {
   lastSatelliteUpdate: string | null;
   cloudCoverPct: number | null;
   pixelCount: number;
+  ndviTileUrl: string | null;
+  ndwiTileUrl: string | null;
   mapTileUrl: string | null;
   mapTileType: 'ndvi' | 'ndwi' | null;
   limitations: string[];
@@ -217,7 +219,7 @@ export class DashboardApiService {
     const metrics = this.buildMetrics(response, timeseries);
     const trends = this.buildTrendSummary(timeseries);
     const limitations = [...response.limitations];
-    const warning = response.error || response.alerts[0]?.message || limitations[0] || null;
+    const warning = this.buildDashboardWarning(response, limitations);
 
     return {
       blockId: response.block_id,
@@ -234,6 +236,8 @@ export class DashboardApiService {
       lastSatelliteUpdate: response.last_satellite_update,
       cloudCoverPct: response.cloud_cover_pct,
       pixelCount: response.pixel_count,
+      ndviTileUrl: response.ndvi_tile_url,
+      ndwiTileUrl: response.ndwi_tile_url,
       mapTileUrl: response.map_tile_url,
       mapTileType: response.map_tile_type,
       limitations,
@@ -254,6 +258,25 @@ export class DashboardApiService {
       timeseries,
       trends
     };
+  }
+
+  private buildDashboardWarning(
+    response: BlockInsightsContract,
+    limitations: string[]
+  ): string | null {
+    if (response.error) {
+      return response.error;
+    }
+
+    if (response.data_quality === 'degraded') {
+      if (typeof response.cloud_cover_pct === 'number' && response.cloud_cover_pct > 50) {
+        return `Cloud cover is ${response.cloud_cover_pct.toFixed(1)}%, so the current composite is degraded and should be treated with caution.`;
+      }
+
+      return 'The current satellite composite is degraded because cloud contamination or low usable pixels reduced confidence in this pass.';
+    }
+
+    return response.alerts[0]?.message || limitations[0] || null;
   }
 
   private buildMetrics(
@@ -633,6 +656,8 @@ export class DashboardApiService {
       composite_date_from: null,
       composite_date_to: null,
       last_satellite_update: null,
+      ndvi_tile_url: null,
+      ndwi_tile_url: null,
       map_tile_url: null,
       map_tile_type: null,
       acquisition_metadata: { image_count: 0, actual_dates: [] },

@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.db.models import Block, SatelliteCache, SatelliteTimeseries
+from app.schemas.insights import DashboardBlockInsightsResponse
 from app.schemas.satellite import BlockInsightsResponse, SatelliteTimeseriesPoint
 from app.services.earth_engine import EarthEngineConfigurationError, EarthEngineExecutionError, earth_engine_client
 from app.services.alerts_engine import build_alerts
@@ -46,7 +47,7 @@ class SatelliteInsightsService:
     def shutdown(self) -> None:
         self._earth_engine.shutdown()
 
-    def get_block_insights(self, db: Session, block: Block, *, force_refresh: bool = False) -> BlockInsightsResponse:
+    def get_block_insights(self, db: Session, block: Block, *, force_refresh: bool = False) -> DashboardBlockInsightsResponse:
         request_started_at = perf_counter()
         window_from, window_to = self._build_composite_window()
         geometry_payload = self._load_block_geometry(db, block.id)
@@ -126,7 +127,7 @@ class SatelliteInsightsService:
         )
         return placeholder
 
-    def refresh_block_insights(self, db: Session, block: Block) -> BlockInsightsResponse:
+    def refresh_block_insights(self, db: Session, block: Block) -> DashboardBlockInsightsResponse:
         window_from, window_to = self._build_composite_window()
         geometry_payload = self._load_block_geometry(db, block.id)
         existing_cache = self._load_cache(db, block.id, geometry_payload.geometry_hash, only_fresh=False)
@@ -331,7 +332,7 @@ class SatelliteInsightsService:
         *,
         date_from: date,
         date_to: date,
-    ) -> BlockInsightsResponse:
+    ) -> DashboardBlockInsightsResponse:
         computation = self._earth_engine.compute_block_insights(
             geometry_geojson,
             date_from=date_from,
@@ -339,7 +340,7 @@ class SatelliteInsightsService:
             generate_tile_url=True,
         )
         return self._decorate_response(
-            self._enrich_response(BlockInsightsResponse(
+            self._enrich_response(DashboardBlockInsightsResponse(
                 block_id=str(block.id),
                 search_window_from=date_from,
                 search_window_to=date_to,
@@ -350,6 +351,8 @@ class SatelliteInsightsService:
                 lai=computation.lai,
                 cloud_cover_pct=computation.cloud_cover_pct,
                 pixel_count=computation.pixel_count,
+                ndvi_tile_url=computation.ndvi_tile_url,
+                ndwi_tile_url=computation.ndwi_tile_url,
                 map_tile_url=computation.map_tile_url,
                 map_tile_type="ndwi" if computation.map_tile_url else None,
                 data_quality=computation.data_quality,
@@ -465,8 +468,8 @@ class SatelliteInsightsService:
         *,
         block_area_ha: float | None = None,
         block_name: str | None = None,
-    ) -> BlockInsightsResponse:
-        response = BlockInsightsResponse.model_validate(cache.payload)
+    ) -> DashboardBlockInsightsResponse:
+        response = DashboardBlockInsightsResponse.model_validate(cache.payload)
         search_window_from, search_window_to = self._infer_cached_search_window(cache)
         if response.search_window_from is None or response.search_window_to is None:
             response = response.model_copy(
@@ -489,7 +492,7 @@ class SatelliteInsightsService:
         source: str,
         latency_ms: int,
         error: str | None = None,
-    ) -> BlockInsightsResponse:
+    ) -> DashboardBlockInsightsResponse:
         return self._decorate_response(
             self._deserialize_cache_payload(cache, block_area_ha=block_area_ha, block_name=block_name),
             status=status,
@@ -602,8 +605,8 @@ class SatelliteInsightsService:
         *,
         block_area_ha: float | None,
         block_name: str | None,
-    ) -> BlockInsightsResponse:
-        return self._enrich_response(BlockInsightsResponse(
+    ) -> DashboardBlockInsightsResponse:
+        return self._enrich_response(DashboardBlockInsightsResponse(
             block_id=str(block_id),
             search_window_from=window_from,
             search_window_to=window_to,
@@ -614,6 +617,8 @@ class SatelliteInsightsService:
             lai=None,
             cloud_cover_pct=None,
             pixel_count=0,
+            ndvi_tile_url=None,
+            ndwi_tile_url=None,
             map_tile_url=None,
             map_tile_type=None,
             data_quality="no_data",
@@ -623,7 +628,7 @@ class SatelliteInsightsService:
 
     def _decorate_response(
         self,
-        response: BlockInsightsResponse,
+        response: DashboardBlockInsightsResponse,
         *,
         status: str,
         source: str,
@@ -632,7 +637,7 @@ class SatelliteInsightsService:
         infer_error: bool = True,
         cache_last_updated_at: datetime | None = None,
         cache_expires_at: datetime | None = None,
-    ) -> BlockInsightsResponse:
+    ) -> DashboardBlockInsightsResponse:
         today = self._utcnow().date()
         data_age_days = None
         if response.composite_date_to:
@@ -676,11 +681,11 @@ class SatelliteInsightsService:
 
     def _enrich_response(
         self,
-        response: BlockInsightsResponse,
+        response: DashboardBlockInsightsResponse,
         *,
         block_area_ha: float | None,
         block_name: str | None = None,
-    ) -> BlockInsightsResponse:
+    ) -> DashboardBlockInsightsResponse:
         alert_block_name = block_name or response.block_id
         interpretations = interpret_payload(
             {
@@ -701,7 +706,7 @@ class SatelliteInsightsService:
             block_name=alert_block_name,
             settings=self._settings,
         )
-        return BlockInsightsResponse.model_validate(
+        return type(response).model_validate(
             {
                 **response.model_dump(mode="python"),
                 "interpretations": interpretations,
@@ -722,7 +727,7 @@ class SatelliteInsightsService:
                     if response.acquisition_metadata.actual_dates
                     else response.last_satellite_update
                 ),
-                "map_tile_type": response.map_tile_type or ("ndvi" if response.map_tile_url else None),
+                "map_tile_type": response.map_tile_type or ("ndwi" if response.map_tile_url else None),
             }
         )
 

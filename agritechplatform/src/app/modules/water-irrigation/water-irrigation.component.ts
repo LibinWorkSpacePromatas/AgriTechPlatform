@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, AfterViewInit, Inject, PLATFORM_ID, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LucideAngularModule, Droplet, Waves, Calendar, Activity, AlertCircle, MapPin, Layers } from 'lucide-angular';
+import { LucideAngularModule, Droplet, Waves, Calendar, Activity, AlertCircle, MapPin, Layers, Info } from 'lucide-angular';
 import { WaterIrrigationService, IrrigationStatus } from '../../services/water-irrigation/water-irrigation.service';
 import { BlockService } from '../../shared/services/block.service';
 import { Block } from '../../shared/models';
@@ -28,6 +28,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
   AlertIcon = AlertCircle;
   MapPinIcon = MapPin;
   LayersIcon = Layers;
+  InfoIcon = Info;
 
   irrigationStatus: IrrigationStatus | null = null;
   isLoading = true;
@@ -54,6 +55,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
   isMoveMode = false;
   pendingLat: number | null = null;
   pendingLon: number | null = null;
+  showCalculationDetails = false;
 
   private destroy$ = new Subject<void>();
 
@@ -656,6 +658,74 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
 
   formatStatusLabel(status: string): string {
     return status || 'No data';
+  }
+
+  toggleCalculationDetails(): void {
+    this.showCalculationDetails = !this.showCalculationDetails;
+  }
+
+  getNdwiTone(status: IrrigationStatus['status']): 'well-watered' | 'stress' | 'severe' | 'neutral' {
+    if (status === 'Well-watered') return 'well-watered';
+    if (status === 'Mild stress' || status === 'Moderate stress') return 'stress';
+    if (status === 'Severe stress') return 'severe';
+    return 'neutral';
+  }
+
+  getStatusHeadline(status: IrrigationStatus['status']): string {
+    if (status === 'Severe stress') return 'Severe Water Stress';
+    if (status === 'Moderate stress') return 'Moderate Stress';
+    if (status === 'Mild stress') return 'Mild Stress';
+    if (status === 'Well-watered') return 'Well-watered';
+    return 'No data';
+  }
+
+  getStatusExplanation(status: IrrigationStatus['status']): string {
+    if (status === 'Severe stress') {
+      return 'Low NDWI indicates insufficient leaf water content.';
+    }
+    if (status === 'Moderate stress') {
+      return 'NDWI suggests the crop is losing moisture and needs attention soon.';
+    }
+    if (status === 'Mild stress') {
+      return 'NDWI shows early signs of water stress, so keep a close watch on the block.';
+    }
+    if (status === 'Well-watered') {
+      return 'NDWI suggests the crop currently has healthy leaf water content.';
+    }
+    return 'NDWI is not available yet for this block.';
+  }
+
+  getWaterFillLevel(ndwi: number | null): number {
+    if (ndwi === null) {
+      return 12;
+    }
+    const normalized = ((ndwi + 1) / 2) * 100;
+    return Math.max(10, Math.min(92, Math.round(normalized)));
+  }
+
+  getUrgencyLabel(status: IrrigationStatus['status']): string {
+    if (status === 'Severe stress') return 'Irrigate now';
+    if (status === 'Moderate stress') return 'Irrigate soon';
+    if (status === 'Mild stress') return 'Watch closely';
+    if (status === 'Well-watered') return 'Moisture stable';
+    return 'Waiting for data';
+  }
+
+  getUrgencyTone(status: IrrigationStatus['status']): 'well-watered' | 'stress' | 'severe' | 'neutral' {
+    return this.getNdwiTone(status);
+  }
+
+  getCropDisplayName(): string {
+    const crop = (this.selectedBlock?.crop || '').trim();
+    return crop || 'Crop';
+  }
+
+  getCropVisualClass(): 'shiraz' | 'generic' {
+    const crop = (this.selectedBlock?.crop || '').toLowerCase();
+    if (crop.includes('shiraz')) {
+      return 'shiraz';
+    }
+    return 'generic';
   }
 
   getInsightTone(status: string): string {

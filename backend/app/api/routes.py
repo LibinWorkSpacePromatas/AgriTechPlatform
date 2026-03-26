@@ -23,6 +23,7 @@ from app.schemas.growing_opportunities import (
     GrowingOpportunityFeedbackRequest,
     GrowingOpportunityFeedbackResponse,
 )
+from app.schemas.insights import DashboardBlockInsightsResponse
 from app.schemas.satellite import BlockInsightsResponse as GEEInsightsResponse, SatelliteTimeseriesPoint
 from app.services.satellite_events import satellite_event_broker
 from app.services.satellite_access import satellite_access_service
@@ -71,7 +72,29 @@ def _analyze_block_geometry(db: Session, geojson_str: str) -> dict[str, Any]:
         text(
             """
             WITH prepared AS (
-                SELECT ST_RemoveRepeatedPoints(ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326))) AS g
+                SELECT ST_RemoveRepeatedPoints(ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326))) AS raw_geom
+            ),
+            normalized AS (
+                SELECT
+                    raw_geom,
+                    CASE
+                        WHEN GeometryType(raw_geom) IN ('POLYGON', 'ST_Polygon') THEN raw_geom
+                        ELSE COALESCE(
+                            (
+                                SELECT dumped.geom
+                                FROM ST_Dump(ST_CollectionExtract(ST_UnaryUnion(raw_geom), 3)) AS dumped
+                                ORDER BY ST_Area(dumped.geom::geography) DESC
+                                LIMIT 1
+                            ),
+                            (
+                                SELECT dumped.geom
+                                FROM ST_Dump(ST_CollectionExtract(raw_geom, 3)) AS dumped
+                                ORDER BY ST_Area(dumped.geom::geography) DESC
+                                LIMIT 1
+                            )
+                        )
+                    END AS g
+                FROM prepared
             )
             SELECT
                 ST_IsValid(g) AS is_valid,
@@ -82,7 +105,7 @@ def _analyze_block_geometry(db: Session, geojson_str: str) -> dict[str, Any]:
                 ST_AsGeoJSON(g) AS block_polygon,
                 ST_Y(ST_Centroid(g)) AS centroid_lat,
                 ST_X(ST_Centroid(g)) AS centroid_lon
-            FROM prepared
+            FROM normalized
             """
         ),
         {"geojson": geojson_str},
@@ -129,12 +152,37 @@ def _upsert_block_geometry(
         db.execute(
             text(
                 """
+                WITH prepared AS (
+                    SELECT ST_RemoveRepeatedPoints(ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326))) AS raw_geom
+                ),
+                normalized AS (
+                    SELECT
+                        CASE
+                            WHEN GeometryType(raw_geom) IN ('POLYGON', 'ST_Polygon') THEN raw_geom
+                            ELSE COALESCE(
+                                (
+                                    SELECT dumped.geom
+                                    FROM ST_Dump(ST_CollectionExtract(ST_UnaryUnion(raw_geom), 3)) AS dumped
+                                    ORDER BY ST_Area(dumped.geom::geography) DESC
+                                    LIMIT 1
+                                ),
+                                (
+                                    SELECT dumped.geom
+                                    FROM ST_Dump(ST_CollectionExtract(raw_geom, 3)) AS dumped
+                                    ORDER BY ST_Area(dumped.geom::geography) DESC
+                                    LIMIT 1
+                                )
+                            )
+                        END AS geom
+                    FROM prepared
+                )
                 UPDATE blocks
                 SET
                     crop = COALESCE(:crop, crop),
                     description = COALESCE(:description, description),
                     area_ha = :area_ha,
-                    geom = ST_RemoveRepeatedPoints(ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326)))
+                    geom = normalized.geom
+                FROM normalized
                 WHERE id = :block_id
                 """
             ),
@@ -152,6 +200,30 @@ def _upsert_block_geometry(
         db.execute(
             text(
                 """
+                WITH prepared AS (
+                    SELECT ST_RemoveRepeatedPoints(ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326))) AS raw_geom
+                ),
+                normalized AS (
+                    SELECT
+                        CASE
+                            WHEN GeometryType(raw_geom) IN ('POLYGON', 'ST_Polygon') THEN raw_geom
+                            ELSE COALESCE(
+                                (
+                                    SELECT dumped.geom
+                                    FROM ST_Dump(ST_CollectionExtract(ST_UnaryUnion(raw_geom), 3)) AS dumped
+                                    ORDER BY ST_Area(dumped.geom::geography) DESC
+                                    LIMIT 1
+                                ),
+                                (
+                                    SELECT dumped.geom
+                                    FROM ST_Dump(ST_CollectionExtract(raw_geom, 3)) AS dumped
+                                    ORDER BY ST_Area(dumped.geom::geography) DESC
+                                    LIMIT 1
+                                )
+                            )
+                        END AS geom
+                    FROM prepared
+                )
                 INSERT INTO blocks (id, user_id, lanslu, crop, description, area_ha, geom)
                 VALUES (
                     :block_id,
@@ -160,7 +232,7 @@ def _upsert_block_geometry(
                     :crop,
                     :description,
                     :area_ha,
-                    ST_RemoveRepeatedPoints(ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326)))
+                    (SELECT geom FROM normalized)
                 )
                 """
             ),
@@ -615,7 +687,7 @@ def get_block_timeseries(block_identifier: str):
         raise HTTPException(status_code=500, detail=f"Database error while fetching block time series: {exc}") from exc
 
 
-@router.get("/api/blocks/{block_id}/insights", response_model=GEEInsightsResponse, tags=["satellite-insights"])
+@router.get("/api/blocks/{block_id}/insights", response_model=DashboardBlockInsightsResponse, tags=["satellite-insights"])
 def get_block_dashboard_insights(block_id: str, refresh: bool = Query(default=False)):
     try:
         snapshot = satellite_access_service.get_block_snapshot(block_id, force_refresh=refresh)

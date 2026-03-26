@@ -15,7 +15,7 @@ def build_alerts(payload: dict[str, Any], block_name: str) -> list[SatelliteAler
             alerts.append(
                 SatelliteAlert(
                     metric="ndvi",
-                    code="critical_vine_stress",
+                    code="health_critical",
                     severity="critical",
                     message=f"Critical vine stress detected in {block_label}. Urgent field inspection required.",
                     value=round(ndvi, 4),
@@ -26,7 +26,7 @@ def build_alerts(payload: dict[str, Any], block_name: str) -> list[SatelliteAler
             alerts.append(
                 SatelliteAlert(
                     metric="ndvi",
-                    code="vine_health_declining",
+                    code="health_warning",
                     severity="warning",
                     message=f"Vine health declining in {block_label}. Field inspection recommended this week.",
                     value=round(ndvi, 4),
@@ -40,7 +40,7 @@ def build_alerts(payload: dict[str, Any], block_name: str) -> list[SatelliteAler
             alerts.append(
                 SatelliteAlert(
                     metric="ndwi",
-                    code="severe_water_stress",
+                    code="urgent_irrigation",
                     severity="critical",
                     message=f"Severe water deficit in {block_label}. Irrigate today. Yield damage risk.",
                     value=round(ndwi, 4),
@@ -51,7 +51,7 @@ def build_alerts(payload: dict[str, Any], block_name: str) -> list[SatelliteAler
             alerts.append(
                 SatelliteAlert(
                     metric="ndwi",
-                    code="water_stress_detected",
+                    code="irrigation_alert",
                     severity="warning",
                     message=f"Water stress detected in {block_label}. Consider irrigation within 2–3 days.",
                     value=round(ndwi, 4),

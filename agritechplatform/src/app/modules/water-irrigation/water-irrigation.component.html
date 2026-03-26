@@ -13,41 +13,57 @@
   <div class="content-wrapper">
     <div class="dashboard-grid">
       <div class="left-column">
-        <div class="card header-card shadow-sm">
+        <div class="card header-card shadow-sm field-panel">
           <div class="header-content">
-            <div class="title-group">
-              <div class="icon-box primary">
-                <i-lucide [img]="DropletIcon" class="page-icon"></i-lucide>
+            <div class="header-hero">
+              <div class="title-group">
+                <div class="icon-box primary">
+                  <i-lucide [img]="DropletIcon" class="page-icon"></i-lucide>
+                </div>
+                <div>
+                  <span class="eyebrow-tag">Field Water Control</span>
+                  <h1>Water & Irrigation</h1>
+                  <p class="subtitle">NDWI-only irrigation interpretation with NDWI zone map</p>
+                </div>
               </div>
-              <div>
-                <h1>Water & Irrigation</h1>
-                <p class="subtitle">NDWI-only irrigation interpretation with NDWI zone map</p>
+              <div class="hero-chip-row">
+                <span class="hero-chip">Satellite NDWI</span>
+                <span class="hero-chip accent">Live boundary tools</span>
               </div>
             </div>
 
-            <div class="block-selector">
-              <span class="label">SELECT BLOCK</span>
-              <select [(ngModel)]="selectedBlockLan" (ngModelChange)="onBlockChange($event)" class="block-dropdown">
-                <option *ngFor="let block of blocks" [value]="block.lan">
-                  {{ block.name }}
-                </option>
-              </select>
+            <div class="control-grid">
+              <div class="block-selector feature-card">
+                <span class="label">SELECT BLOCK</span>
+                <select [(ngModel)]="selectedBlockLan" (ngModelChange)="onBlockChange($event)" class="block-dropdown">
+                  <option *ngFor="let block of blocks" [value]="block.lan">
+                    {{ block.name }}
+                  </option>
+                </select>
+              </div>
+
+              <div class="block-selector feature-card">
+                <span class="label">BOUNDARY TOOLS</span>
+                <div class="boundary-actions">
+                  <button class="boundary-action-btn clear" (click)="clearBoundary()">Clear boundary</button>
+                  <label class="boundary-action-btn upload">
+                    Upload shapefile (.zip)
+                    <input type="file" (change)="uploadShapefile($event)" accept=".zip,.shp" style="display:none;">
+                  </label>
+                </div>
+              </div>
+
+              <div class="block-selector feature-card note-card">
+                <span class="label">UPLOAD NOTE</span>
+                <span class="summary-chip note-chip">Use a zipped shapefile with .shp, .shx, .dbf, and .prj files.</span>
+              </div>
             </div>
 
-            <div class="block-selector">
-              <span class="label">BOUNDARY TOOLS</span>
-              <button class="boundary-action-btn clear" (click)="clearBoundary()">Clear boundary</button>
-              <label class="boundary-action-btn upload">
-                Upload shapefile (.zip)
-                <input type="file" (change)="uploadShapefile($event)" accept=".zip,.shp" style="display:none;">
-              </label>
-            </div>
-            <div class="block-selector">
-              <span class="label">UPLOAD NOTE</span>
-              <span class="summary-chip">Use a zipped shapefile with .shp, .shx, .dbf, and .prj files.</span>
-            </div>
-
-            <div class="location-picker">
+            <div class="location-picker feature-strip">
+              <div class="location-copy">
+                <span class="label">FIELD LOCATION</span>
+                <span class="location-title">Centroid and live map mode</span>
+              </div>
               <div class="coords-input">
                 <div class="field">
                   <span class="label">CENTROID LAT</span>
@@ -58,9 +74,9 @@
                   <input type="text" [ngModel]="longitude | number:'1.4-4'" readonly>
                 </div>
               </div>
-              <div class="block-selector">
+              <div class="block-selector mode-card">
                 <span class="label">MAP MODE</span>
-                <span class="summary-chip">
+                <span class="summary-chip mode-chip">
                   {{
                     irrigationStatus?.mapTileUrl
                       ? 'NDWI Zone Map (Water Stress)'
@@ -72,30 +88,46 @@
           </div>
         </div>
 
-        <div class="map-wrapper card shadow-md">
-          <div id="map"></div>
-          <div class="map-overlay" *ngIf="error">
-            <div class="error-msg">
-              <i-lucide [img]="AlertIcon"></i-lucide>
-              {{ error }}
+        <div class="map-shell">
+          <div class="map-shell-header">
+            <div>
+              <span class="label">FIELD MAP</span>
+              <h3>Boundary and irrigation view</h3>
             </div>
+            <span class="map-status-pill">{{ isMoveMode ? 'Move mode active' : 'Viewing mode' }}</span>
           </div>
-          <div class="map-controls">
-            <div class="control-row">
-              <span class="label">CHANGE LOCATION</span>
-              <button class="retry-btn" (click)="toggleMoveMode()">
-                {{ isMoveMode ? 'Disable Move' : 'Enable Move' }}
-              </button>
-              <button class="retry-btn" [disabled]="!isMoveMode || pendingLat === null || pendingLon === null" (click)="saveNewLocation()">Save Location</button>
-            </div>
-            <div class="coords-input" *ngIf="isMoveMode">
-              <div class="field">
-                <span class="label">NEW LAT</span>
-                <input type="text" [ngModel]="pendingLat ?? null" readonly>
+
+          <div class="map-wrapper card shadow-md">
+            <div id="map"></div>
+            <div class="map-glow"></div>
+            <div class="map-overlay" *ngIf="error">
+              <div class="error-msg">
+                <i-lucide [img]="AlertIcon"></i-lucide>
+                {{ error }}
               </div>
-              <div class="field">
-                <span class="label">NEW LON</span>
-                <input type="text" [ngModel]="pendingLon ?? null" readonly>
+            </div>
+            <div class="map-controls">
+              <div class="control-row">
+                <div class="map-control-copy">
+                  <span class="label">CHANGE LOCATION</span>
+                  <span class="map-control-subtitle">Tap the map to place a new centroid</span>
+                </div>
+                <div class="map-action-group">
+                  <button class="retry-btn map-action-btn" (click)="toggleMoveMode()">
+                    {{ isMoveMode ? 'Disable Move' : 'Enable Move' }}
+                  </button>
+                  <button class="retry-btn map-action-btn save" [disabled]="!isMoveMode || pendingLat === null || pendingLon === null" (click)="saveNewLocation()">Save Location</button>
+                </div>
+              </div>
+              <div class="coords-input pending-coords" *ngIf="isMoveMode">
+                <div class="field">
+                  <span class="label">NEW LAT</span>
+                  <input type="text" [ngModel]="pendingLat ?? null" readonly>
+                </div>
+                <div class="field">
+                  <span class="label">NEW LON</span>
+                  <input type="text" [ngModel]="pendingLon ?? null" readonly>
+                </div>
               </div>
             </div>
           </div>
@@ -104,85 +136,147 @@
 
       <div class="right-column">
         <ng-container *ngIf="irrigationStatus">
-          <div class="insight-banner card shadow-sm"
-            [ngClass]="getInsightTone(irrigationStatus.dataQuality)">
-            <div class="banner-top">
-              <span class="status-pill" [ngClass]="getInsightTone(irrigationStatus.dataQuality)">
-                {{ irrigationStatus.dataQuality | titlecase }} Data
-              </span>
-              <span class="status-pill neutral" *ngIf="irrigationStatus.date">
-                Latest: {{ irrigationStatus.date | date:'mediumDate' }}
-              </span>
-            </div>
-            <p *ngIf="irrigationStatus.status === 'No data'">
-              Satellite NDWI unavailable. Using ground observations recommended.
-            </p>
-            <p *ngIf="irrigationStatus.status !== 'No data'">
-              NDWI ground truth from satellite imagery.
-            </p>
-          </div>
-
-          <div class="logic-card card shadow-sm">
-            <div class="card-title">
-              <i-lucide [img]="ActivityIcon"></i-lucide>
-              <h3>Water Logic (NDWI Only)</h3>
-            </div>
-            <div class="formula-container">
-              <div class="formula-box">
-                <code>NDWI > 0.1 -> Well-watered</code>
-                <code>-0.1 to 0.1 -> Mild Stress</code>
-                <code>-0.3 to -0.1 -> Moderate Stress</code>
-                <code>NDWI < -0.3 -> Severe Stress</code>
-                <div class="formula-result">
-                  <span class="final-label">Current Index:</span>
-                  <span class="final-value">{{ irrigationStatus.ndwi ?? 'N/A' }}</span>
+          <div class="ndwi-card card shadow-sm float-in" [ngClass]="getNdwiTone(irrigationStatus.status)">
+            <div class="card-title ndwi-card-header">
+              <div class="ndwi-card-heading">
+                <i-lucide [img]="DropletIcon"></i-lucide>
+                <div>
+                  <h3>Current NDWI</h3>
                 </div>
               </div>
-              <div class="formula-legend">
-                <p>• <strong>NDWI:</strong> Normalized Difference Water Index - Direct satellite measurement of leaf water content.</p>
-                <p>• <strong>Recommendation:</strong> Actionable advice based strictly on satellite ground truth.</p>
+              <button
+                type="button"
+                class="info-icon-btn"
+                (click)="toggleCalculationDetails()"
+                [attr.aria-expanded]="showCalculationDetails"
+                aria-controls="ndwi-calculation-panel"
+                title="How this is calculated">
+                <i-lucide [img]="InfoIcon"></i-lucide>
+              </button>
+            </div>
+            <div class="ndwi-hero">
+              <span class="ndwi-status-chip" [ngClass]="getNdwiTone(irrigationStatus.status)">
+                {{ getStatusHeadline(irrigationStatus.status) }}
+              </span>
+              <div class="ndwi-meta-row">
+                <span class="status-pill neutral" *ngIf="irrigationStatus.date">
+                  Latest: {{ irrigationStatus.date | date:'mediumDate' }}
+                </span>
+              </div>
+              <div class="ndwi-visual-row">
+                <div class="crop-visual-card" [ngClass]="[getNdwiTone(irrigationStatus.status), getCropVisualClass()]">
+                  <div class="crop-visual-header">
+                    <span class="crop-name">{{ getCropDisplayName() }}</span>
+                    <span class="crop-stage">{{ getUrgencyLabel(irrigationStatus.status) }}</span>
+                  </div>
+                  <div class="crop-scene" [ngClass]="[getNdwiTone(irrigationStatus.status), getCropVisualClass()]">
+                    <!-- Next-Level Environmental Parallax -->
+                    <div class="environment-layers">
+                      <div class="sky-background"></div>
+                      <div class="sun-orb" *ngIf="irrigationStatus.status !== 'Well-watered'"></div>
+                      <div class="soft-clouds" *ngIf="irrigationStatus.status === 'Well-watered'">
+                        <div class="cloud c1"></div><div class="cloud c2"></div>
+                      </div>
+                      <div class="distant-hills"></div>
+                    </div>
+
+                    <div class="atmospheric-fx">
+                      <div class="heat-haze" *ngIf="irrigationStatus.status === 'Severe stress'"></div>
+                      <div class="wind-particles">
+                        <div class="particle p1"></div><div class="particle p2"></div><div class="particle p3"></div>
+                      </div>
+                      <div class="dew-drops" *ngIf="irrigationStatus.status === 'Well-watered'">
+                        <div class="drop"></div><div class="drop"></div><div class="drop"></div>
+                      </div>
+                    </div>
+
+                    <div class="soil-strip">
+                      <div class="cracks" *ngIf="irrigationStatus.status === 'Severe stress'"></div>
+                      <div class="soil-texture"></div>
+                    </div>
+                    
+                    <div class="plant-bed"></div>
+                    <div class="vine-post left"></div>
+                    <div class="vine-post right" *ngIf="getCropVisualClass() === 'shiraz'"></div>
+                    <div class="vine-wire" *ngIf="getCropVisualClass() === 'shiraz'"></div>
+                    
+                    <div class="crop-plant" [ngClass]="[getNdwiTone(irrigationStatus.status), getCropVisualClass()]">
+                      <div class="plant-stem">
+                        <div class="veins"></div>
+                        <div class="stem-shading"></div>
+                      </div>
+                      <div class="leaf leaf-a"><div class="leaf-inner"></div><div class="leaf-shadow"></div></div>
+                      <div class="leaf leaf-b"><div class="leaf-inner"></div><div class="leaf-shadow"></div></div>
+                      <div class="leaf leaf-c"><div class="leaf-inner"></div><div class="leaf-shadow"></div></div>
+                      <div class="leaf leaf-d" *ngIf="getCropVisualClass() === 'shiraz'"><div class="leaf-inner"></div><div class="leaf-shadow"></div></div>
+                      <div class="leaf leaf-e" *ngIf="getCropVisualClass() === 'shiraz'"><div class="leaf-inner"></div><div class="leaf-shadow"></div></div>
+                      
+                      <div class="grape-cluster cluster-a" *ngIf="getCropVisualClass() === 'shiraz'">
+                        <div class="grape-glow"></div>
+                        <div class="grape-shine"></div>
+                      </div>
+                      <div class="grape-cluster cluster-b" *ngIf="getCropVisualClass() === 'shiraz'">
+                        <div class="grape-glow"></div>
+                        <div class="grape-shine"></div>
+                      </div>
+                    </div>
+                    
+                    <!-- Lighting Overlay -->
+                    <div class="scene-lighting" [ngClass]="getNdwiTone(irrigationStatus.status)"></div>
+                  </div>
+                  <span class="crop-caption">Animated crop response</span>
+                </div>
+                <div class="ndwi-value-group">
+                  <span class="urgency-badge" [ngClass]="getUrgencyTone(irrigationStatus.status)">
+                    {{ getUrgencyLabel(irrigationStatus.status) }}
+                  </span>
+                  <div class="ndwi-value-copy">
+                    <span class="ndwi-value-label">Live irrigation signal</span>
+                    <p class="ndwi-support-copy">{{ getStatusExplanation(irrigationStatus.status) }}</p>
+                  </div>
+                  <div class="ndwi-value">
+                    {{ irrigationStatus.ndwi !== null ? (irrigationStatus.ndwi | number:'1.4-4') : 'N/A' }}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div
+              id="ndwi-calculation-panel"
+              class="collapse-panel ndwi-info-panel"
+              [class.expanded]="showCalculationDetails">
+              <div class="formula-box">
+                <div class="info-panel-title">How NDWI is interpreted</div>
+                <code>NDWI &gt; 0.1 -> Well-watered</code>
+                <code>-0.1 to 0.1 -> Mild stress</code>
+                <code>-0.3 to -0.1 -> Moderate stress</code>
+                <code>NDWI &lt; -0.3 -> Severe stress</code>
               </div>
             </div>
           </div>
 
-          <div class="analysis-card card shadow-sm">
+          <div class="analysis-card card shadow-sm rise-in">
             <div class="card-title">
               <i-lucide [img]="ActivityIcon"></i-lucide>
               <div class="title-stack">
-                <h3>Water Management</h3>
-                <span class="sub-tag">NDWI is the only decision driver</span>
+                <h3>What This Means</h3>
               </div>
             </div>
 
-            <div class="status-summary card shadow-sm" [ngClass]="getStatusBgColor(irrigationStatus.status)">
+            <div class="status-summary card shadow-sm" [ngClass]="getNdwiTone(irrigationStatus.status)">
               <div class="summary-header">
                 <div class="status-indicator-large" [ngClass]="getStatusIndicatorClass(irrigationStatus.status)"></div>
                 <div>
-                  <span class="tag">Water Stress:</span>
-                  <h2 class="uppercase">{{ formatStatusLabel(irrigationStatus.status) }}</h2>
+                  <span class="tag">Field condition</span>
+                  <h2>{{ getStatusHeadline(irrigationStatus.status) }}</h2>
                 </div>
               </div>
 
-              <div class="summary-meta">
-                <span class="summary-chip" *ngIf="irrigationStatus.ndwi !== null">
-                  NDWI: {{ irrigationStatus.ndwi | number:'1.4-4' }}
-                </span>
-                <span class="summary-chip">
-                  Pixels: {{ irrigationStatus.pixelCount }}
-                </span>
-              </div>
+              <p class="explanation-text">{{ getStatusExplanation(irrigationStatus.status) }}</p>
 
               <div class="recommendation-section">
-                <span class="tag">Recommendation:</span>
+                <span class="tag">Water recommendation</span>
                 <p class="recommendation-msg bold">{{ irrigationStatus.recommendation }}</p>
-              </div>
-
-              <div class="about-section">
-                <span class="tag">About:</span>
-                <ul class="about-list">
-                  <li>NDWI drives the irrigation interpretation in this module.</li>
-                  <li>The NDWI map overlay is a satellite tile layer when available.</li>
-                </ul>
               </div>
             </div>
           </div>

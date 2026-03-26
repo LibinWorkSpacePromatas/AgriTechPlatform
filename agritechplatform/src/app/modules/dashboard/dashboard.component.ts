@@ -246,6 +246,10 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
       return 'No real satellite intelligence is available for the selected block yet. The dashboard is showing an empty state until a usable composite arrives.';
     }
 
+    if (this.latestInsights.dataQuality === 'degraded') {
+      return 'This dashboard is using a degraded satellite composite. Review the data quality panel before making field decisions.';
+    }
+
     return 'This dashboard is using real satellite-backed block intelligence for the selected block.';
   }
 
@@ -365,8 +369,69 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     return latestDate ? this.formatInsightsTimestamp(latestDate) : 'No historical observations yet';
   }
 
+  get dashboardFreshnessLabel(): string {
+    const latestDate = this.latestInsights?.lastSatelliteUpdate || this.latestInsights?.compositeDateTo;
+    return latestDate ? `Data from: ${this.formatInsightsDate(latestDate)}` : 'Data from: Waiting for satellite refresh';
+  }
+
   get isNdviMapAvailable(): boolean {
-    return !!this.latestInsights?.mapTileUrl;
+    return !!this.latestInsights?.ndviTileUrl;
+  }
+
+  get dashboardMapTileUrl(): string | null {
+    return this.latestInsights?.ndviTileUrl || null;
+  }
+
+  get showDegradedDataWarning(): boolean {
+    if (!this.latestInsights || this.showNoRealDataState) {
+      return false;
+    }
+
+    return this.latestInsights.dataQuality === 'degraded' || (this.latestInsights.cloudCoverPct ?? 0) > 50;
+  }
+
+  get degradedDataWarningMessage(): string {
+    if (!this.latestInsights) {
+      return 'Satellite data quality is still loading for this block.';
+    }
+
+    if (this.latestInsights.error) {
+      return this.latestInsights.error;
+    }
+
+    if ((this.latestInsights.cloudCoverPct ?? 0) > 50) {
+      return `Cloud cover is ${(this.latestInsights.cloudCoverPct ?? 0).toFixed(1)}%, so this composite is less reliable than a normal pass. Treat the current readings as provisional.`;
+    }
+
+    return 'This block is using a degraded satellite composite because cloud contamination or low usable pixels reduced confidence in the current pass.';
+  }
+
+  get mapOverlayLabel(): string {
+    return 'NDVI overlay';
+  }
+
+  get mapAvailabilityLabel(): string {
+    return this.isNdviMapAvailable ? `${this.mapOverlayLabel} available` : 'Block outline only';
+  }
+
+  get mapEmptyStateMessage(): string {
+    if (!this.latestInsights) {
+      return 'The dashboard is loading the latest NDVI overlay. The block outline will stay visible until the backend responds.';
+    }
+
+    if (this.latestInsights.status === 'updating') {
+      return 'A fresh satellite refresh is in progress. The block outline is shown until the updated overlay is ready.';
+    }
+
+    if (this.latestInsights.dataQuality === 'no_data') {
+      return 'No usable satellite composite is available for this block yet. The dashboard is showing only the block footprint.';
+    }
+
+    if (this.latestInsights.status === 'stale') {
+      return 'The latest NDVI overlay tile is not available yet, so the dashboard is showing the block outline while the stale cache is refreshed.';
+    }
+
+    return `No ${this.mapOverlayLabel.toLowerCase()} tile is available for this block yet. The dashboard is showing the block footprint for spatial context.`;
   }
 
   get acquisitionDatesSummary(): string {
@@ -976,8 +1041,8 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
       .bindPopup(`${this.currentBlock.name}<br>Block centroid`)
       .addTo(this.ndviMap);
 
-    if (this.latestInsights?.mapTileUrl) {
-      this.ndviTileLayer = L.tileLayer(this.latestInsights.mapTileUrl, {
+    if (this.dashboardMapTileUrl) {
+      this.ndviTileLayer = L.tileLayer(this.dashboardMapTileUrl, {
         opacity: 0.68,
         attribution: 'NDVI overlay © Sentinel-2 / Google Earth Engine'
       }).addTo(this.ndviMap);
