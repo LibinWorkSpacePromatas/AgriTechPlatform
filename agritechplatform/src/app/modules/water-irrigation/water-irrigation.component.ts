@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, AfterViewInit, Inject, PLATFORM_ID, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, Inject, PLATFORM_ID, ChangeDetectorRef, HostListener } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule, Droplet, Waves, Calendar, Activity, AlertCircle, MapPin, Layers, Info } from 'lucide-angular';
@@ -56,6 +56,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
   pendingLat: number | null = null;
   pendingLon: number | null = null;
   showCalculationDetails = false;
+  isBlockMenuOpen = false;
 
   private destroy$ = new Subject<void>();
 
@@ -534,6 +535,20 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     if (block) {
       this.blockService.setBlock(block);
     }
+  }
+
+  toggleBlockMenu(): void {
+    this.isBlockMenuOpen = !this.isBlockMenuOpen;
+  }
+
+  selectBlock(blockLan: string): void {
+    this.isBlockMenuOpen = false;
+    this.onBlockChange(blockLan);
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    this.isBlockMenuOpen = false;
   }
 
   ngOnDestroy(): void {
