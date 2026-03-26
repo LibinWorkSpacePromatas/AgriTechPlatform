@@ -4,7 +4,15 @@ from sqlalchemy import inspect, text
 
 from app.db.base import Base
 from app.db.database import engine
-from app.db.models import SatelliteCache, SatelliteRefreshEventRecord, SatelliteRefreshJob, SatelliteTimeseries
+from app.db.models import (
+    SatelliteCache,
+    SatelliteRefreshEventRecord,
+    SatelliteRefreshJob,
+    SatelliteTimeseries,
+    SensorDefinition,
+    SensorLatest,
+    SensorReading,
+)
 
 
 EXPECTED_SATELLITE_CACHE_COLUMNS = {
@@ -98,6 +106,94 @@ def ensure_satellite_support_tables() -> None:
         ],
     )
     _ensure_satellite_timeseries_schema()
+    _ensure_sensor_support_tables()
+
+
+def _ensure_sensor_support_tables() -> None:
+    Base.metadata.create_all(
+        bind=engine,
+        tables=[
+            SensorDefinition.__table__,
+            SensorReading.__table__,
+            SensorLatest.__table__,
+        ],
+    )
+
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                CREATE OR REPLACE FUNCTION fn_update_sensor_latest()
+                RETURNS TRIGGER
+                LANGUAGE plpgsql
+                AS $$
+                BEGIN
+                    INSERT INTO sensor_latest (sensor_id, value, status, observed_at, updated_at)
+                    VALUES (NEW.sensor_id, NEW.value, NEW.status, NEW.observed_at, NOW())
+                    ON CONFLICT (sensor_id) DO UPDATE
+                    SET
+                        value = EXCLUDED.value,
+                        status = EXCLUDED.status,
+                        observed_at = EXCLUDED.observed_at,
+                        updated_at = NOW()
+                    WHERE EXCLUDED.observed_at >= sensor_latest.observed_at;
+
+                    RETURN NEW;
+                END;
+                $$;
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                DROP TRIGGER IF EXISTS trg_sensor_latest ON sensor_readings
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE TRIGGER trg_sensor_latest
+                AFTER INSERT ON sensor_readings
+                FOR EACH ROW
+                EXECUTE FUNCTION fn_update_sensor_latest()
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_sensor_definitions_block_id
+                ON sensor_definitions (block_id)
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_sensor_definitions_user_id
+                ON sensor_definitions (user_id)
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_sensor_readings_sensor_granularity_observed
+                ON sensor_readings (sensor_id, granularity, observed_at DESC)
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_sensor_readings_raw_recent
+                ON sensor_readings (sensor_id, observed_at DESC)
+                WHERE granularity = 'raw'
+                """
+            )
+        )
 
 
 def ensure_satellite_cache_table() -> None:

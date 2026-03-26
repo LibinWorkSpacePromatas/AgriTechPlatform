@@ -231,6 +231,7 @@ export class LineChartComponent implements OnChanges, AfterViewInit, OnDestroy {
   @Input() height = 200;
   @Input() minY?: number;
   @Input() maxY?: number;
+  @Input() forceAllLabels = false;
 
   @Input() data: Array<number | null> = [];
   @Input() color = '#10b981';
@@ -266,7 +267,7 @@ export class LineChartComponent implements OnChanges, AfterViewInit, OnDestroy {
   constructor(private el: ElementRef) {}
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['series'] || changes['labels'] || changes['data'] || changes['minY'] || changes['maxY'] || changes['height']) {
+    if (changes['series'] || changes['labels'] || changes['data'] || changes['minY'] || changes['maxY'] || changes['height'] || changes['forceAllLabels']) {
       this.drawChart();
     }
   }
@@ -520,6 +521,10 @@ export class LineChartComponent implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   private buildVisibleLabelIndices(dataLength: number): number[] {
+    if (this.forceAllLabels) {
+      return Array.from({ length: dataLength }, (_, index) => index);
+    }
+
     if (dataLength <= 1) {
       return [0];
     }

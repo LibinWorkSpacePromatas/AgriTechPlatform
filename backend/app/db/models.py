@@ -1,4 +1,23 @@
-from sqlalchemy import Column, Date, DateTime, Float, ForeignKey, Index, Integer, String, Text
+from uuid import uuid4
+
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    Column,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Identity,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
+from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from geoalchemy2 import Geometry
 
@@ -111,3 +130,73 @@ class SatelliteTimeseries(Base):
     cloud_cover_pct = Column(Float, nullable=True)
     pixel_count = Column(Integer, nullable=False, default=0)
     data_quality = Column(String(32), nullable=False)
+
+
+class SensorDefinition(Base):
+    __tablename__ = "sensor_definitions"
+    __table_args__ = (
+        CheckConstraint(
+            "sensor_type IN ('soil_moisture', 'soil_temperature', 'air_temperature', 'humidity', 'ph_level')",
+            name="ck_sensor_definitions_sensor_type",
+        ),
+        UniqueConstraint("block_id", "sensor_type", name="uq_sensor_definitions_block_sensor_type"),
+        Index("ix_sensor_definitions_block_id", "block_id"),
+        Index("ix_sensor_definitions_user_id", "user_id"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    block_id = Column(UUID(as_uuid=True), ForeignKey("blocks.id", ondelete="CASCADE"), nullable=False)
+    sensor_type = Column(String(64), nullable=False)
+    label = Column(String(128), nullable=False)
+    unit = Column(String(16), nullable=False)
+    threshold_low = Column(Float, nullable=True)
+    threshold_high = Column(Float, nullable=True)
+    suggested_min = Column(Float, nullable=True)
+    suggested_max = Column(Float, nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True, server_default=text("true"))
+    created_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=func.now(),
+        onupdate=func.now(),
+        server_default=func.now(),
+    )
+
+
+class SensorReading(Base):
+    __tablename__ = "sensor_readings"
+    __table_args__ = (
+        CheckConstraint("status IN ('Normal', 'High', 'Low')", name="ck_sensor_readings_status"),
+        CheckConstraint("granularity IN ('raw', 'hourly', 'daily', 'weekly')", name="ck_sensor_readings_granularity"),
+        Index("ix_sensor_readings_sensor_granularity_observed", "sensor_id", "granularity", "observed_at"),
+        Index(
+            "ix_sensor_readings_raw_recent",
+            "sensor_id",
+            "observed_at",
+            postgresql_where=text("granularity = 'raw'"),
+        ),
+    )
+
+    id = Column(BigInteger, Identity(always=True), primary_key=True)
+    sensor_id = Column(UUID(as_uuid=True), ForeignKey("sensor_definitions.id", ondelete="CASCADE"), nullable=False)
+    value = Column(Float, nullable=False)
+    status = Column(String(16), nullable=False, default="Normal", server_default=text("'Normal'"))
+    granularity = Column(String(16), nullable=False, default="raw", server_default=text("'raw'"))
+    observed_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), server_default=func.now())
+    recorded_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), server_default=func.now())
+
+
+class SensorLatest(Base):
+    __tablename__ = "sensor_latest"
+
+    sensor_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("sensor_definitions.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    value = Column(Float, nullable=False)
+    status = Column(String(16), nullable=False, default="Normal", server_default=text("'Normal'"))
+    observed_at = Column(DateTime(timezone=True), nullable=False)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), server_default=func.now())
