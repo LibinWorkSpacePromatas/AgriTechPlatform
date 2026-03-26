@@ -333,6 +333,22 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  get currentSensorPointColors(): string[] {
+    const sensor = this.activeDetailSensor;
+    if (!sensor) {
+      return [];
+    }
+
+    return this.currentSensorData.map(value => {
+      const tone = this.getDetailValueToneClass(sensor, value);
+      if (tone === 'detail-tone-error') {
+        return '#dc2626';
+      }
+
+      return '#15803d';
+    });
+  }
+
   get currentSensorHasData(): boolean {
     return this.currentSensorData.some(value => typeof value === 'number');
   }
@@ -642,15 +658,15 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
       return { times: [], temperature: [], apparentTemperature: [] };
     }
 
-    const currentTime = this.parseDateValue(this.weatherData.current.time).getTime();
+    const currentTime = this.normalizeLocalDateTimeKey(this.weatherData.current.time);
     const rows = this.weatherData.hourly.time
       .map((time, index) => ({
         time,
-        timestamp: this.parseDateValue(time).getTime(),
+        timestamp: this.normalizeLocalDateTimeKey(time),
         temperature: this.weatherData!.hourly.temperature_2m[index],
         apparentTemperature: this.weatherData!.hourly.apparent_temperature[index]
       }))
-      .filter(row => Number.isFinite(row.timestamp) && row.timestamp <= currentTime)
+      .filter(row => row.timestamp <= currentTime)
       .slice(-24);
 
     return {
@@ -1570,20 +1586,14 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   formatHourlyLabels(times: string[]): string[] {
+    const currentDateKey = this.weatherData ? this.toDateKey(this.weatherData.current.time) : null;
+    const currentTimeKey = this.weatherData ? this.normalizeLocalDateTimeKey(this.weatherData.current.time) : null;
+
     return times.map((time, index) => {
-      const parsed = this.parseDateValue(time);
-      if (Number.isNaN(parsed.getTime())) {
-        return time;
-      }
-
-      if (index === times.length - 1) {
-        return 'Now';
-      }
-
-      return parsed.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        hour12: false
-      });
+      const includeDay = !!currentDateKey && this.toDateKey(time) !== currentDateKey;
+      const isLatest = index === times.length - 1;
+      const latestDisplayTime = isLatest && currentTimeKey ? currentTimeKey : time;
+      return this.formatLocalHourLabel(latestDisplayTime, includeDay);
     });
   }
 
@@ -1923,6 +1933,11 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private toDateKey(value: string): string {
+    const [datePart] = value.split('T');
+    if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+      return datePart;
+    }
+
     const date = this.parseDateValue(value);
     if (Number.isNaN(date.getTime())) {
       return value;
@@ -1936,5 +1951,39 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private parseDateValue(value: string): Date {
     return new Date(value.includes('T') ? value : `${value}T00:00:00`);
+  }
+
+  private normalizeLocalDateTimeKey(value: string): string {
+    return value.length >= 16 ? value.slice(0, 16) : value;
+  }
+
+  private formatLocalHourLabel(value: string, includeDay: boolean): string {
+    const [datePart, timePart = ''] = value.split('T');
+    const hourLabel = this.formatTimeTo12Hour(timePart);
+
+    if (!includeDay || !/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+      return hourLabel;
+    }
+
+    const [year, month, day] = datePart.split('-').map(Number);
+    const weekday = new Date(Date.UTC(year, month - 1, day)).toLocaleDateString('en-US', {
+      weekday: 'short',
+      timeZone: 'UTC'
+    });
+
+    return `${weekday} ${hourLabel}`;
+  }
+
+  private formatTimeTo12Hour(timePart: string): string {
+    const match = timePart.match(/^(\d{2}):(\d{2})/);
+    if (!match) {
+      return timePart || '';
+    }
+
+    const hour = Number(match[1]);
+    const minute = match[2];
+    const suffix = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minute} ${suffix}`;
   }
 }

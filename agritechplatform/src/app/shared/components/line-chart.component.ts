@@ -6,6 +6,7 @@ export interface ChartSeries {
   data: Array<number | null>;
   color: string;
   unit: string;
+  pointColors?: Array<string | null>;
 }
 
 interface ChartPoint {
@@ -17,6 +18,7 @@ interface RenderedSeries extends ChartSeries {
   points: ChartPoint[];
   linePath: string;
   areaPath: string;
+  segments: Array<{ path: string; color: string }>;
 }
 
 @Component({
@@ -52,21 +54,30 @@ interface RenderedSeries extends ChartSeries {
             fill-opacity="1" />
         </ng-container>
 
-        <path *ngFor="let s of renderedSeries"
-          [attr.d]="s.linePath"
-          [attr.stroke]="s.color"
-          fill="none"
-          stroke-width="2.5"
-          stroke-linecap="round"
-          stroke-linejoin="round" />
+        <ng-container *ngFor="let s of renderedSeries">
+          <path *ngIf="!s.segments.length"
+            [attr.d]="s.linePath"
+            [attr.stroke]="s.color"
+            fill="none"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round" />
+          <path *ngFor="let segment of s.segments"
+            [attr.d]="segment.path"
+            [attr.stroke]="segment.color"
+            fill="none"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round" />
+        </ng-container>
 
         <ng-container *ngFor="let s of renderedSeries">
-          <ng-container *ngFor="let point of s.points">
+          <ng-container *ngFor="let point of s.points; let pointIndex = index">
             <circle *ngIf="point.y !== null"
               [attr.cx]="point.x"
               [attr.cy]="point.y"
               r="2.5"
-              [attr.fill]="s.color"
+              [attr.fill]="s.pointColors?.[pointIndex] || s.color"
               fill-opacity="0.9" />
           </ng-container>
         </ng-container>
@@ -105,7 +116,7 @@ interface RenderedSeries extends ChartSeries {
               [attr.cx]="s.points[hoverIndex].x"
               [attr.cy]="s.points[hoverIndex].y"
               r="4.5"
-              [attr.fill]="s.color"
+              [attr.fill]="s.pointColors?.[hoverIndex] || s.color"
               stroke="#ffffff"
               stroke-width="2" />
           </ng-container>
@@ -232,10 +243,12 @@ export class LineChartComponent implements OnChanges, AfterViewInit, OnDestroy {
   @Input() minY?: number;
   @Input() maxY?: number;
   @Input() forceAllLabels = false;
+  @Input() labelStep?: number | null;
 
   @Input() data: Array<number | null> = [];
   @Input() color = '#10b981';
   @Input() label = 'Value';
+  @Input() pointColors: Array<string | null> = [];
 
   @ViewChild('svgRef') svgRef!: ElementRef<SVGElement>;
 
@@ -267,7 +280,7 @@ export class LineChartComponent implements OnChanges, AfterViewInit, OnDestroy {
   constructor(private el: ElementRef) {}
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['series'] || changes['labels'] || changes['data'] || changes['minY'] || changes['maxY'] || changes['height'] || changes['forceAllLabels']) {
+    if (changes['series'] || changes['labels'] || changes['data'] || changes['pointColors'] || changes['minY'] || changes['maxY'] || changes['height'] || changes['forceAllLabels'] || changes['labelStep']) {
       this.drawChart();
     }
   }
@@ -422,8 +435,9 @@ export class LineChartComponent implements OnChanges, AfterViewInit, OnDestroy {
 
       const linePath = this.buildLinePath(points);
       const areaPath = this.buildAreaPath(points);
+      const segments = this.buildColoredSegments(points, series.pointColors || [], series.color);
 
-      return { ...series, points, linePath, areaPath };
+      return { ...series, points, linePath, areaPath, segments };
     });
 
     this.viewBox = `0 0 ${this.width} ${this.height}`;
@@ -442,7 +456,8 @@ export class LineChartComponent implements OnChanges, AfterViewInit, OnDestroy {
       name: this.label,
       data: [...this.data],
       color: this.color,
-      unit: ''
+      unit: '',
+      pointColors: [...this.pointColors]
     }];
   }
 
@@ -525,6 +540,15 @@ export class LineChartComponent implements OnChanges, AfterViewInit, OnDestroy {
       return Array.from({ length: dataLength }, (_, index) => index);
     }
 
+    if (this.labelStep && this.labelStep > 1) {
+      const indices = new Set<number>();
+      for (let index = dataLength - 1; index >= 0; index -= this.labelStep) {
+        indices.add(index);
+      }
+      indices.add(0);
+      return Array.from(indices).sort((left, right) => left - right);
+    }
+
     if (dataLength <= 1) {
       return [0];
     }
@@ -600,6 +624,30 @@ export class LineChartComponent implements OnChanges, AfterViewInit, OnDestroy {
     flushSegment();
 
     return path;
+  }
+
+  private buildColoredSegments(
+    points: ChartPoint[],
+    pointColors: Array<string | null>,
+    fallbackColor: string
+  ): Array<{ path: string; color: string }> {
+    const segments: Array<{ path: string; color: string }> = [];
+
+    for (let index = 1; index < points.length; index += 1) {
+      const previous = points[index - 1];
+      const current = points[index];
+
+      if (previous.y === null || current.y === null) {
+        continue;
+      }
+
+      segments.push({
+        path: `M ${previous.x} ${previous.y} L ${current.x} ${current.y}`,
+        color: pointColors[index] || pointColors[index - 1] || fallbackColor
+      });
+    }
+
+    return segments;
   }
 
   private buildAreaPath(points: ChartPoint[]): string {
