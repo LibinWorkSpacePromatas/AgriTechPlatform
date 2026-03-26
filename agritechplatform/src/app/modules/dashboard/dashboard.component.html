@@ -60,15 +60,6 @@
             </div>
         </div>
 
-        <div class="advisor-section card-box overview-warning-card" *ngIf="showNoRealDataState">
-            <div class="section-title warning-title">
-                <i-lucide [img]="AlertTriangleIcon" size="20" class="icon-orange"></i-lucide>
-                {{ dataStatusTitle }}
-            </div>
-            <p class="warning-text">{{ dataStatusMessage }}</p>
-            <p class="warning-text">This screen will automatically fill with the main crop condition, supporting checks, and history once a usable real satellite composite is available.</p>
-        </div>
-
         <ng-container *ngIf="!showNoRealDataState">
         <div class="advisor-section card-box overview-warning-card" *ngIf="showDegradedDataWarning">
             <div class="section-title warning-title">
@@ -151,63 +142,6 @@
                         </div>
                     </div>
                 </div>
-                <div class="overview-side-status">
-                    <div class="overview-status-label">Backend Status Notice</div>
-                    <div class="overview-status-text">{{ dataStatusMessage }}</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="data-quality-card card-box" *ngIf="latestInsights as insights">
-            <div class="trend-card-header">
-                <div>
-                    <div class="section-label trend-section-label">
-                        <i-lucide [img]="CpuIcon" size="16"></i-lucide>
-                        Satellite Data Quality
-                    </div>
-                    <p class="trend-card-subtitle">These values describe which Sentinel-2 composite the dashboard is using and how reliable the current block reading is.</p>
-                </div>
-                <span class="trend-chip" [ngClass]="getDataQualityBadgeClass()">
-                    {{ insights.dataQuality | titlecase }} data
-                </span>
-            </div>
-
-            <div class="data-quality-grid">
-                <div class="reading-tile">
-                    <div class="reading-label">Search window</div>
-                    <div class="reading-text">{{ getSearchWindowSummary() }}</div>
-                    <div class="reading-help">The 14-day Sentinel-2 fetch window requested by the backend</div>
-                </div>
-
-                <div class="reading-tile">
-                    <div class="reading-label">Acquisition span</div>
-                    <div class="reading-text">{{ getAcquisitionSpanSummary() }}</div>
-                    <div class="reading-help">Earliest to latest usable observation date in the current composite</div>
-                </div>
-
-                <div class="reading-tile">
-                    <div class="reading-label">Cloud cover</div>
-                    <div class="reading-text">{{ formatCloudCoverLabel(insights.cloudCoverPct) }}</div>
-                    <div class="reading-help">Values above 50% reduce reliability</div>
-                </div>
-
-                <div class="reading-tile">
-                    <div class="reading-label">Images used</div>
-                    <div class="reading-text">{{ insights.acquisitionMetadata.imageCount }}</div>
-                    <div class="reading-help">Sentinel-2 scenes inside the current composite window</div>
-                </div>
-
-                <div class="reading-tile">
-                    <div class="reading-label">Usable pixels</div>
-                    <div class="reading-text">{{ insights.pixelCount }}</div>
-                    <div class="reading-help">Block pixels contributing to the index mean</div>
-                </div>
-
-                <div class="reading-tile wide">
-                    <div class="reading-label">Acquisition dates</div>
-                    <div class="reading-text">{{ acquisitionDatesSummary }}</div>
-                    <div class="reading-help">Distinct Sentinel-2 observation dates used by the backend</div>
-                </div>
             </div>
         </div>
 
@@ -220,8 +154,88 @@
                     </div>
                     <p class="supporting-text">These cards help explain why the main crop condition is strong, weak, or changing.</p>
                 </div>
-                <div class="supporting-hint">Open one card at a time</div>
+                <div class="supporting-header-actions" *ngIf="latestInsights as insights; else supportingHintOnly" (click)="$event.stopPropagation()">
+                    <div class="supporting-hint">Open one card at a time</div>
+                    <button
+                        type="button"
+                        class="data-quality-info-button supporting-info-button"
+                        aria-label="Show satellite data details"
+                        [attr.aria-expanded]="isSatelliteDataPopoverOpen"
+                        (click)="toggleSatelliteDataPopover($event)">
+                        <span>i</span>
+                    </button>
+
+                    <div class="data-quality-popover supporting-data-popover" *ngIf="isSatelliteDataPopoverOpen" (click)="$event.stopPropagation()">
+                        <div class="data-quality-popover-header">
+                            <div>
+                                <div class="data-quality-popover-title">Satellite Data</div>
+                                <p class="data-quality-popover-subtitle">Current Sentinel-2 composite summary.</p>
+                            </div>
+                            <button
+                                type="button"
+                                class="data-quality-close-button"
+                                aria-label="Close satellite data details"
+                                (click)="closeSatelliteDataPopover($event)">
+                                &times;
+                            </button>
+                        </div>
+
+                        <div class="data-quality-popover-meta">
+                            <span class="trend-chip" [ngClass]="getDataQualityBadgeClass()">
+                                {{ insights.dataQuality | titlecase }} data
+                            </span>
+                        </div>
+
+                        <div class="data-quality-popover-sheet">
+                            <div class="data-quality-row">
+                                <div class="data-quality-row-label">Search window</div>
+                                <div class="data-quality-row-value">{{ getSearchWindowSummary() }}</div>
+                                <div class="data-quality-row-detail">Backend 14-day fetch range.</div>
+                            </div>
+
+                            <div class="data-quality-row">
+                                <div class="data-quality-row-label">Acquisition span</div>
+                                <div class="data-quality-row-value">{{ getAcquisitionSpanSummary() }}</div>
+                                <div class="data-quality-row-detail">Usable observation dates in this composite.</div>
+                            </div>
+
+                            <div class="data-quality-row data-quality-row-inline">
+                                <div>
+                                    <div class="data-quality-row-label">Cloud cover</div>
+                                    <div class="data-quality-row-value">{{ formatCloudCoverLabel(insights.cloudCoverPct) }}</div>
+                                </div>
+                                <div class="data-quality-row-side-detail">Reliability falls after 50%.</div>
+                            </div>
+
+                            <div class="data-quality-row data-quality-row-inline">
+                                <div>
+                                    <div class="data-quality-row-label">Images used</div>
+                                    <div class="data-quality-row-value">{{ insights.acquisitionMetadata.imageCount }}</div>
+                                </div>
+                                <div class="data-quality-row-side-detail">Scenes used in this composite.</div>
+                            </div>
+
+                            <div class="data-quality-row data-quality-row-inline">
+                                <div>
+                                    <div class="data-quality-row-label">Usable pixels</div>
+                                    <div class="data-quality-row-value">{{ insights.pixelCount }}</div>
+                                </div>
+                                <div class="data-quality-row-side-detail">Pixels included in the index mean.</div>
+                            </div>
+
+                            <div class="data-quality-row">
+                                <div class="data-quality-row-label">Acquisition dates</div>
+                                <div class="data-quality-row-value">{{ acquisitionDatesSummary }}</div>
+                                <div class="data-quality-row-detail">Observation dates included.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
+
+            <ng-template #supportingHintOnly>
+                <div class="supporting-hint">Open one card at a time</div>
+            </ng-template>
 
             <div class="supporting-grid">
                 <article *ngFor="let sensor of secondarySensors" class="supporting-sensor-card"
@@ -250,62 +264,82 @@
                     </button>
                 </article>
             </div>
-        </div>
+            <div #detailPanel class="supporting-detail-shell" *ngIf="activeDetailSensor as activeSensor">
+                <div class="detail-panel">
+                    <div class="detail-panel-header">
+                        <div>
+                            <div class="section-title">
+                                <i-lucide [img]="activeSensor.icon" size="20" class="icon-green"></i-lucide>
+                                Trend Detail
+                            </div>
+                            <h3 class="detail-panel-title">{{ getFriendlySensorName(activeSensor.id) }}</h3>
+                            <p class="detail-panel-text">{{ getSensorTrendSummary(activeSensor) }}</p>
+                        </div>
 
-        <div #detailPanel class="detail-panel card-box" *ngIf="activeDetailSensor as activeSensor">
-            <div class="detail-panel-header">
-                <div>
-                    <div class="section-title">
-                        <i-lucide [img]="activeSensor.icon" size="20" class="icon-green"></i-lucide>
-                        Trend Detail
+                        <button *ngIf="lockedSensor" type="button" class="detail-close-btn" (click)="closePopup($event)">
+                            Back To Main Signal
+                        </button>
                     </div>
-                    <h3 class="detail-panel-title">{{ getFriendlySensorName(activeSensor.id) }}</h3>
-                    <p class="detail-panel-text">{{ getSensorTrendSummary(activeSensor) }}</p>
-                </div>
 
-                <button *ngIf="lockedSensor" type="button" class="detail-close-btn" (click)="closePopup($event)">
-                    Back To Main Signal
-                </button>
-            </div>
+                    <div class="detail-summary-row">
+                        <div class="detail-summary-grid">
+                            <div class="detail-summary-card">
+                                <div class="detail-summary-label">Current reading</div>
+                                <div class="detail-summary-value" [ngClass]="getDetailValueToneClass(activeSensor, activeSensor.raw)">
+                                    {{ activeSensor.value }}<span class="unit">{{ activeSensor.unit }}</span>
+                                </div>
+                            </div>
+                            <div class="detail-summary-card">
+                                <div class="detail-summary-label">Current status</div>
+                                <div class="detail-summary-value" [ngClass]="getDetailStatusToneClass(activeSensor)">{{ activeSensor.summaryLabel }}</div>
+                            </div>
+                            <div class="detail-summary-card">
+                                <div class="detail-summary-label">Average</div>
+                                <div class="detail-summary-value" [ngClass]="getDetailValueToneClass(activeSensor, getAverage(currentSensorData))">
+                                    {{ getAverage(currentSensorData) | number:'1.1-1' }}
+                                </div>
+                            </div>
+                        </div>
 
-            <div class="detail-summary-grid">
-                <div class="detail-summary-card">
-                    <div class="detail-summary-label">Current reading</div>
-                    <div class="detail-summary-value">{{ activeSensor.value }}<span class="unit">{{ activeSensor.unit }}</span></div>
-                </div>
-                <div class="detail-summary-card">
-                    <div class="detail-summary-label">Current status</div>
-                    <div class="detail-summary-value">{{ activeSensor.summaryLabel }}</div>
-                </div>
-                <div class="detail-summary-card">
-                    <div class="detail-summary-label">Average</div>
-                    <div class="detail-summary-value">{{ getAverage(currentSensorData) | number:'1.1-1' }}</div>
-                </div>
-                <div class="detail-summary-card">
-                    <div class="detail-summary-label">Data from</div>
-                    <div class="detail-summary-value">{{ satelliteTrendLastUpdated }}</div>
-                </div>
-            </div>
+                        <div class="detail-summary-meta" (click)="$event.stopPropagation()">
+                            <button
+                                type="button"
+                                class="detail-summary-info-btn detail-summary-info-btn-large"
+                                aria-label="Show data source time"
+                                [attr.aria-expanded]="isTrendDataFromPopoverOpen"
+                                (click)="toggleTrendDataFromPopover($event)">
+                                <span>i</span>
+                            </button>
 
-            <div class="popup-tabs detail-tabs">
-                <button class="popup-tab" [class.active]="activeSensorTab === 'recent'"
-                    (click)="setSensorTab('recent')">Recent</button>
-                <button class="popup-tab" [class.active]="activeSensorTab === 'daily'"
-                    (click)="setSensorTab('daily')">Daily</button>
-                <button class="popup-tab" [class.active]="activeSensorTab === 'weekly'"
-                    (click)="setSensorTab('weekly')">Weekly Avg</button>
-            </div>
-
-            <div class="detail-chart-shell">
-                <app-line-chart *ngIf="currentSensorHasData; else noDetailHistory"
-                    [data]="currentSensorData" [labels]="currentSensorLabels" [height]="190" color="#15803d"
-                    [showAxes]="true">
-                </app-line-chart>
-                <ng-template #noDetailHistory>
-                    <div class="trend-empty-state">
-                        Historical samples are not available for this metric yet.
+                            <div class="detail-summary-popover detail-summary-meta-popover" *ngIf="isTrendDataFromPopoverOpen" (click)="$event.stopPropagation()">
+                                <div class="detail-summary-popover-title">Data from</div>
+                                <div class="detail-summary-popover-value">{{ satelliteTrendLastUpdated }}</div>
+                                <div class="detail-summary-popover-help">Most recent satellite observation used in this trend view.</div>
+                            </div>
+                        </div>
                     </div>
-                </ng-template>
+
+                    <div class="popup-tabs detail-tabs">
+                        <button class="popup-tab" [class.active]="activeSensorTab === 'recent'"
+                            (click)="setSensorTab('recent')">Recent</button>
+                        <button class="popup-tab" [class.active]="activeSensorTab === 'daily'"
+                            (click)="setSensorTab('daily')">Daily</button>
+                        <button class="popup-tab" [class.active]="activeSensorTab === 'weekly'"
+                            (click)="setSensorTab('weekly')">Weekly Avg</button>
+                    </div>
+
+                    <div class="detail-chart-shell">
+                        <app-line-chart *ngIf="currentSensorHasData; else noDetailHistory"
+                            [data]="currentSensorData" [labels]="currentSensorLabels" [height]="190" color="#15803d"
+                            [showAxes]="true">
+                        </app-line-chart>
+                        <ng-template #noDetailHistory>
+                            <div class="trend-empty-state">
+                                Historical samples are not available for this metric yet.
+                            </div>
+                        </ng-template>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -509,15 +543,6 @@
             </div>
         </div>
 
-        <div class="advisor-section card-box" *ngIf="showNoRealDataState">
-            <div class="section-title warning-title">
-                <i-lucide [img]="AlertTriangleIcon" size="20" class="icon-orange"></i-lucide>
-                {{ dataStatusTitle }}
-            </div>
-            <p class="warning-text">{{ dataStatusMessage }}</p>
-            <p class="warning-text">Primary and supporting interpretations will appear here once real satellite intelligence is available.</p>
-        </div>
-
         <ng-container *ngIf="!showNoRealDataState">
 
         <div class="advisor-section card-box">
@@ -599,9 +624,6 @@
             </div>
         </div>
 
-        <div class="disclaimer-footer">
-            Data Sources: backend block insights, selected block metadata, and live weather observations. Supporting indices remain visible, but NDVI is the primary dashboard signal.
-        </div>
         </ng-container>
     </div>
     <!-- END CROP ADVISOR TAB -->
@@ -637,12 +659,3 @@
         </div>
     </div>
 </app-modal>
-
-<!-- Footer Prototype Notice -->
-<div class="prototype-notice">
-    <div class="notice-icon">i</div>
-    <div class="notice-text">
-        <strong>{{ dataStatusTitle }}</strong><br>
-        {{ dataStatusMessage }}
-    </div>
-</div>

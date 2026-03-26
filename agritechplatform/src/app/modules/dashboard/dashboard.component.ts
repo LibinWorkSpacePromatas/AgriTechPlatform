@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, Inject, OnDestroy, OnInit, PLATFORM_ID, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, HostListener, Inject, OnDestroy, OnInit, PLATFORM_ID, ViewChild } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { distinctUntilChanged, filter, interval, Subject, Subscription, takeUntil } from 'rxjs';
 import {
@@ -53,6 +53,7 @@ interface DashboardBlock extends Omit<SharedBlock, 'location'> {
 interface DashboardSensor {
   id: DashboardMetricKey;
   label: string;
+  raw: number | null;
   value: number | string;
   unit: string;
   status: 'Normal' | 'Low' | 'High';
@@ -158,6 +159,8 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   lockedSensor: DashboardSensor | null = null;
   selectedSensor: DashboardSensor | null = null;
   isModalOpen = false;
+  isSatelliteDataPopoverOpen = false;
+  isTrendDataFromPopoverOpen = false;
 
   constructor(
     public weatherService: WeatherService,
@@ -737,6 +740,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
       return {
         id: key,
         label: metric.title,
+        raw: metric.raw,
         value: metric.value,
         unit: metric.unit,
         status: metric.status,
@@ -886,6 +890,32 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     this.selectedSensor = null;
   }
 
+  toggleTrendDataFromPopover(event: Event): void {
+    event.stopPropagation();
+    this.isTrendDataFromPopoverOpen = !this.isTrendDataFromPopoverOpen;
+  }
+
+  closeTrendDataFromPopover(event?: Event): void {
+    event?.stopPropagation();
+    this.isTrendDataFromPopoverOpen = false;
+  }
+
+  toggleSatelliteDataPopover(event: Event): void {
+    event.stopPropagation();
+    this.isSatelliteDataPopoverOpen = !this.isSatelliteDataPopoverOpen;
+  }
+
+  closeSatelliteDataPopover(event?: Event): void {
+    event?.stopPropagation();
+    this.isSatelliteDataPopoverOpen = false;
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    this.isSatelliteDataPopoverOpen = false;
+    this.isTrendDataFromPopoverOpen = false;
+  }
+
   onSensorHover(sensor: DashboardSensor): void {
     if (!this.lockedSensor) {
       this.hoveredSensor = sensor;
@@ -914,6 +944,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     event?.stopPropagation();
     this.lockedSensor = null;
     this.hoveredSensor = null;
+    this.isTrendDataFromPopoverOpen = false;
   }
 
   private scrollToTrendPanel(): void {
@@ -1298,6 +1329,51 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     const numericValues = values.filter((value): value is number => typeof value === 'number');
     if (!numericValues.length) return 0;
     return numericValues.reduce((total, value) => total + value, 0) / numericValues.length;
+  }
+
+  getDetailValueToneClass(sensor: DashboardSensor | null, value: number | null): string {
+    if (!sensor || value === null || Number.isNaN(value)) {
+      return 'detail-tone-neutral';
+    }
+
+    switch (sensor.id) {
+      case 'ndwi':
+        if (value < -0.3) return 'detail-tone-error';
+        if (value < -0.15) return 'detail-tone-warning';
+        return 'detail-tone-good';
+      case 'ndvi':
+        if (value < 0.2) return 'detail-tone-error';
+        if (value < 0.35) return 'detail-tone-warning';
+        return 'detail-tone-good';
+      case 'ndre':
+        if (value < 0.25) return 'detail-tone-warning';
+        return 'detail-tone-good';
+      case 'lai':
+        if (value < 2) return 'detail-tone-error';
+        if (value > 5) return 'detail-tone-warning';
+        return 'detail-tone-good';
+      default:
+        return this.getToneClassFromMetricState(sensor.colorClass);
+    }
+  }
+
+  getDetailStatusToneClass(sensor: DashboardSensor | null): string {
+    if (!sensor) {
+      return 'detail-tone-neutral';
+    }
+
+    return this.getToneClassFromMetricState(sensor.colorClass);
+  }
+
+  private getToneClassFromMetricState(colorClass: DashboardSensor['colorClass']): string {
+    switch (colorClass) {
+      case 'error':
+        return 'detail-tone-error';
+      case 'warning':
+        return 'detail-tone-warning';
+      default:
+        return 'detail-tone-good';
+    }
   }
 
   getMax(values: Array<number | null>): number {
