@@ -750,3 +750,45 @@ If this system is evolved further, the biggest next step would be replacing demo
 - real backend-driven farm data
 - real economics/reference datasets
 - production-grade agronomy / rainfall / station integrations
+
+
+
+
+
+
+Measurements
+
+IoT inputs: soil moisture %, soil pH, soil temperature °C, air temperature °C, and humidity % from dashboard.component.ts.
+Weather inputs: current temperature, rain, wind, humidity, cloud cover, plus 7-day forecast max/min temperature, rainfall, and rain probability from weather.service.ts.
+Satellite inputs: raw NDVI, NDWI, NDRE, EVI, and LAI from dashboard.component.ts.
+Crop assumptions: each crop has hardcoded min/max/optimal ranges for moisture, pH, temperature, humidity, plus waterRequirement in ML/ha and profitPerHa in dollars in crop-advisor.service.ts.
+Calculations
+
+Crop fit score:
+
+Moisture, pH, air temp, and humidity each get a score with scoreRange(...) against the crop’s min/max/optimal band in crop-advisor.service.ts.
+Satellite score is normalized from NDVI, NDWI, NDRE, EVI, and LAI in crop-advisor.service.ts.
+Weather score uses hottest forecast day, 7-day rain total, rain probability, and wind in crop-advisor.service.ts.
+Those are combined with weights: moisture 22, pH 12, temp 12, humidity 8, satellite 28, weather 18 in crop-advisor.service.ts.
+Then it adds a small water-efficiency/profit bonus and a migration penalty to get the final suitabilityScore in crop-advisor.service.ts.
+Profit now:
+
+performanceFactor = clamp(0.35 + (suitabilityScore / 100) * 0.65, 0.25, 1.0) in crop-advisor.service.ts.
+projectedProfit = profitPerHa * areaHa * performanceFactor in crop-advisor.service.ts.
+potentialProfit = profitPerHa * areaHa.
+profitOpportunity = potentialProfit - projectedProfit in crop-advisor.service.ts.
+Migration options:
+
+Every alternative crop is scored with the same formula and sorted by projected profit in crop-advisor.service.ts.
+Profit lift is option.projectedProfit - current.projectedProfit in crop-advisor.service.ts.
+Suggested migration share is currently heuristic: 60% if the score gap is >18, 35% if >8, else 20% in crop-advisor.service.ts.
+Mixed-plan profit is current*(1-share) + option*share in crop-advisor.service.ts.
+Signal cards / alerts:
+
+Moisture: <30 critical, <40 warning.
+pH: outside 6.2-7.8 warning.
+NDVI: <0.35 critical, <0.5 warning.
+NDWI: <-0.18 critical, <-0.05 warning.
+Heat outlook: >=36°C critical, >=32°C warning.
+Rain outlook: >=20 mm good, >=8 mm warning, else critical.
+These thresholds are in crop-advisor.service.ts.
