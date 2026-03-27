@@ -583,7 +583,7 @@
             <div class="advisor-breadcrumbs">
                 <span class="brand">PromaSecure</span> |
                 <span class="block-ref">{{ currentBlock?.name }}</span> |
-                <span class="page-title">INTERPRETATION REFERENCE</span> |
+                <span class="page-title">LIVE CROP ADVICE</span> |
                 <span class="date">{{ dashboardFreshnessLabel }}</span>
                 <div class="sub-text">
                     Powered by backend block insights -
@@ -594,90 +594,216 @@
                     <span class="refresh-indicator"> {{ insightsLatencyLabel }} </span>
                 </div>
             </div>
-        </div>
-
-        <ng-container *ngIf="!showNoRealDataState">
-
-        <div class="advisor-section card-box">
-            <div class="section-title">
-                <i-lucide [img]="SproutIcon" size="20" class="icon-green"></i-lucide>
-                PRIMARY SIGNAL
-            </div>
-
-            <div class="advisor-grid" *ngIf="advisorData.sensorAnalysis.length">
-                <div class="analysis-card" [ngClass]="advisorData.sensorAnalysis[0].colorClass">
-                    <div class="card-header">
-                        <i-lucide [img]="SproutIcon" size="14"></i-lucide> {{ advisorData.sensorAnalysis[0].label }}
-                    </div>
-                    <div class="card-value">{{ advisorData.sensorAnalysis[0].value }}</div>
-                    <div class="card-status">
-                        <i-lucide [img]="CheckCircleIcon" size="12" *ngIf="advisorData.sensorAnalysis[0].colorClass === 'good'"></i-lucide>
-                        <i-lucide [img]="AlertTriangleIcon" size="12" *ngIf="advisorData.sensorAnalysis[0].colorClass !== 'good'"></i-lucide>
-                        <span>{{ advisorData.sensorAnalysis[0].status }}: {{ advisorData.sensorAnalysis[0].message }}</span>
-                    </div>
-                </div>
+            <div class="advisor-toolbar" *ngIf="farmerAdvisory as advisory">
+                <button type="button" class="advisor-download-btn" (click)="downloadPdf()">
+                    <i-lucide [img]="DownloadIcon" size="16"></i-lucide>
+                    Download PDF
+                </button>
             </div>
         </div>
 
-        <div class="advisor-section card-box action-plan">
-            <div class="section-title">
-                <i-lucide [img]="LayersIcon" size="20" class="icon-green"></i-lucide>
-                SECONDARY INSIGHTS / SUPPORTING DATA
-            </div>
+        <ng-container *ngIf="!showNoRealDataState && farmerAdvisory as advisory; else advisorPendingState">
+            <section class="advisor-section card-box interpretation-hero-card">
+                <div class="interpretation-hero-grid">
+                    <div class="interpretation-hero-copy">
+                        <div class="interpretation-kicker">Interpretation based on sensors, satellite, and forecast</div>
+                        <h2 class="interpretation-hero-title">{{ advisory.headline }}</h2>
+                        <p class="interpretation-hero-text">{{ advisory.summary }}</p>
 
-            <div class="actions-horizontal-grid">
-                <div *ngFor="let item of advisorData.sensorAnalysis.slice(1)" class="action-card-horizontal premium-action-card"
-                    [ngClass]="item.colorClass">
-                    <div class="action-card-header">
-                        <div class="priority-badge-horizontal">
-                            SUPPORTING
+                        <div class="interpretation-reason-list">
+                            <div class="interpretation-reason-item" *ngFor="let reason of advisory.reasons">
+                                <span class="reason-dot"></span>
+                                <span>{{ reason }}</span>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="action-period-horizontal">{{ item.label }}</div>
+                    <div class="interpretation-hero-side">
+                        <div class="hero-profit-card">
+                            <div class="hero-profit-label">Estimated profit now</div>
+                            <div class="hero-profit-value">{{ formatCompactCurrency(advisory.financial.estimatedCurrentProfit) }}</div>
+                            <div class="hero-profit-note">For {{ currentBlock?.area }} ha of {{ currentBlock?.crop }}</div>
+                        </div>
 
-                    <div class="action-items-horizontal">
-                        <div class="action-item-horizontal">
-                            <span class="item-number">1</span>
-                            <span class="item-text">{{ item.message }}</span>
+                        <div class="hero-score-card" [ngClass]="getRecommendationScoreClass(advisory.currentCropScore)">
+                            <div class="hero-score-label">Current crop fit</div>
+                            <div class="hero-score-value" [ngClass]="getInterpretationMetricTone('yield', advisory)">{{ advisory.currentCropScore }} / 100</div>
+                            <div class="hero-score-note">{{ advisory.financial.confidenceLabel }}</div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
+            </section>
 
-        <div class="advisor-section card-box decision-section">
-            <div class="section-title warning-title">
-                <i-lucide [img]="AlertTriangleIcon" size="20" class="icon-orange"></i-lucide>
-                BACKEND ALERTS AND LIMITATIONS
-            </div>
-            <div class="actions-horizontal-grid">
-                <div *ngFor="let action of advisorData.actions" class="action-card-horizontal premium-action-card"
-                    [ngClass]="'severity-' + action.severity">
-                    <div class="action-card-header">
-                        <div class="priority-badge-horizontal" [ngClass]="'priority-' + action.priority">
-                            ITEM {{ action.priority }}
+            <section class="interpretation-financial-grid">
+                <article class="interpretation-metric-card" [ngClass]="getInterpretationMetricTone('currentProfit', advisory)">
+                    <div class="metric-card-label">Current annual profit</div>
+                    <div class="metric-card-value" [ngClass]="getInterpretationMetricTone('currentProfit', advisory)">{{ formatCompactCurrency(advisory.financial.estimatedCurrentProfit) }}</div>
+                    <div class="metric-card-help">Estimated from current block conditions</div>
+                </article>
+
+                <article class="interpretation-metric-card" [ngClass]="getInterpretationMetricTone('potentialProfit', advisory)">
+                    <div class="metric-card-label">Profit if block recovers</div>
+                    <div class="metric-card-value" [ngClass]="getInterpretationMetricTone('potentialProfit', advisory)">{{ formatCompactCurrency(advisory.financial.potentialProfit) }}</div>
+                    <div class="metric-card-help">Best case with better field performance</div>
+                </article>
+
+                <article class="interpretation-metric-card" [ngClass]="getInterpretationMetricTone('upside', advisory)">
+                    <div class="metric-card-label">Upside still available</div>
+                    <div class="metric-card-value" [ngClass]="getInterpretationMetricTone('upside', advisory)">{{ formatCompactCurrency(advisory.financial.profitOpportunity) }}</div>
+                    <div class="metric-card-help">Margin still recoverable without migration</div>
+                </article>
+
+                <article class="interpretation-metric-card" [ngClass]="getInterpretationMetricTone('yield', advisory)">
+                    <div class="metric-card-label">Current yield position</div>
+                    <div class="metric-card-value" [ngClass]="getInterpretationMetricTone('yield', advisory)">{{ advisory.financial.currentYieldPercent }}%</div>
+                    <div class="metric-card-help">Estimated production strength now</div>
+                </article>
+            </section>
+
+            <section class="advisor-section card-box">
+                <div class="section-title">
+                    <i-lucide [img]="LayersIcon" size="20" class="icon-green"></i-lucide>
+                    What The Data Is Saying
+                </div>
+
+                <div class="interpretation-signal-grid">
+                    <article *ngFor="let signal of advisory.signalCards" class="interpretation-signal-card" [ngClass]="getAdvisoryToneClass(signal.tone)">
+                        <div class="signal-card-top">
+                            <span class="signal-source" [ngClass]="getAdvisoryToneClass(signal.tone)">{{ signal.source }}</span>
+                            <span class="signal-value" [ngClass]="getAdvisoryToneClass(signal.tone)">{{ signal.value }}</span>
                         </div>
-                        <div class="severity-badge-horizontal" [ngClass]="'severity-' + action.severity">
-                            <i-lucide [img]="action.severity === 'critical' ? AlertTriangleIcon : CheckCircleIcon"
-                                size="12"></i-lucide>
-                            {{ action.severity | uppercase }}
+                        <div class="signal-label" [ngClass]="getAdvisoryToneClass(signal.tone)">{{ signal.label }}</div>
+                        <p class="signal-summary">{{ signal.summary }}</p>
+                    </article>
+                </div>
+            </section>
+
+            <section class="advisor-section card-box migration-summary-card">
+                <div class="section-title">
+                    <i-lucide [img]="SproutIcon" size="20" class="icon-green"></i-lucide>
+                    Crop Advice And Migration
+                </div>
+
+                <div class="migration-summary-grid">
+                    <div class="migration-summary-main">
+                        <div class="migration-summary-title">{{ advisory.migrationSummary.title }}</div>
+                        <p class="migration-summary-text">{{ advisory.migrationSummary.summary }}</p>
+
+                        <div class="migration-summary-reason">
+                            <div class="migration-summary-label">Reason for migration</div>
+                            <div class="migration-summary-value">{{ advisory.migrationSummary.reason }}</div>
                         </div>
                     </div>
 
-                    <div class="action-period-horizontal">{{ action.label }}</div>
-
-                    <div class="action-items-horizontal">
-                        <div *ngFor="let item of action.items; let i = index" class="action-item-horizontal">
-                            <span class="item-number">{{ i + 1 }}</span>
-                            <span class="item-text">{{ item }}</span>
+                    <div class="migration-summary-side">
+                        <div class="migration-summary-stat">
+                            <span class="migration-stat-label">Recommended crop</span>
+                            <span class="migration-stat-value" [ngClass]="getMigrationSummaryStatTone('crop', advisory)">{{ advisory.migrationSummary.recommendedCrop || currentBlock?.crop }}</span>
+                        </div>
+                        <div class="migration-summary-stat">
+                            <span class="migration-stat-label">Suggested migration share</span>
+                            <span class="migration-stat-value" [ngClass]="getMigrationSummaryStatTone('share', advisory)">{{ advisory.migrationSummary.suggestedSharePct }}%</span>
+                        </div>
+                        <div class="migration-summary-stat">
+                            <span class="migration-stat-label">Projected profit after plan</span>
+                            <span class="migration-stat-value" [ngClass]="getMigrationSummaryStatTone('projectedProfit', advisory)">{{ formatCompactCurrency(advisory.migrationSummary.projectedProfitAfterMigration) }}</span>
+                        </div>
+                        <div class="migration-summary-stat">
+                            <span class="migration-stat-label">Gain vs current</span>
+                            <span class="migration-stat-value" [ngClass]="getMigrationSummaryStatTone('gain', advisory)">{{ formatCompactCurrency(advisory.migrationSummary.gainVsCurrent) }}</span>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
 
+                <div class="migration-benefits-grid">
+                    <div class="migration-benefit-card" *ngFor="let benefit of advisory.migrationSummary.benefits">
+                        <i-lucide [img]="CheckCircleIcon" size="18" class="icon-green"></i-lucide>
+                        <span>{{ benefit }}</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="advisor-section card-box">
+                <div class="section-title">
+                    <i-lucide [img]="LeafIcon" size="20" class="icon-green"></i-lucide>
+                    Migration Options
+                </div>
+
+                <div class="migration-options-grid">
+                    <article *ngFor="let option of advisory.migrationOptions" class="migration-option-card" [ngClass]="getAdvisoryToneClass(option.tone)">
+                        <div class="migration-option-top">
+                            <div>
+                                <div class="migration-option-name">{{ option.cropName }}</div>
+                                <div class="migration-option-tag">{{ option.recommendation }}</div>
+                            </div>
+                            <div class="migration-option-score" [ngClass]="getRecommendationScoreClass(option.suitabilityScore)">
+                                {{ option.suitabilityScore }}/100
+                            </div>
+                        </div>
+
+                        <div class="migration-option-stats">
+                            <div class="migration-option-stat">
+                                <span class="option-stat-label">Full-block annual profit</span>
+                                <span class="option-stat-value" [ngClass]="getMigrationOptionStatTone('profit', option)">{{ formatCompactCurrency(option.expectedAnnualProfit) }}</span>
+                                <span class="option-stat-note">{{ getMigrationOptionProfitCaption(option) }}</span>
+                            </div>
+                            <div class="migration-option-stat">
+                                <span class="option-stat-label">Full-block profit lift</span>
+                                <span class="option-stat-value" [ngClass]="getMigrationOptionStatTone('lift', option)">{{ formatCompactCurrency(option.profitDelta) }}</span>
+                            </div>
+                            <div class="migration-option-stat">
+                                <span class="option-stat-label">Water need</span>
+                                <span class="option-stat-value" [ngClass]="getMigrationOptionStatTone('water', option)">{{ option.waterRequirement | number:'1.1-1' }} ML/ha</span>
+                            </div>
+                            <div class="migration-option-stat">
+                                <span class="option-stat-label">Suggested trial size</span>
+                                <span class="option-stat-value" [ngClass]="getMigrationOptionStatTone('share', option)">{{ option.suggestedSharePct }}%</span>
+                            </div>
+                        </div>
+
+                        <p class="migration-option-why">{{ option.whyItFits }}</p>
+
+                        <div class="migration-option-list">
+                            <div class="migration-option-list-item" *ngFor="let benefit of option.benefits">
+                                <span class="list-bullet"></span>
+                                <span>{{ benefit }}</span>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+            </section>
+
+            <section class="advisor-section card-box">
+                <div class="section-title">
+                    <i-lucide [img]="CloudRainIcon" size="20" class="icon-green"></i-lucide>
+                    Next Actions
+                </div>
+
+                <div class="farmer-action-list">
+                    <article class="farmer-action-card" *ngFor="let action of advisory.actions; let i = index">
+                        <div class="farmer-action-number">{{ i + 1 }}</div>
+                        <div class="farmer-action-content">
+                            <div class="farmer-action-timing">{{ action.timing }}</div>
+                            <div class="farmer-action-title">{{ action.title }}</div>
+                            <p class="farmer-action-detail">{{ action.detail }}</p>
+                            <div class="farmer-action-reason">Why: {{ action.reason }}</div>
+                        </div>
+                    </article>
+                </div>
+            </section>
         </ng-container>
+
+        <ng-template #advisorPendingState>
+            <div class="advisor-section card-box interpretation-empty-state">
+                <div class="section-title">
+                    <i-lucide [img]="AlertTriangleIcon" size="20" class="icon-orange"></i-lucide>
+                    Interpretation Waiting For Live Data
+                </div>
+                <p class="interpretation-empty-copy">
+                    The farmer advisory will appear once the dashboard has usable satellite intelligence for this block. Sensor and weather data will then be combined into the crop advice and PDF export automatically.
+                </p>
+            </div>
+        </ng-template>
     </div>
     <!-- END CROP ADVISOR TAB -->
 

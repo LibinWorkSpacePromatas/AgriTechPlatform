@@ -31,7 +31,6 @@ import { ModalComponent } from '../../shared/components/modal.component';
 import * as L from 'leaflet';
 import {
   DashboardInsightsResponse,
-  DashboardActionItem,
   DashboardApiService,
   DashboardMetric,
   DashboardMetricKey,
@@ -46,6 +45,7 @@ import {
   IotSensorsApiService
 } from '../../core/services/iot-sensors-api.service';
 import { SatelliteRefreshEvent, SatelliteRefreshEventsService } from '../../core/services/satellite-refresh-events.service';
+import { CropAdvisorService, FarmerAdvisory, FarmerAdvisoryTone, SensorData } from '../../core/services/crop-advisor.service';
 
 interface DashboardBlock extends Omit<SharedBlock, 'location'> {
   crop: string;
@@ -177,17 +177,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   iotSensors: IotDashboardSensor[] = [];
   isIotSensorsLoading = false;
   iotSensorErrorMessage: string | null = null;
-  advisorData = {
-    lastUpdated: 'Waiting for backend insight refresh',
-    sensorAnalysis: [
-      { label: 'CROP HEALTH', value: '--', status: 'PENDING', message: 'Waiting for backend insights', icon: Sprout, colorClass: 'good' },
-      { label: 'WATER STATUS', value: '--', status: 'PENDING', message: 'Waiting for backend insights', icon: Droplets, colorClass: 'good' },
-      { label: 'NUTRIENT STATUS', value: '--', status: 'PENDING', message: 'Waiting for backend insights', icon: Layers, colorClass: 'good' },
-      { label: 'VEGETATION STRENGTH', value: '--', status: 'PENDING', message: 'Waiting for backend insights', icon: Leaf, colorClass: 'good' },
-      { label: 'GROWTH DENSITY', value: '--', status: 'PENDING', message: 'Waiting for backend insights', icon: Grape, colorClass: 'good' }
-    ],
-    actions: [] as DashboardActionItem[]
-  };
+  farmerAdvisory: FarmerAdvisory | null = null;
 
   hoveredSensor: DashboardSensor | null = null;
   lockedSensor: DashboardSensor | null = null;
@@ -203,6 +193,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     private blockService: BlockService,
     private dashboardApiService: DashboardApiService,
     private iotSensorsApiService: IotSensorsApiService,
+    private cropAdvisorService: CropAdvisorService,
     private satelliteRefreshEventsService: SatelliteRefreshEventsService,
     @Inject(PLATFORM_ID) platformId: object
   ) {
@@ -883,6 +874,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private prepareInsightsLoadState(): void {
     this.latestInsights = null;
+    this.farmerAdvisory = null;
     this.dashboardWarningMessage = null;
     this.isUsingFallbackData = false;
     this.isInsightsRefreshing = false;
@@ -905,15 +897,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     this.hoveredSensor = this.findSensorById(previousHoveredId);
     this.lockedSensor = this.findSensorById(previousLockedId);
     this.selectedSensor = this.findSensorById(previousSelectedId);
-
-    this.advisorData = {
-      lastUpdated: this.formatInsightsTimestamp(insights.lastSatelliteUpdate || insights.compositeDateTo || ''),
-      sensorAnalysis: insights.advisor.sensorAnalysis.map(item => ({
-        ...item,
-        icon: this.getAnalysisIcon(item.label)
-      })),
-      actions: insights.advisor.actions
-    };
+    this.rebuildFarmerAdvisory();
     this.queueNdviMapSync();
   }
 
@@ -978,6 +962,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
           this.iotSensors = this.mapIotSensors(response);
           this.iotSensorErrorMessage = null;
           this.isIotSensorsLoading = false;
+          this.rebuildFarmerAdvisory();
 
           if (this.selectedIotSensor) {
             this.selectedIotSensor = this.iotSensors.find(
@@ -990,6 +975,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
           console.error('Failed to fetch IoT sensor readings.', error);
           this.iotSensorErrorMessage = 'IoT sensor readings are temporarily unavailable.';
           this.isIotSensorsLoading = false;
+          this.rebuildFarmerAdvisory();
         }
       });
   }
@@ -1073,6 +1059,43 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.sensors.find(sensor => sensor.id === id) || null;
   }
 
+  private rebuildFarmerAdvisory(): void {
+    if (!this.currentBlock || !this.latestInsights) {
+      this.farmerAdvisory = null;
+      return;
+    }
+
+    this.farmerAdvisory = this.cropAdvisorService.buildFarmerAdvisory({
+      currentCrop: this.currentBlock.crop || 'Shiraz',
+      areaHa: this.currentBlock.area || 0,
+      lastUpdated: this.formatInsightsTimestamp(this.latestInsights.lastSatelliteUpdate || this.latestInsights.compositeDateTo || ''),
+      sensorData: this.buildAdvisorSensorData(),
+      satelliteData: {
+        ndvi: this.latestInsights.metrics.ndvi.raw,
+        ndwi: this.latestInsights.metrics.ndwi.raw,
+        ndre: this.latestInsights.metrics.ndre.raw,
+        evi: this.latestInsights.metrics.evi.raw,
+        lai: this.latestInsights.metrics.lai.raw
+      },
+      weatherData: this.weatherData
+    });
+  }
+
+  private buildAdvisorSensorData(): Partial<SensorData> {
+    const sensorMap = this.iotSensors.reduce((map, sensor) => {
+      map.set(sensor.sensorType, sensor.value);
+      return map;
+    }, new Map<IotSensorType, number>());
+
+    return {
+      moisture: sensorMap.get('soil_moisture'),
+      ph: sensorMap.get('ph_level'),
+      soilTemp: sensorMap.get('soil_temperature'),
+      airTemp: sensorMap.get('air_temperature') ?? this.weatherData?.current.temperature,
+      humidity: sensorMap.get('humidity') ?? this.weatherData?.current.relativeHumidity
+    };
+  }
+
   private getSatelliteTrendPoints(): SatelliteTrendChartPoint[] {
     if (!this.latestInsights?.timeseries.length) {
       return [];
@@ -1138,12 +1161,146 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
       }));
   }
 
-  private getAnalysisIcon(label: string): any {
-    if (label.includes('WATER')) return Droplets;
-    if (label.includes('NUTRIENT')) return Layers;
-    if (label.includes('VEGETATION')) return Leaf;
-    if (label.includes('GROWTH')) return Grape;
-    return Sprout;
+  getAdvisoryToneClass(tone: FarmerAdvisoryTone): string {
+    if (tone === 'good') return 'advisor-tone-good';
+    if (tone === 'warning') return 'advisor-tone-warning';
+    if (tone === 'critical') return 'advisor-tone-critical';
+    return 'advisor-tone-neutral';
+  }
+
+  getRecommendationScoreClass(score: number): string {
+    if (score >= 80) return 'score-strong';
+    if (score >= 60) return 'score-watch';
+    return 'score-risk';
+  }
+
+  getInterpretationMetricTone(metric: 'currentProfit' | 'potentialProfit' | 'upside' | 'yield', advisory: FarmerAdvisory): string {
+    const currentProfitRatio = advisory.financial.potentialProfit > 0
+      ? advisory.financial.estimatedCurrentProfit / advisory.financial.potentialProfit
+      : 0;
+    const upsideRatio = advisory.financial.potentialProfit > 0
+      ? advisory.financial.profitOpportunity / advisory.financial.potentialProfit
+      : 0;
+
+    switch (metric) {
+      case 'currentProfit':
+        return currentProfitRatio >= 0.8 ? 'value-tone-good' : currentProfitRatio >= 0.6 ? 'value-tone-warning' : 'value-tone-critical';
+      case 'potentialProfit':
+        return 'value-tone-good';
+      case 'upside':
+        return upsideRatio <= 0.1 ? 'value-tone-good' : upsideRatio <= 0.25 ? 'value-tone-warning' : 'value-tone-critical';
+      case 'yield':
+        return advisory.financial.currentYieldPercent >= 80 ? 'value-tone-good' : advisory.financial.currentYieldPercent >= 60 ? 'value-tone-warning' : 'value-tone-critical';
+      default:
+        return 'value-tone-neutral';
+    }
+  }
+
+  getMigrationSummaryStatTone(metric: 'crop' | 'share' | 'projectedProfit' | 'gain', advisory: FarmerAdvisory): string {
+    switch (metric) {
+      case 'crop':
+        return advisory.migrationSummary.recommendedCrop ? 'value-tone-warning' : 'value-tone-good';
+      case 'share':
+        if (advisory.migrationSummary.suggestedSharePct === 0) return 'value-tone-good';
+        if (advisory.migrationSummary.suggestedSharePct <= 35) return 'value-tone-warning';
+        return 'value-tone-critical';
+      case 'projectedProfit':
+        return advisory.migrationSummary.projectedProfitAfterMigration >= advisory.financial.estimatedCurrentProfit
+          ? 'value-tone-good'
+          : 'value-tone-warning';
+      case 'gain':
+        if (advisory.migrationSummary.gainVsCurrent > 0) return 'value-tone-good';
+        if (advisory.migrationSummary.gainVsCurrent < 0) return 'value-tone-critical';
+        return 'value-tone-neutral';
+      default:
+        return 'value-tone-neutral';
+    }
+  }
+
+  getMigrationOptionStatTone(metric: 'profit' | 'lift' | 'water' | 'share', option: FarmerAdvisory['migrationOptions'][number]): string {
+    const currentWaterNeed = this.currentBlock ? this.cropAdvisorService.getCropProfile(this.currentBlock.crop || '')?.waterRequirement ?? null : null;
+
+    switch (metric) {
+      case 'profit':
+        return option.expectedAnnualProfit > 0 ? 'value-tone-good' : 'value-tone-neutral';
+      case 'lift':
+        if (option.profitDelta > 0) return 'value-tone-good';
+        if (option.profitDelta < 0) return 'value-tone-critical';
+        return 'value-tone-neutral';
+      case 'water':
+        if (currentWaterNeed === null) return 'value-tone-neutral';
+        if (option.waterRequirement < currentWaterNeed) return 'value-tone-good';
+        if (option.waterRequirement > currentWaterNeed) return 'value-tone-critical';
+        return 'value-tone-warning';
+      case 'share':
+        if (option.suggestedSharePct <= 20) return 'value-tone-warning';
+        if (option.suggestedSharePct <= 35) return 'value-tone-warning';
+        return 'value-tone-critical';
+      default:
+        return 'value-tone-neutral';
+    }
+  }
+
+  getMigrationOptionProfitCaption(option: FarmerAdvisory['migrationOptions'][number]): string {
+    return `Trial-size estimate (${option.suggestedSharePct}%): ${this.formatCompactCurrency(option.trialAnnualProfit)}`;
+  }
+
+  formatCompactCurrency(value: number): string {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      notation: 'compact',
+      maximumFractionDigits: value >= 1000000 ? 2 : 1
+    }).format(value);
+  }
+
+  formatCurrency(value: number): string {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 0
+    }).format(value);
+  }
+
+  private getPdfFitLabel(score: number): string {
+    if (score >= 80) {
+      return 'Strong fit';
+    }
+
+    if (score >= 60) {
+      return 'Moderate fit';
+    }
+
+    return 'Needs attention';
+  }
+
+  private getPdfDataStatusLabel(): string {
+    if (!this.latestInsights) {
+      return 'Live data is still loading.';
+    }
+
+    if (this.latestInsights.dataQuality === 'no_data') {
+      return 'Limited confidence because satellite data is not available yet.';
+    }
+
+    if (this.latestInsights.dataQuality === 'degraded' || this.latestInsights.status === 'stale') {
+      return 'Use with care because the latest satellite image quality is reduced.';
+    }
+
+    return 'Based on the latest available live block data.';
+  }
+
+  private getPdfMigrationDecisionText(): string {
+    const advisory = this.farmerAdvisory;
+    if (!advisory) {
+      return 'Migration decision is not available yet.';
+    }
+
+    if (!advisory.migrationSummary.recommendedCrop || advisory.migrationSummary.suggestedSharePct === 0) {
+      return `Do not migrate yet. Keep ${this.currentBlock?.crop || 'the current crop'} and focus on improving field conditions.`;
+    }
+
+    return `Consider a phased migration of about ${advisory.migrationSummary.suggestedSharePct}% to ${advisory.migrationSummary.recommendedCrop}.`;
   }
 
   getIotSensorTooltip(observedAt: string): string {
@@ -1182,10 +1339,12 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
           this.weatherData = data;
           this.isDaytime = !!data.current.isDay;
           this.isLoading = false;
+          this.rebuildFarmerAdvisory();
         },
         error: error => {
           console.error('Failed to fetch weather data.', error);
           this.isLoading = false;
+          this.rebuildFarmerAdvisory();
         }
       });
   }
@@ -1419,160 +1578,251 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   downloadPdf(): void {
+    if (!this.currentBlock || !this.farmerAdvisory) {
+      return;
+    }
+
     // @ts-ignore
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
+    const advisory = this.farmerAdvisory;
 
     const primaryGreen = '#2e7d32';
-    const alertOrange = '#d97706';
-    const riskText = this.primarySensor
-      ? `PRIMARY NDVI ${this.primarySensor.value}${this.primarySensor.unit}`
-      : 'NDVI-LED MVP MODE';
-    const dataStatus = this.latestInsights
-      ? `${this.latestInsights.status.toUpperCase()} / ${this.latestInsights.source.toUpperCase()} / ${this.latestInsights.dataQuality.toUpperCase()}`
-      : 'LOADING';
-    const metricRows = this.sensors.map(sensor => ([
-      sensor.label,
-      `${sensor.value}${sensor.unit}`,
-      sensor.summaryLabel,
-      sensor.message
+    const gold = '#c58a2b';
+    const softInk = '#475569';
+    const sourceSummary = advisory.sources.join(', ');
+    const dataStatus = this.getPdfDataStatusLabel();
+    const signalRows = advisory.signalCards.map(signal => ([
+      signal.label,
+      signal.value,
+      signal.summary
     ]));
-    const actionRows = this.advisorData.actions.map((action, index) => ([
+    const overviewRows = [
+      ['Block', this.currentBlock.name],
+      ['Current crop', this.currentBlock.crop],
+      ['Block size', `${this.currentBlock.area} ha`],
+      ['Current crop fit', `${advisory.currentCropScore}/100 (${this.getPdfFitLabel(advisory.currentCropScore)})`],
+      ['Confidence', advisory.financial.confidenceLabel],
+      ['Report updated', advisory.lastUpdated]
+    ];
+    const moneyRows = [
+      ['Estimated profit now', this.formatCurrency(advisory.financial.estimatedCurrentProfit)],
+      ['Best profit if the current block recovers', this.formatCurrency(advisory.financial.potentialProfit)],
+      ['Profit still recoverable without migration', this.formatCurrency(advisory.financial.profitOpportunity)],
+      ['Projected profit after the recommended plan', this.formatCurrency(advisory.migrationSummary.projectedProfitAfterMigration)],
+      ['Expected gain versus current position', this.formatCurrency(advisory.migrationSummary.gainVsCurrent)]
+    ];
+    const decisionRows = [
+      ['Best current decision', this.getPdfMigrationDecisionText()],
+      ['Main reason', advisory.migrationSummary.reason],
+      ['How it helps', advisory.migrationSummary.benefits[0] || 'Improves margin and reduces field stress exposure.']
+    ];
+    const migrationRows = advisory.migrationOptions.map(option => ([
+      option.cropName,
+      `${option.suitabilityScore}/100`,
+      `${this.formatCurrency(option.expectedAnnualProfit)} (full block)`,
+      `${this.formatCurrency(option.trialAnnualProfit)} (${option.suggestedSharePct}% trial)`,
+      `${option.waterRequirement.toFixed(1)} ML/ha`,
+      option.whyItFits
+    ]));
+    const actionRows = advisory.actions.map((action, index) => ([
       `${index + 1}`,
-      action.label,
-      action.items[0] || 'Review latest intelligence.',
-      action.severity.toUpperCase()
+      action.timing,
+      action.title,
+      action.detail
     ]));
 
     doc.setFillColor(primaryGreen);
-    doc.rect(0, 0, 210, 40, 'F');
+    doc.rect(0, 0, 210, 38, 'F');
 
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(22);
+    doc.setFontSize(20);
     doc.setFont('helvetica', 'bold');
-    doc.text('PromaSecure Satellite Intelligence Report', 105, 15, { align: 'center' });
+    doc.text('PromaSecure Crop Advice Report', 105, 14, { align: 'center' });
 
-    doc.setFontSize(14);
-    doc.text(`${this.currentBlock?.name || 'Block'} - ${this.currentBlock?.crop || 'Crop'}`, 105, 25, { align: 'center' });
+    doc.setFontSize(13);
+    doc.text(`${this.currentBlock.name} - ${this.currentBlock.crop}`, 105, 23, { align: 'center' });
 
-    doc.setFontSize(10);
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Last updated: ${this.advisorData.lastUpdated}`, 105, 33, { align: 'center' });
+    doc.text(`Updated: ${advisory.lastUpdated}`, 105, 31, { align: 'center' });
 
-    let yPos = 50;
+    let yPos = 46;
     doc.setTextColor(0, 0, 0);
 
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(primaryGreen);
-    doc.text('BLOCK INTELLIGENCE SUMMARY', 14, yPos);
-    yPos += 5;
+    doc.text('1. Simple Summary', 14, yPos);
 
     // @ts-ignore
     doc.autoTable({
-      startY: yPos,
-      head: [['Data Status', 'Latency', 'Primary Signal']],
-      body: [[dataStatus, this.insightsLatencyLabel, riskText]],
-      foot: [[
-        this.latestInsights?.warning || 'Backend intelligence active',
-        this.latestInsights?.dataQuality.toUpperCase() || 'UNKNOWN',
-        this.latestInsights?.error || 'No blocking backend errors'
-      ]],
+      startY: yPos + 4,
+      head: [['Question', 'Answer']],
+      body: overviewRows,
       theme: 'grid',
-      headStyles: { fillColor: primaryGreen, halign: 'center' },
-      bodyStyles: { halign: 'center', fontSize: 12 },
-      footStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], halign: 'center', fontStyle: 'bold' },
-      styles: { cellPadding: 2 }
-    });
-
-    // @ts-ignore
-    yPos = doc.lastAutoTable.finalY + 15;
-
-    doc.setFillColor(alertOrange);
-    doc.roundedRect(14, yPos, 182, 25, 3, 3, 'F');
-
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text('CURRENT INTERPRETATION STATUS', 105, yPos + 10, { align: 'center' });
-
-    doc.setFontSize(12);
-    doc.text(
-      this.dashboardWarningMessage || 'Monitoring backend intelligence and current weather context for the selected block.',
-      105,
-      yPos + 18,
-      { align: 'center' }
-    );
-
-    yPos += 35;
-
-    doc.setFontSize(12);
-    doc.setTextColor(alertOrange);
-    doc.text(
-      `Primary signal: NDVI ${this.getSensorDisplay('ndvi')} | Supporting NDRE ${this.getSensorDisplay('ndre')}`,
-      105,
-      yPos - 3,
-      { align: 'center' }
-    );
-
-    yPos += 10;
-
-    doc.setFontSize(14);
-    doc.setTextColor(primaryGreen);
-    doc.text('KEY SIGNALS', 14, yPos);
-    yPos += 5;
-
-    doc.setFontSize(12);
-    doc.setTextColor(0, 0, 0);
-    doc.text('Current metric values from the backend intelligence endpoint', 14, yPos + 5);
-
-    // @ts-ignore
-    doc.autoTable({
-      startY: yPos + 8,
-      head: [['Metric', 'Value', 'State', 'Message']],
-      body: metricRows.length > 0 ? metricRows : [['No metrics', '--', 'WAITING', 'Awaiting backend intelligence']],
-      theme: 'striped',
       headStyles: { fillColor: primaryGreen },
-      styles: { fontSize: 10, cellPadding: 2 }
+      bodyStyles: { fontSize: 10 },
+      styles: { cellPadding: 3, overflow: 'linebreak' },
+      columnStyles: {
+        0: { cellWidth: 58, fontStyle: 'bold' },
+        1: { cellWidth: 122 }
+      }
     });
 
     // @ts-ignore
     yPos = doc.lastAutoTable.finalY + 10;
 
-    doc.setFontSize(12);
-    doc.text('ACTION CHECKLIST', 14, yPos);
+    doc.setFillColor(gold);
+    doc.roundedRect(14, yPos, 182, 24, 4, 4, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(15);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Main Advice For The Farmer', 105, yPos + 8, { align: 'center' });
+
+    const summaryLines = doc.splitTextToSize(`${advisory.headline} ${advisory.summary}`, 168);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(summaryLines, 105, yPos + 15, { align: 'center' });
+
+    yPos += Math.max(32, 17 + summaryLines.length * 5);
+
+    doc.setFontSize(14);
+    doc.setTextColor(primaryGreen);
+    doc.setFont('helvetica', 'bold');
+    doc.text('2. Money View', 14, yPos);
 
     // @ts-ignore
     doc.autoTable({
       startY: yPos + 3,
-      head: [['Step', 'Focus', 'Action', 'Severity']],
-      body: actionRows.length > 0 ? actionRows : [['1', 'Monitoring', 'Await backend refresh completion', 'INFO']],
-      theme: 'striped',
+      head: [['Money question', 'Estimated value']],
+      body: moneyRows,
+      theme: 'grid',
       headStyles: { fillColor: primaryGreen },
-      styles: { fontSize: 10, cellPadding: 2 }
+      bodyStyles: { fontSize: 10 },
+      styles: { cellPadding: 3, overflow: 'linebreak' },
+      columnStyles: {
+        0: { cellWidth: 98, fontStyle: 'bold' },
+        1: { cellWidth: 82 }
+      }
     });
 
     // @ts-ignore
-    yPos = doc.lastAutoTable.finalY + 15;
+    yPos = doc.lastAutoTable.finalY + 8;
 
-    doc.setFontSize(12);
-    doc.setTextColor(0, 0, 0);
-    doc.text('INTERPRETATION STATUS', 14, yPos);
+    doc.setFontSize(14);
+    doc.setTextColor(primaryGreen);
+    doc.text('3. Stay Or Migrate?', 14, yPos);
 
-    doc.setFillColor(primaryGreen);
-    doc.roundedRect(14, yPos + 3, 70, 15, 2, 2, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(11);
+    // @ts-ignore
+    doc.autoTable({
+      startY: yPos + 3,
+      head: [['Decision question', 'Answer']],
+      body: decisionRows,
+      theme: 'grid',
+      headStyles: { fillColor: primaryGreen },
+      bodyStyles: { fontSize: 10 },
+      styles: { cellPadding: 3, overflow: 'linebreak' },
+      columnStyles: {
+        0: { cellWidth: 58, fontStyle: 'bold' },
+        1: { cellWidth: 122 }
+      }
+    });
+
+    // @ts-ignore
+    yPos = doc.lastAutoTable.finalY + 8;
+
+    doc.setFontSize(14);
+    doc.setTextColor(primaryGreen);
+    doc.text('4. Why We Are Saying This', 14, yPos);
+
+    // @ts-ignore
+    doc.autoTable({
+      startY: yPos + 3,
+      head: [['What we checked', 'Current reading', 'What it means for you']],
+      body: signalRows.length > 0 ? signalRows : [['Live data', '--', 'The report will become more detailed after the next refresh.']],
+      theme: 'striped',
+      headStyles: { fillColor: primaryGreen },
+      styles: { fontSize: 10, cellPadding: 3, overflow: 'linebreak' },
+      columnStyles: {
+        0: { cellWidth: 42, fontStyle: 'bold' },
+        1: { cellWidth: 32 },
+        2: { cellWidth: 106 }
+      }
+    });
+
+    // @ts-ignore
+    yPos = doc.lastAutoTable.finalY + 8;
+
+    doc.setFontSize(14);
+    doc.setTextColor(primaryGreen);
+    doc.text('5. Best Crop Options From Current Conditions', 14, yPos);
+
+    // @ts-ignore
+    doc.autoTable({
+      startY: yPos + 3,
+      head: [['Crop option', 'Fit score', 'Full-block profit', 'Trial-size profit', 'Water need', 'Why it may help']],
+      body: migrationRows.length > 0 ? migrationRows : [['Current crop', '--', '--', '--', '--', 'No migration option is clearly better yet.']],
+      theme: 'striped',
+      headStyles: { fillColor: primaryGreen },
+      styles: { fontSize: 9, cellPadding: 3, overflow: 'linebreak' },
+      columnStyles: {
+        0: { cellWidth: 24, fontStyle: 'bold' },
+        1: { cellWidth: 18 },
+        2: { cellWidth: 28 },
+        3: { cellWidth: 28 },
+        4: { cellWidth: 18 },
+        5: { cellWidth: 64 }
+      }
+    });
+
+    // @ts-ignore
+    yPos = doc.lastAutoTable.finalY + 8;
+
+    doc.setFontSize(14);
+    doc.setTextColor(primaryGreen);
+    doc.text('6. What To Do Next', 14, yPos);
+
+    // @ts-ignore
+    doc.autoTable({
+      startY: yPos + 3,
+      head: [['Step', 'When', 'Action', 'What to focus on']],
+      body: actionRows.length > 0 ? actionRows : [['1', 'Next update', 'Wait for more data', 'Live data is still arriving']],
+      theme: 'striped',
+      headStyles: { fillColor: primaryGreen },
+      styles: { fontSize: 9, cellPadding: 3, overflow: 'linebreak' },
+      columnStyles: {
+        0: { cellWidth: 14, halign: 'center' },
+        1: { cellWidth: 28 },
+        2: { cellWidth: 48, fontStyle: 'bold' },
+        3: { cellWidth: 92 }
+      }
+    });
+
+    // @ts-ignore
+    yPos = doc.lastAutoTable.finalY + 8;
+
+    doc.setFontSize(13);
+    doc.setTextColor(gold);
     doc.setFont('helvetica', 'bold');
-    doc.text(riskText, 49, yPos + 12, { align: 'center' });
+    doc.text('7. Important Note', 14, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(softInk);
+    const adviceLines = doc.splitTextToSize(
+      `${dataStatus} This report uses ${sourceSummary}. It is meant to help farmers understand the current situation quickly and should be reviewed again whenever new live data arrives.`,
+      180
+    );
+    doc.text(adviceLines, 14, yPos + 7);
 
     doc.setFontSize(8);
     doc.setTextColor(150);
-    doc.text('Sources: Backend block insights, selected block metadata, and weather observations', 105, 285, { align: 'center' });
+    doc.text(`Data used: ${sourceSummary}`, 105, 285, { align: 'center' });
     doc.setTextColor(primaryGreen);
-    doc.text(`Data freshness: ${dataStatus}`, 105, 290, { align: 'center' });
+    doc.text('PromaSecure live farmer advisory', 105, 290, { align: 'center' });
 
-    doc.save(`Promasecure_Plan_${this.currentBlock?.name || 'Block'}_${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`PromaSecure_Farmer_Advisory_${this.currentBlock.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
   }
 
   private getSensorDisplay(id: DashboardMetricKey): string {
