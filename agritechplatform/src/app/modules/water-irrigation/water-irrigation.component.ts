@@ -122,6 +122,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     this.currentLan = block.lan;
     this.selectedBlockName = block.name;
     this.selectedBlockLan = block.lan;
+    this.fetchUnifiedFarmState();
   }
 
   private initMap(): void {
@@ -287,6 +288,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
           this.renderSpatialLayers();
           this.map.invalidateSize();
           this.refreshAfterGeometryChange();
+          this.fetchUnifiedFarmState();
         },
         error: (error: any) => {
           console.error('Failed to save block geometry', error);
@@ -383,6 +385,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
           this.renderSpatialLayers();
           this.map.invalidateSize();
           this.refreshAfterGeometryChange();
+          this.fetchUnifiedFarmState();
         },
         error: (error: any) => {
           console.error('Failed to set block location', error);
@@ -432,6 +435,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
           this.renderSpatialLayers();
           this.map.invalidateSize();
           this.refreshAfterGeometryChange();
+          this.fetchUnifiedFarmState();
         },
         error: (error: any) => {
           console.error('Failed to clear block geometry', error);
@@ -482,6 +486,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
         this.renderSpatialLayers();
         this.map.invalidateSize();
         this.refreshAfterGeometryChange();
+        this.fetchUnifiedFarmState();
       },
       error: (error: any) => {
         if (input) {
@@ -528,6 +533,21 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
           console.error('Failed to delete block', error);
         }
       });
+  }
+
+  private fetchUnifiedFarmState(): void {
+    if (!this.selectedBlock?.id) {
+      return;
+    }
+    const baseUrl = environment.apiBaseUrl.replace(/\/$/, '');
+    this.http.get<any>(`${baseUrl}/api/blocks/${this.selectedBlock.id}/unified-state`).subscribe({
+      next: (data) => {
+        console.log('Unified farm state:', data);
+      },
+      error: (error: any) => {
+        console.error('Error fetching unified farm state:', error);
+      }
+    });
   }
 
   onBlockChange(blockLan: string): void {

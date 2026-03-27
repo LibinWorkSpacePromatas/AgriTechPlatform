@@ -107,6 +107,84 @@ def ensure_satellite_support_tables() -> None:
     )
     _ensure_satellite_timeseries_schema()
     _ensure_sensor_support_tables()
+    ensure_unified_farm_state_view()
+    ensure_weather_timeseries_tables()
+
+
+def ensure_unified_farm_state_view() -> None:
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                CREATE OR REPLACE VIEW unified_farm_state AS
+                SELECT
+                    b.id AS block_id,
+                    MAX(CASE WHEN sd.sensor_type = 'soil_moisture' THEN sl.value END) AS soil_moisture,
+                    MAX(CASE WHEN sd.sensor_type = 'soil_temperature' THEN sl.value END) AS soil_temperature,
+                    MAX(CASE WHEN sd.sensor_type = 'air_temperature' THEN sl.value END) AS air_temperature,
+                    MAX(CASE WHEN sd.sensor_type = 'humidity' THEN sl.value END) AS humidity,
+                    MAX(CASE WHEN sd.sensor_type = 'ph_level' THEN sl.value END) AS ph_level,
+                    (sc.payload->>'ndvi')::float AS ndvi,
+                    (sc.payload->>'ndwi')::float AS ndwi,
+                    (sc.payload->>'evi')::float AS evi,
+                    (sc.payload->>'lai')::float AS lai,
+                    sc.data_quality,
+                    sc.composite_date_to
+                FROM blocks b
+                LEFT JOIN sensor_definitions sd ON sd.block_id = b.id
+                LEFT JOIN sensor_latest sl ON sl.sensor_id = sd.id
+                LEFT JOIN satellite_cache sc ON sc.block_id = b.id
+                GROUP BY b.id, sc.payload, sc.data_quality, sc.composite_date_to
+                """
+            )
+        )
+
+
+def ensure_weather_timeseries_tables() -> None:
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS weather_timeseries (
+                    id SERIAL PRIMARY KEY,
+                    block_id UUID NOT NULL,
+                    observed_at TIMESTAMPTZ NOT NULL,
+                    temperature DOUBLE PRECISION,
+                    humidity DOUBLE PRECISION,
+                    precipitation DOUBLE PRECISION,
+                    source VARCHAR(32) DEFAULT 'open-meteo',
+                    created_at TIMESTAMPTZ DEFAULT now(),
+                    FOREIGN KEY (block_id) REFERENCES blocks(id) ON DELETE CASCADE
+                )
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1
+                        FROM pg_constraint
+                        WHERE conname = 'uq_weather'
+                    ) THEN
+                        ALTER TABLE weather_timeseries
+                        ADD CONSTRAINT uq_weather UNIQUE (block_id, observed_at);
+                    END IF;
+                END
+                $$;
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS idx_weather_block_time
+                ON weather_timeseries (block_id, observed_at DESC)
+                """
+            )
+        )
 
 
 def _ensure_sensor_support_tables() -> None:

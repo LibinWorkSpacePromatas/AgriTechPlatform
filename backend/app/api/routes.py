@@ -6,6 +6,7 @@ from time import sleep
 from uuid import UUID, uuid4
 from typing import Any
 
+import logging
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from sqlalchemy import text
@@ -31,12 +32,21 @@ from app.services.satellite_insights import SatelliteInsightsUnavailableError, s
 from app.services.block_lookup import resolve_block
 from app.services.opportunities import build_opportunities_response
 from app.services.growing_opportunities import growing_opportunities_service
+from app.services.weather_ingest import (
+    build_weather_summary,
+    fetch_weather,
+    get_block_centroid_lat_lon,
+    is_weather_fresh,
+    query_weather_ranges,
+    store_weather,
+)
 
 router = APIRouter()
 router.include_router(auth.router, prefix="/auth", tags=["auth"])
 router.include_router(scan.router, prefix="/scan", tags=["scan"])
 router.include_router(sensors.router, prefix="/api", tags=["sensors"])
 
+logger = logging.getLogger(__name__)
 
 class BlockUpsertRequest(BaseModel):
     user_id: str
@@ -249,6 +259,14 @@ def _upsert_block_geometry(
         )
 
     db.commit()
+
+    try:
+        lat, lon = get_block_centroid_lat_lon(db, block_id)
+        if lat is not None and lon is not None:
+            data = fetch_weather(lat, lon)
+            store_weather(db, block_id, data)
+    except Exception as exc:
+        logger.warning("Weather refresh failed for block %s: %s", block_id, exc)
 
     return {
         "status": "created" if existing is None else "updated",
@@ -562,6 +580,14 @@ def set_block_location(request: BlockLocationRequest, db: Session = Depends(get_
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=500, detail=f"Database error while setting block location: {exc}") from exc
 
+    try:
+        lat, lon = get_block_centroid_lat_lon(db, existing.id)
+        if lat is not None and lon is not None:
+            data = fetch_weather(lat, lon)
+            store_weather(db, existing.id, data)
+    except Exception as exc:
+        logger.warning("Weather refresh failed for block %s: %s", existing.id, exc)
+
     return {
         "status": "updated",
         "block": {
@@ -655,6 +681,14 @@ def clear_block_geometry(
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=500, detail=f"Database error while clearing block geometry: {exc}") from exc
 
+    try:
+        lat2, lon2 = get_block_centroid_lat_lon(db, block.id)
+        if lat2 is not None and lon2 is not None:
+            data = fetch_weather(lat2, lon2)
+            store_weather(db, block.id, data)
+    except Exception as exc:
+        logger.warning("Weather refresh failed for block %s: %s", block.id, exc)
+
     return {
         "status": "geometry_cleared",
         "block": {
@@ -697,6 +731,83 @@ def get_block_dashboard_insights(block_id: str, refresh: bool = Query(default=Fa
         raise HTTPException(status_code=503, detail=f"Satellite insights are temporarily unavailable: {exc}") from exc
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=500, detail=f"Database error while fetching dashboard block insights: {exc}") from exc
+
+
+@router.get("/api/blocks/{block_id}/unified-state", tags=["blocks"])
+def get_block_unified_state(block_id: str, db: Session = Depends(get_db)):
+    try:
+        block = resolve_block(db, block_id)
+    except HTTPException:
+        raise
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail=f"Database error while resolving block: {exc}") from exc
+
+    try:
+        row = (
+            db.execute(
+                text(
+                    """
+                    SELECT *
+                    FROM unified_farm_state
+                    WHERE block_id = :block_id
+                    LIMIT 1
+                    """
+                ),
+                {"block_id": str(block.id)},
+            )
+            .mappings()
+            .first()
+        )
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail=f"Database error while fetching unified farm state: {exc}") from exc
+
+    if not row:
+        raise HTTPException(status_code=404, detail="No data found")
+
+    def _float(value: Any) -> float | None:
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    weather: dict[str, Any] | None = None
+    weather_summary: dict[str, Any] | None = None
+    try:
+        lat, lon = get_block_centroid_lat_lon(db, block.id)
+        if lat is not None and lon is not None:
+            if not is_weather_fresh(db, block.id, freshness_minutes=60):
+                weather_data = fetch_weather(lat, lon)
+                store_weather(db, block.id, weather_data)
+            weather = query_weather_ranges(db, block.id)
+            weather_summary = build_weather_summary(weather)
+    except Exception:
+        weather = None
+        weather_summary = None
+
+    return {
+        "block_id": str(row.get("block_id") or block.id),
+        "sensors": {
+            "soil_moisture": _float(row.get("soil_moisture")) or 0.0,
+            "soil_temperature": _float(row.get("soil_temperature")) or 0.0,
+            "air_temperature": _float(row.get("air_temperature")) or 0.0,
+            "humidity": _float(row.get("humidity")) or 0.0,
+            "ph": _float(row.get("ph_level")) or 0.0,
+        },
+        "satellite": {
+            "ndvi": _float(row.get("ndvi")) or 0.0,
+            "ndwi": _float(row.get("ndwi")) or 0.0,
+            "evi": _float(row.get("evi")) or 0.0,
+            "lai": _float(row.get("lai")) or 0.0,
+        },
+        "weather": weather or {"last_24h": [], "last_7d": [], "next_7d": []},
+        "weather_summary": weather_summary,
+        "meta": {
+            "data_quality": row.get("data_quality"),
+            "date": row.get("composite_date_to").isoformat() if row.get("composite_date_to") else None,
+        },
+    }
 
 
 @router.get("/api/blocks/{block_id}/events", tags=["satellite-events"])
