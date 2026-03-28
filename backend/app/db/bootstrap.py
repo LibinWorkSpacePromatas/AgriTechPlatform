@@ -95,6 +95,26 @@ def _ensure_satellite_timeseries_schema() -> None:
         )
 
 
+def ensure_blocks_timezone_column() -> None:
+    with engine.begin() as connection:
+        # Check if timezone column exists in blocks table
+        inspector = inspect(engine)
+        columns = [col["name"] for col in inspector.get_columns("blocks")]
+        if "timezone" not in columns:
+            connection.execute(
+                text(
+                    """
+                    ALTER TABLE blocks 
+                    ADD COLUMN timezone TEXT DEFAULT 'Australia/Sydney';
+                    """
+                )
+            )
+            # Also update existing rows to the default
+            connection.execute(
+                text("UPDATE blocks SET timezone = 'Australia/Sydney' WHERE timezone IS NULL")
+            )
+
+
 def ensure_satellite_support_tables() -> None:
     _rebuild_satellite_cache_table_if_needed()
     Base.metadata.create_all(
@@ -108,6 +128,7 @@ def ensure_satellite_support_tables() -> None:
         ],
     )
     _ensure_satellite_timeseries_schema()
+    ensure_blocks_timezone_column()
     _ensure_sensor_support_tables()
     ensure_crop_config_table()
     ensure_unified_farm_state_view()

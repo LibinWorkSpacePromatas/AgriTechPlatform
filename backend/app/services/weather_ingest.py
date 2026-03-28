@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone as dt_timezone
+import zoneinfo
 from typing import Any
 from uuid import UUID
 
@@ -13,17 +14,18 @@ OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(dt_timezone.utc)
 
 
-def get_block_centroid_lat_lon(db: Session, block_id: UUID) -> tuple[float | None, float | None]:
+def get_block_info(db: Session, block_id: UUID) -> dict[str, Any]:
     row = (
         db.execute(
             text(
                 """
                 SELECT
                     ST_Y(ST_Centroid(geom)) AS lat,
-                    ST_X(ST_Centroid(geom)) AS lon
+                    ST_X(ST_Centroid(geom)) AS lon,
+                    timezone
                 FROM blocks
                 WHERE id = :block_id
                 """
@@ -34,13 +36,25 @@ def get_block_centroid_lat_lon(db: Session, block_id: UUID) -> tuple[float | Non
         .first()
     )
     if not row:
-        return None, None
+        return {"lat": None, "lon": None, "timezone": "Australia/Sydney"}
+
     lat = row.get("lat")
     lon = row.get("lon")
+    tz = row.get("timezone") or "Australia/Sydney"
+
     try:
-        return (float(lat) if lat is not None else None), (float(lon) if lon is not None else None)
+        return {
+            "lat": float(lat) if lat is not None else None,
+            "lon": float(lon) if lon is not None else None,
+            "timezone": tz,
+        }
     except (TypeError, ValueError):
-        return None, None
+        return {"lat": None, "lon": None, "timezone": tz}
+
+
+def get_block_centroid_lat_lon(db: Session, block_id: UUID) -> tuple[float | None, float | None]:
+    info = get_block_info(db, block_id)
+    return info["lat"], info["lon"]
 
 
 def is_weather_fresh(db: Session, block_id: UUID, *, freshness_minutes: int = 60) -> bool:
@@ -64,13 +78,14 @@ def is_weather_fresh(db: Session, block_id: UUID, *, freshness_minutes: int = 60
     return bool(exists)
 
 
-def fetch_weather(lat: float, lon: float) -> dict[str, Any]:
+def fetch_weather(lat: float, lon: float, timezone: str = "Australia/Sydney") -> dict[str, Any]:
     params = {
         "latitude": lat,
         "longitude": lon,
         "hourly": "temperature_2m,relative_humidity_2m,precipitation",
+        "past_days": 1, # Ensure we have history for last 24h summary
         "forecast_days": 7,
-        "timezone": "auto",
+        "timezone": timezone,
     }
     with httpx.Client(timeout=10.0) as client:
         response = client.get(OPEN_METEO_URL, params=params)
@@ -78,7 +93,7 @@ def fetch_weather(lat: float, lon: float) -> dict[str, Any]:
         return response.json()
 
 
-def store_weather(db: Session, block_id: UUID, data: dict[str, Any]) -> int:
+def store_weather(db: Session, block_id: UUID, data: dict[str, Any], timezone_str: str = "Australia/Sydney") -> int:
     hourly = (data or {}).get("hourly") or {}
     times = hourly.get("time") or []
     temps = hourly.get("temperature_2m") or []
@@ -90,11 +105,18 @@ def store_weather(db: Session, block_id: UUID, data: dict[str, Any]) -> int:
         return 0
 
     rows = []
+    tz = zoneinfo.ZoneInfo(timezone_str)
+
     for index in range(count):
+        # Open-Meteo returns time as "YYYY-MM-DDTHH:MM" (ISO format without offset)
+        local_time = datetime.fromisoformat(times[index])
+        # Localize it to the block's timezone and convert to UTC
+        utc_time = local_time.replace(tzinfo=tz).astimezone(dt_timezone.utc)
+
         rows.append(
             {
                 "block_id": str(block_id),
-                "observed_at": times[index],
+                "observed_at": utc_time,
                 "temperature": temps[index],
                 "humidity": humidity[index],
                 "precipitation": rain[index],
@@ -128,18 +150,30 @@ def store_weather(db: Session, block_id: UUID, data: dict[str, Any]) -> int:
 
 
 def query_weather_ranges(db: Session, block_id: UUID) -> dict[str, list[dict[str, Any]]]:
+    # Fetch block timezone
+    info = get_block_info(db, block_id)
+    block_tz_str = info.get("timezone", "Australia/Sydney")
+    block_tz = zoneinfo.ZoneInfo(block_tz_str)
+
     def _rows(sql: str, params: dict[str, Any]) -> list[dict[str, Any]]:
         results = db.execute(text(sql), params).mappings().all()
         items: list[dict[str, Any]] = []
         for row in results:
             observed_at = row.get("observed_at")
+            observed_at_local_str = None
             if isinstance(observed_at, datetime):
                 observed_at_value = observed_at.isoformat()
+                # Convert UTC to local time for the response
+                local_dt = observed_at.astimezone(block_tz)
+                observed_at_local_str = local_dt.strftime("%Y-%m-%d %H:%M")
             else:
                 observed_at_value = str(observed_at) if observed_at is not None else None
+            
             items.append(
                 {
                     "observed_at": observed_at_value,
+                    "observed_at_local": observed_at_local_str,
+                    "timezone": block_tz_str,
                     "temperature": row.get("temperature"),
                     "humidity": row.get("humidity"),
                     "precipitation": row.get("precipitation"),
@@ -148,26 +182,41 @@ def query_weather_ranges(db: Session, block_id: UUID) -> dict[str, list[dict[str
         return items
 
     block_id_str = str(block_id)
+    # Fix: Get actual past 24 hours (data before now)
     last_24h = _rows(
         """
         SELECT observed_at, temperature, humidity, precipitation
         FROM weather_timeseries
         WHERE block_id = :block_id
-        AND observed_at >= NOW() - INTERVAL '24 hours'
+        AND observed_at BETWEEN NOW() - INTERVAL '24 hours' AND NOW()
         ORDER BY observed_at DESC
+        LIMIT 24
         """,
         {"block_id": block_id_str},
     )
+    # Fix: Get actual past 7 days (data before now)
     last_7d = _rows(
         """
         SELECT observed_at, temperature, humidity, precipitation
         FROM weather_timeseries
         WHERE block_id = :block_id
-        AND observed_at >= NOW() - INTERVAL '7 days'
+        AND observed_at BETWEEN NOW() - INTERVAL '7 days' AND NOW()
         ORDER BY observed_at DESC
         """,
         {"block_id": block_id_str},
     )
+    # Fix: Correctly query the next 72 hours for irrigation decision needs
+    next_72h = _rows(
+        """
+        SELECT observed_at, temperature, humidity, precipitation
+        FROM weather_timeseries
+        WHERE block_id = :block_id
+        AND observed_at BETWEEN NOW() AND NOW() + INTERVAL '72 hours'
+        ORDER BY observed_at ASC
+        """,
+        {"block_id": block_id_str},
+    )
+    # Fix: Correctly query the next 7 days for the frontend forecast view
     next_7d = _rows(
         """
         SELECT observed_at, temperature, humidity, precipitation
@@ -178,12 +227,17 @@ def query_weather_ranges(db: Session, block_id: UUID) -> dict[str, list[dict[str
         """,
         {"block_id": block_id_str},
     )
-    return {"last_24h": last_24h, "last_7d": last_7d, "next_7d": next_7d}
+    return {
+        "last_24h": last_24h, 
+        "last_7d": last_7d, 
+        "next_72h": next_72h,
+        "next_7d": next_7d
+    }
 
 
 def build_weather_summary(weather: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
     last_24h = weather.get("last_24h") or []
-    next_7d = weather.get("next_7d") or []
+    next_72h = weather.get("next_72h") or []
 
     def _sum_precip(items: list[dict[str, Any]]) -> float:
         total = 0.0
@@ -209,7 +263,7 @@ def build_weather_summary(weather: dict[str, list[dict[str, Any]]]) -> dict[str,
 
     return {
         "rain_last_24h": _sum_precip(last_24h),
-        "rain_next_3d": _sum_precip(next_7d[:72]),
+        "rain_next_3d": _sum_precip(next_72h),
         "avg_temp_last_24h": _avg(last_24h, "temperature"),
         "avg_humidity_last_24h": _avg(last_24h, "humidity"),
     }

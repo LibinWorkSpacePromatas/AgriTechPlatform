@@ -48,6 +48,7 @@ class Block(Base):
     description = Column(String)
     area_ha = Column(Float)
     crop = Column(String)
+    timezone = Column(String, nullable=False, default="Australia/Sydney", server_default=text("'Australia/Sydney'"))
     geom = Column(Geometry("GEOMETRY", srid=4326))
 
 

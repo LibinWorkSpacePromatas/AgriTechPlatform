@@ -258,13 +258,15 @@ def _upsert_block_geometry(
             },
         )
 
+    from app.services.weather_ingest import fetch_weather, store_weather, get_block_info
     db.commit()
 
     try:
-        lat, lon = get_block_centroid_lat_lon(db, block_id)
+        info = get_block_info(db, block_id)
+        lat, lon, tz = info["lat"], info["lon"], info["timezone"]
         if lat is not None and lon is not None:
-            data = fetch_weather(lat, lon)
-            store_weather(db, block_id, data)
+            data = fetch_weather(lat, lon, timezone=tz)
+            store_weather(db, block_id, data, timezone_str=tz)
 
             # Update decision state for weather
             decision = db.get(BlockDecision, block_id)
@@ -413,6 +415,7 @@ def get_blocks(user_id: UUID, db: Session = Depends(get_db)):
                     description,
                     area_ha,
                     crop,
+                    timezone,
                     CASE
                         WHEN geom IS NULL OR ST_IsEmpty(geom) THEN NULL
                         ELSE ST_AsGeoJSON(ST_MakeValid(geom))
@@ -443,6 +446,7 @@ def get_blocks(user_id: UUID, db: Session = Depends(get_db)):
                 "description": block["description"],
                 "area_ha": block["area_ha"],
                 "crop": block["crop"],
+                "timezone": block["timezone"],
                 "block_polygon": json.loads(block["block_polygon"]) if block["block_polygon"] else None,
                 "centroid_lat": float(block["centroid_lat"]) if block["centroid_lat"] is not None else None,
                 "centroid_lon": float(block["centroid_lon"]) if block["centroid_lon"] is not None else None,
@@ -602,10 +606,11 @@ def set_block_location(request: BlockLocationRequest, db: Session = Depends(get_
         raise HTTPException(status_code=500, detail=f"Database error while setting block location: {exc}") from exc
 
     try:
-        lat, lon = get_block_centroid_lat_lon(db, existing.id)
+        info = get_block_info(db, existing.id)
+        lat, lon, tz = info["lat"], info["lon"], info["timezone"]
         if lat is not None and lon is not None:
-            data = fetch_weather(lat, lon)
-            store_weather(db, existing.id, data)
+            data = fetch_weather(lat, lon, timezone=tz)
+            store_weather(db, existing.id, data, timezone_str=tz)
 
             # Update decision state for weather
             decision = db.get(BlockDecision, existing.id)
@@ -724,10 +729,11 @@ def clear_block_geometry(
         raise HTTPException(status_code=500, detail=f"Database error while clearing block geometry: {exc}") from exc
 
     try:
-        lat2, lon2 = get_block_centroid_lat_lon(db, block.id)
+        info = get_block_info(db, block.id)
+        lat2, lon2, tz = info["lat"], info["lon"], info["timezone"]
         if lat2 is not None and lon2 is not None:
-            data = fetch_weather(lat2, lon2)
-            store_weather(db, block.id, data)
+            data = fetch_weather(lat2, lon2, timezone=tz)
+            store_weather(db, block.id, data, timezone_str=tz)
     except Exception as exc:
         logger.warning("Weather refresh failed for block %s: %s", block.id, exc)
 
@@ -773,6 +779,48 @@ def get_block_dashboard_insights(block_id: str, refresh: bool = Query(default=Fa
         raise HTTPException(status_code=503, detail=f"Satellite insights are temporarily unavailable: {exc}") from exc
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=500, detail=f"Database error while fetching dashboard block insights: {exc}") from exc
+
+
+@router.get("/api/weather/latest", tags=["weather"])
+def get_latest_weather(
+    lat: float = Query(..., description="Latitude"),
+    lon: float = Query(..., description="Longitude"),
+    timezone: str = Query("Australia/Sydney", description="Timezone for the request")
+):
+    """
+    Backend proxy for Open-Meteo API.
+    Provides weather data for the dashboard.
+    """
+    import httpx
+    
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "current": "temperature_2m,apparent_temperature,is_day,rain,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m,cloud_cover",
+        "hourly": "temperature_2m,apparent_temperature,relative_humidity_2m,rain,cloud_cover,wind_speed_10m",
+        "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code",
+        "timezone": timezone,
+        "past_days": 7,
+        "forecast_days": 7
+    }
+    
+    try:
+        # Using a longer timeout and verified client
+        with httpx.Client(timeout=20.0, follow_redirects=True) as client:
+            response = client.get("https://api.open-meteo.com/v1/forecast", params=params)
+            
+            if response.status_code != 200:
+                logger.error("Open-Meteo API returned error %s: %s", response.status_code, response.text)
+                raise HTTPException(status_code=502, detail=f"Weather API error: {response.status_code}")
+                
+            return response.json()
+    except httpx.TimeoutException:
+        logger.error("Weather proxy timeout for lat=%s, lon=%s", lat, lon)
+        raise HTTPException(status_code=504, detail="Weather service timed out")
+    except Exception as exc:
+        logger.error("Failed to proxy weather request: %s", str(exc))
+        # Return more detail in development
+        raise HTTPException(status_code=502, detail=f"Weather service error: {str(exc)}")
 
 
 @router.get("/api/blocks/{block_id}/decision", tags=["blocks"])
@@ -845,11 +893,12 @@ def get_block_unified_state(block_id: str, db: Session = Depends(get_db)):
     weather: dict[str, Any] | None = None
     weather_summary: dict[str, Any] | None = None
     try:
-        lat, lon = get_block_centroid_lat_lon(db, block.id)
+        info = get_block_info(db, block.id)
+        lat, lon, tz = info["lat"], info["lon"], info["timezone"]
         if lat is not None and lon is not None:
             if not is_weather_fresh(db, block.id, freshness_minutes=60):
-                weather_data = fetch_weather(lat, lon)
-                store_weather(db, block.id, weather_data)
+                weather_data = fetch_weather(lat, lon, timezone=tz)
+                store_weather(db, block.id, weather_data, timezone_str=tz)
             weather = query_weather_ranges(db, block.id)
             weather_summary = build_weather_summary(weather)
     except Exception:
@@ -881,37 +930,55 @@ def get_block_unified_state(block_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/api/blocks/{block_id}/events", tags=["satellite-events"])
-def stream_block_satellite_events(block_id: str):
+async def stream_block_satellite_events(block_id: str):
+    """
+    Server-Sent Events (SSE) stream for satellite refresh progress.
+    """
+    import asyncio
+    from datetime import datetime, timezone
+    from app.services.satellite_access import satellite_access_service
+    from app.services.satellite_events import satellite_event_broker
+
     try:
+        # Resolve block once at the start of the stream
         block_reference = satellite_access_service.resolve_block_reference(block_id)
     except SQLAlchemyError as exc:
-        raise HTTPException(status_code=500, detail=f"Database error while preparing satellite events: {exc}") from exc
+        logger.error("Database error resolving block for events: %s", exc)
+        raise HTTPException(status_code=500, detail="Database error while preparing satellite events") from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Unexpected error resolving block for events: %s", exc)
+        raise HTTPException(status_code=500, detail=f"Error resolving block: {exc}") from exc
 
-    def event_stream():
-        last_event_id: int | None = None
-        yield _format_sse_payload(
-            {
-                "block_id": block_reference.block_id,
-                "event": "connected",
-                "reason": "stream_opened",
-            }
-        )
+    async def event_generator():
+        last_event_id = None
+        
+        # Send initial connection event
+        yield _format_sse_payload({
+            "block_id": block_reference.block_id,
+            "event": "connected",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "reason": "stream_established",
+        })
 
-        while True:
-            refresh_events = satellite_event_broker.list_events(
-                block_id=block_reference.block_id,
-                after_id=last_event_id,
-            )
+        try:
+            while True:
+                # Check for new events since last poll
+                refresh_events = satellite_event_broker.list_events(
+                    block_id=block_reference.block_id,
+                    after_id=last_event_id,
+                )
 
-            if not refresh_events:
-                yield ": keep-alive\n\n"
-                sleep(1)
-                continue
+                if not refresh_events:
+                    # Keep connection alive with SSE comment
+                    yield ": keep-alive\n\n"
+                    await asyncio.sleep(2) # Poll every 2 seconds
+                    continue
 
-            for refresh_event in refresh_events:
-                last_event_id = refresh_event.id
-                yield _format_sse_payload(
-                    {
+                for refresh_event in refresh_events:
+                    last_event_id = refresh_event.id
+                    yield _format_sse_payload({
                         "block_id": refresh_event.block_id,
                         "event": refresh_event.event,
                         "timestamp": refresh_event.timestamp.isoformat(),
@@ -919,16 +986,22 @@ def stream_block_satellite_events(block_id: str):
                         "data_quality": refresh_event.data_quality,
                         "error": refresh_event.error,
                         "latency_ms": refresh_event.latency_ms,
-                    }
-                )
+                    })
+                
+                await asyncio.sleep(1)
+        except asyncio.CancelledError:
+            logger.info("event=sse_stream_cancelled block_id=%s", block_reference.block_id)
+        except Exception as exc:
+            logger.error("event=sse_stream_error block_id=%s error=%s", block_reference.block_id, exc)
 
     return StreamingResponse(
-        event_stream(),
+        event_generator(),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
+        headers={ 
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache, no-transform",
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
+            "X-Accel-Buffering": "no", # Prevent Nginx from buffering the stream
         },
     )
 

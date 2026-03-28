@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from app.db.models import BlockDecision
+from app.services.weather_ingest import is_weather_fresh, fetch_weather, store_weather, get_block_info
 
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,23 @@ def trigger_block_decision(db: Session, block_id: UUID) -> dict[str, Any] | None
     Fetches required data, computes irrigation decision, and saves it.
     """
     try:
+        # ⚡ On-demand refresh: If weather data is stale (>30 min), refresh instantly
+        if not is_weather_fresh(db, block_id, freshness_minutes=30):
+            logger.info("event=weather_stale_refresh block_id=%s", block_id)
+            info = get_block_info(db, block_id)
+            lat, lon, tz = info["lat"], info["lon"], info["timezone"]
+            
+            # Ensure we use Sydney as default if not specified
+            if not tz:
+                tz = "Australia/Sydney"
+
+            if lat is not None and lon is not None:
+                try:
+                    weather_data = fetch_weather(lat, lon, timezone=tz)
+                    store_weather(db, block_id, weather_data, timezone_str=tz)
+                except Exception as exc:
+                    logger.warning("event=weather_refresh_failed block_id=%s error=%s", block_id, exc)
+
         # 1. Fetch all required data
         data = _get_decision_data(db, block_id)
         if data is None:
@@ -117,6 +135,7 @@ def _get_decision_data(db: Session, block_id: UUID) -> dict[str, Any] | None:
     ).scalar()
 
     return {
+        "block_id": str(block_id),
         "soil_moisture": row["soil_moisture"],
         "ndvi": row["ndvi"],
         "ndwi": row["ndwi"],
@@ -142,6 +161,11 @@ def _compute_irrigation_decision(data: dict[str, Any]) -> dict[str, Any]:
     soil_moisture = float(data["soil_moisture"] or 0.0)
     ndvi = float(data["ndvi"]) if data["ndvi"] is not None else None
     ndwi = float(data["ndwi"]) if data["ndwi"] is not None else None
+
+    # 🔧 2. Clamp NDWI (sensor noise protection)
+    if ndwi is not None:
+        ndwi = max(-1.0, min(1.0, ndwi))
+
     optimal_min = float(data["optimal_moisture_min"] or 0.0)
     optimal_max = float(data["optimal_moisture_max"] or 0.0)
     root_depth_mm = float(data.get("root_depth_mm", 600))
@@ -150,13 +174,19 @@ def _compute_irrigation_decision(data: dict[str, Any]) -> dict[str, Any]:
     rain_next_48h = float(data["rain_next_48h"])
     temp_avg = float(data["temperature_avg"]) if data.get("temperature_avg") is not None else None
 
-    # 🔥 HARD STOP: Heavy rain coming
-    if rain_next_48h > 10:
+    # 🔧 Optimization: Cache soil_factor at the top
+    soil_factor = _get_soil_factor(data["description"])
+
+    # ✅ Unify rain threshold usage
+    rain_threshold = root_depth_mm * 0.02 # 2% of root depth is a safe rain limit
+
+    # 🔥 HARD STOP: Heavy rain coming (Dynamic threshold based on root depth)
+    if rain_next_48h > rain_threshold:
         return {
             "irrigation": "OFF",
             "urgency": "LOW",
             "water_needed_mm": 0,
-            "reason": "Heavy rain expected, irrigation skipped",
+            "reason": f"Heavy rain expected ({rain_next_48h}mm > {rain_threshold:.1f}mm limit), irrigation skipped",
             "confidence": 0.95,
             "metadata": {
                 "score": 0,
@@ -169,16 +199,17 @@ def _compute_irrigation_decision(data: dict[str, Any]) -> dict[str, Any]:
         }
 
     # 🛡️ NDWI PRIMARY DECISION (DOMAIN RULE)
+    # Refined: Only force irrigation if soil isn't already at max capacity
     ndwi_decision = None
     if ndwi is not None:
-        if ndwi < -0.3:
+        if ndwi < -0.3 and soil_moisture < optimal_max:
             ndwi_decision = {
                 "irrigation": "ON",
                 "urgency": "HIGH",
                 "base_water": 20,
                 "reason": "Severe water stress (NDWI < -0.3)"
             }
-        elif ndwi < -0.1:
+        elif ndwi < -0.1 and soil_moisture < optimal_max:
             ndwi_decision = {
                 "irrigation": "ON",
                 "urgency": "MEDIUM",
@@ -212,7 +243,7 @@ def _compute_irrigation_decision(data: dict[str, Any]) -> dict[str, Any]:
         elif soil_moisture < optimal_min + 5:
             score += 25
             reasons.append("Soil moisture slightly low")
-        elif soil_moisture > optimal_max:
+        elif optimal_max and soil_moisture > optimal_max:
             score -= 50
             reasons.append("Soil moisture above optimal (over-irrigation risk)")
         else:
@@ -243,14 +274,15 @@ def _compute_irrigation_decision(data: dict[str, Any]) -> dict[str, Any]:
         reason = ndwi_decision["reason"]
 
         # 🌧 Weather refinement (ONLY downgrade, never override severe stress)
-        if rain_next_48h > 5 and irrigation == "ON" and (ndwi is not None and ndwi > -0.3):
+        # Medium rain (0.5 * threshold) triggers a downgrade to "WAIT"
+        if rain_next_48h > (rain_threshold * 0.5) and irrigation == "ON" and (ndwi is not None and ndwi > -0.3):
             irrigation = "WAIT"
             urgency = "LOW"
             reason += " + Rain expected"
 
         # 🌱 Soil refinement (increase confidence / adjust water)
         # ⚠️ Priority check: Severe stress (NDWI < -0.3) overrides sensors
-        if soil_moisture > optimal_max and (ndwi is None or ndwi > -0.3):
+        if optimal_max and soil_moisture > optimal_max and (ndwi is None or ndwi > -0.3):
             irrigation = "OFF"
             urgency = "LOW"
             reason += " + Soil already wet"
@@ -276,7 +308,9 @@ def _compute_irrigation_decision(data: dict[str, Any]) -> dict[str, Any]:
         # Better water calculation using root depth and MAD
         available_water = root_depth_mm * mad
         # 🛡️ Deficit floor (ensure minimum irrigation during stress)
-        deficit_ratio = max(0.2, (optimal_min - soil_moisture) / 100.0)
+        deficit = max(0, optimal_min - soil_moisture)
+        # 🔧 1. Prevent division edge case
+        deficit_ratio = max(0.2, deficit / max(1.0, optimal_min))
         water_needed_mm = available_water * deficit_ratio
 
         # Apply NDWI severity boost
@@ -286,13 +320,12 @@ def _compute_irrigation_decision(data: dict[str, Any]) -> dict[str, Any]:
             elif ndwi < -0.1:
                 water_needed_mm *= 1.1
 
-        # Apply soil factor
-        soil_factor = _get_soil_factor(data.get("description"))
+        # Apply cached soil factor
         water_needed_mm *= soil_factor
 
         # 🌦 Evapotranspiration (ET) Adjustment
         et_factor = 1.0
-        if temp_avg:
+        if temp_avg is not None:
             if temp_avg > 30:
                 et_factor = 1.3
             elif temp_avg > 25:
@@ -304,7 +337,9 @@ def _compute_irrigation_decision(data: dict[str, Any]) -> dict[str, Any]:
         water_needed_mm = water_needed_mm / efficiency
 
         # 🛡️ Safety Limits
-        if water_needed_mm < 3:
+        # 🔧 3. Add minimal irrigation floor (important IRL)
+        MIN_IRRIGATION = 3
+        if water_needed_mm < MIN_IRRIGATION:
             irrigation = "OFF"
             urgency = "LOW"
             water_needed_mm = 0
@@ -313,15 +348,27 @@ def _compute_irrigation_decision(data: dict[str, Any]) -> dict[str, Any]:
         
         water_needed_mm = round(water_needed_mm, 1)
 
-    # ⚠️ Data-Driven Confidence calculation
-    confidence = 0.5
-    if soil_moisture is not None:
-        confidence += 0.2
+    # ⚠️ Data-Driven Confidence calculation (Step 3: Weights)
+    confidence = 0.0
     if ndwi is not None:
-        confidence += 0.15
+        confidence += 0.4
+    if soil_moisture is not None:
+        confidence += 0.3
     if rain_next_48h is not None:
-        confidence += 0.15
+        confidence += 0.3
     confidence = min(1.0, confidence)
+
+    # 🔥 Decision Logging (Step 4)
+    logger.info(
+        "decision_debug block=%s soil=%.2f ndwi=%s rain24=%.2f rain48=%.2f temp=%.2f irrigation=%s",
+        data.get("block_id"),
+        soil_moisture,
+        ndwi,
+        rain_24h,
+        rain_next_48h,
+        temp_avg if temp_avg is not None else -1,
+        irrigation
+    )
 
     return {
         "irrigation": irrigation,
@@ -337,7 +384,7 @@ def _compute_irrigation_decision(data: dict[str, Any]) -> dict[str, Any]:
             "rain_24h": rain_24h,
             "rain_next_48h": rain_next_48h,
             "temp_avg": temp_avg,
-            "soil_factor": _get_soil_factor(data.get("description"))
+            "soil_factor": soil_factor
         }
     }
 

@@ -12,6 +12,7 @@ from app.core.config import get_settings
 from app.db.bootstrap import ensure_satellite_support_tables
 from app.services.satellite_insights import satellite_insights_service
 from app.services.satellite_scheduler import satellite_refresh_scheduler
+from app.services.weather_scheduler import weather_scheduler
 
 
 logging.basicConfig(level=logging.INFO)
@@ -29,6 +30,7 @@ async def lifespan(_: FastAPI):
         logger.warning("Satellite insights warm-up did not complete: %s", exc)
 
     satellite_refresh_scheduler.start()
+    weather_scheduler.start()
     try:
         yield
     finally:

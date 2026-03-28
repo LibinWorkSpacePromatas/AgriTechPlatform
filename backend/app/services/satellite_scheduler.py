@@ -40,7 +40,7 @@ class SatelliteRefreshEnqueueResult:
 class SatelliteRefreshScheduler:
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings or get_settings()
-        self._scheduler = BackgroundScheduler(timezone="UTC")
+        self._scheduler = BackgroundScheduler(timezone="Australia/Sydney")
         self._started = False
         self._stop_event = Event()
         self._workers: list[Thread] = []
