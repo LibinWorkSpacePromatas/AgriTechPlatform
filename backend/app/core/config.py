@@ -73,6 +73,10 @@ class Settings(BaseSettings):
 
     openrouter_api_key: str | None = Field(default=None, alias="OPENROUTER_API_KEY")
     openrouter_model: str = Field(default="google/gemini-2.0-flash-001", alias="OPENROUTER_MODEL")
+    profit_risk_dataset_path: str = Field(
+        default=str(Path(__file__).resolve().parents[2] / "Dataset" / "SA_Farmgate_Prices_Final.xlsx"),
+        alias="PROFIT_RISK_DATASET_PATH",
+    )
 
     @field_validator("cors_origins", mode="before")
     @classmethod

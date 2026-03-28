@@ -1,0 +1,6 @@
+crop_name,crop_code,water_req_ml_ha_min,water_req_ml_ha_max,yield_t_ha_typical,price_per_t_2024,price_per_t_2025,price_per_t_crisis_low,price_per_t_10yr_avg,revenue_ha_typical,input_cost_ha,net_margin_ha_typical,capital_investment_new,years_to_first_income,years_to_profit,rev_per_ml_water,risk_level,pirsa_approved,source
+"Wine Grapes (red, inland)",wine_grapes_red,7.0,9.0,8.5,220,235,80,295,1985,8000,-1775,0,0,ongoing_losses,488,CRITICAL,False,WineAustralia_NVR2025_Vinehealth_Riverland2025_Tingey-Holyoak2024
+Olives,olives,3.0,4.0,8.0,,,,,62500,59000,39100,28500,4,4-6,6428,LOW,True,CCW_PIRSA_OliveConversionFactsheet_Nov2025
+Almonds,almonds,12.0,14.0,3.2,,,,,45000,40000,21500,40000,3,5,3000,MEDIUM,False,HortInnovation_StatsHandbook2024_AlmondFundAL07005
+Citrus,citrus,6.0,8.0,30.0,,,,,75000,32500,62500,32500,3,4,10000,LOW,False,CitrusSA_CitrusAustralia_HortInnovation_StatsHandbook2024
+Table Grapes,table_grapes,5.0,7.0,15.0,,,,,42000,25000,32500,25000,2,3,7857,LOW,False,HortInnovation_StatsHandbook2024_PIRSA_Scorecard

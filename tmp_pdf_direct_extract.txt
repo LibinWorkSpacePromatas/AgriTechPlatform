@@ -1,0 +1,219 @@
+--- PAGE 1 ---
+RIVERLAND AGRITECH DIGITAL TWIN
+ Profit & Risk Module — Team Guide | Page 1 of 3
+Profit & Risk Module
+What it does, what data drives it, and exactly what the team needs to build.
+What this module is for
+The Profit & Risk page answers one question for a Riverland grower: is my crop making money this season,
+and what should I be growing instead? It takes real farmgate prices and water costs and turns them into a live
+net margin calculation. Right now the page shows only placeholder numbers — 12.4% ROI, "Low" risk, $0 potential
+loss. All of that is fake and needs to be replaced with live data from the CSV files.
+What to remove, keep, and build
+ REMOVE
+ KEEP
+ BUILD NEW
+ ROI: 12.4% — hardcoded fake
+number
+ Risk Index: Low — hardcoded fake
+label
+ Potential Loss: $0.00 — hardcoded
+ $1,250/ton market value — not real
+ 4.2 t/ha yield — not connected to
+data
+ 92% confidence level — invented
+ The 3-card layout on the page
+ Page header, title and icons
+ The projection stats strip layout
+ Block selector dropdown
+ Adelaide timezone pipe
+ Mobile responsive grid CSS
+ Net margin calculator from CSV formula
+ Crop comparison bar chart (Chart 1)
+ Price vs break-even chart (Chart 2)
+ Risk flag: price vs break-even check
+ Water price scenario slider
+($80–$420/ML)
+ FastAPI /profit-risk endpoint call
+The formula — this is the one calculation powering the entire module
+Net Margin ($/ha) = (Farmgate Price x Yield per Hectare) — Cost of Production — (Water Use ML/ha x Water
+Cost per ML)
+Variable
+Where it comes from
+Chardonnay example (from XLSX)
+Farmgate Price
+XLSX col: farmgate_price_mid
+$366/tonne
+Yield per Hectare
+XLSX col: yield_t_ha_typical
+9.5 t/ha
+Revenue / ha
+Price x Yield
+$366 x 9.5 = $3,477/ha
+Cost of Production / ha
+XLSX col: cost_of_production_per_unit x yield
+$303/t x 9.5t = $2,878/ha
+Water Cost / ha
+water_req_ml_ha x (delivery $58.70 + market
+$153)
+8.0 ML x $211.70 = $1,694/ha
+Net Margin
+$3,477 - $2,878 - $1,694
+= $-1,095/ha at current water
+price
+Run this calculation for all 16 rows in the XLSX at three water price scenarios: $80/ML (low), $153/ML (current market), and
+$420/ML (high/shortage year). That gives 48 margin figures — the core dataset the module displays.
+
+
+--- PAGE 2 ---
+RIVERLAND AGRITECH DIGITAL TWIN
+ Page 2 of 3 — Charts Built from XLSX Data
+Charts to build into the Profit & Risk page
+All three charts below are calculated directly from the XLSX file the team received. These are the exact charts to
+implement in Angular.
+Chart 1 — Net margin per hectare across key crops
+The most important chart on the page. Bars above zero = profitable at that water price. Below zero = the grower is losing money.
+Calculated from farmgate_price_mid, yield_t_ha_typical, cost_of_production_per_unit, and water_req_ml_ha from the XLSX.
+ Olives EVOO revenue = $7/litre x 7,000 litres/ha. All other crops: farmgate_price_mid x yield_t_ha_typical. Water cost = ML/ha x scenario price.
+ Source: SA_Commodity_Farmgate_Prices_Water_Requirements.xlsx.
+Key insight: At the current water price of $153/ML, Shiraz loses ~$2,000/ha and Cabernet loses ~$1,800/ha.
+Chardonnay is marginally viable. Olives use only 3.8 ML/ha vs 8 ML/ha for wine grapes — and earn far more
+revenue per ML of water used.
+Chart 2 — Current farmgate price vs break-even price needed
+Shows at a glance which crops are profitable and which are not. Where the coloured bar (current price) is shorter than the grey
+bar (break-even), the crop is loss-making. All values from the XLSX: farmgate_price_mid vs profitable_above.
+
+
+--- PAGE 3 ---
+All values in AUD/tonne (farmgate). Break-even prices from XLSX col: profitable_above. Sources: Wine Australia, Citrus Australia CEO, AOOA,
+ Hort Innovation, GP Graders.
+Chart 3 — Revenue per ML of water used
+Critical metric for a water-constrained Riverland grower. Higher and further left = best. Olives EVOO is the standout — highest
+revenue at lowest water use. Calculated from (farmgate_price_mid x yield) divided by water_req_ml_ha from the XLSX.
+ Bubble size is illustrative. Dashed reference line = approximate minimum viable revenue/ML based on current delivery + market water costs.
+ Source: XLSX water_req_ml_ha and farmgate_price_mid columns.
+
+
+--- PAGE 4 ---
+RIVERLAND AGRITECH DIGITAL TWIN
+ Page 3 of 3 — Step-by-Step Build Guide
+How to build it — four steps
+Each step is self-contained. The team can split these across members and work in parallel on Steps 1 and 3.
+ 1
+Load the XLSX and calculate net margins — Python (Jupyter or script)
+ Open the XLSX file in pandas using pd.read_excel().
+ For each of the 16 crop rows, calculate Net Margin at 3 water prices: $80, $153, and $420/ML.
+ Formula per row: margin = (farmgate_price_mid x yield_t_ha_typical) - (cost_mid x yield) - (water_avg_ml x
+water_price).
+ This gives 48 numbers (16 crops x 3 scenarios). Save as JSON — this feeds the API in Step 2.
+ Test it first in a Jupyter notebook before wrapping in a function.
+Code:
+import pandas as pd df = pd.read_excel('SA_Commodity_Farmgate_Prices_Water_Requirements.xlsx')
+water_scenarios = {'low': 80, 'current': 153, 'high': 420} results = [] for _, row in
+df.iterrows(): price = float(row['farmgate_price_mid']) yield_ = float(row['yield_t_ha_typical'])
+water = (float(row['water_req_ml_ha_min']) + float(row['water_req_ml_ha_max'])) / 2 try: cost_s =
+str(row['cost_of_production_per_unit']).replace('–','-') parts = cost_s.split('-') cost =
+(float(parts[0]) + float(parts[-1])) / 2 if len(parts)>1 else float(parts[0]) except: cost = 0
+rev_ha = price * yield_ cost_ha = cost * yield_ for scenario, wp in water_scenarios.items():
+margin = rev_ha - cost_ha - (water * wp) results.append({'crop': row['variety_type'], 'scenario':
+scenario, 'margin': round(margin)}) import json print(json.dumps(results[:3], indent=2)) # check
+first 3 rows
+ 2
+Build the FastAPI endpoint — returns the margin JSON to Angular
+ Create profit_risk_router.py in your FastAPI project.
+ Add a GET endpoint at /blocks/{block_id}/profit-risk with an optional water_price query param.
+ The endpoint calculates margins (from Step 1 logic) and also returns risk_level (High/Low based on current crop
+vs break-even) and best_crop (highest margin crop at current water price).
+ No database needed yet — run the calculation in-memory on each request from the XLSX loaded at startup.
+Code:
+from fastapi import APIRouter router = APIRouter() @router.get('/blocks/{block_id}/profit-risk')
+def get_profit_risk(block_id: str, water_price: float = 153.0): margins =
+calculate_margins(water_price) # function from Step 1 current_crop_margin =
+get_crop_margin(block_id, margins) # e.g. Shiraz risk = 'High' if current_crop_margin < 0 else
+'Low' best = max(margins, key=lambda x: x['margin'])['crop'] return { 'margins': margins,
+'risk_level': risk, 'best_crop': best, 'net_margin': current_crop_margin }
+ 3
+Connect Angular to the API — replace hardcoded values with live data
+ Open profit-risk.component.ts in the Angular project (file already exists).
+ Inject HttpClient into the component and call the FastAPI endpoint in ngOnInit().
+ Bind the API response to the three metric cards: net_margin replaces 12.4%, risk_level replaces "Low",
+best_crop goes in the stats strip.
+ Use the existing data-source.service.ts pattern already in the project — do not create a new service.
+Code:
+
+
+--- PAGE 5 ---
+// profit-risk.component.ts — add to the class: profitData: any = null; constructor(private http:
+HttpClient) {} ngOnInit() { const url = '/api/blocks/block-a-shiraz/profit-risk?water_price=153';
+this.http.get(url).subscribe(data => this.profitData = data); } // In the template, replace each
+hardcoded string: // OLD: 12.4 NEW: {{ profitData?.net_margin | number:'1.0-0' }} // OLD: Low
+NEW: {{ profitData?.risk_level }} // OLD: 4.2 NEW: {{ profitData?.best_crop_yield }}
+ 4
+Add Chart 1 and Chart 2 to the Angular page — Chart.js
+ Install: npm install chart.js ng2-charts
+ Chart 1 (net margin bars): three grouped bars per crop — low/current/high water price scenario. Data from the
+API margins array.
+ Chart 2 (price vs break-even): horizontal bar chart. Load directly from the XLSX at startup — this is static
+reference data, not live.
+ Place charts below the existing three metric cards. The card layout at the top stays exactly as is.
+ Do NOT build Chart 3 (water efficiency) here — it belongs in the Growing Opportunities module.
+Which column from the XLSX connects to which part of the page
+XLSX column
+What it is
+Used in
+farmgate_price_mid
+Mid-range grower selling price
+Net margin formula, both charts
+farmgate_price_low / high
+Price range (low/high scenarios)
+Chart 1 scenario bars, risk band
+cost_of_production_per_unit
+What it costs to grow per tonne
+Net margin formula
+yield_t_ha_typical
+Tonnes produced per hectare
+Converts price/tonne to revenue/ha
+water_req_ml_ha_min/max
+Water needed per hectare (range)
+Water cost calculation in margin
+formula
+profitable_above
+Break-even farmgate price
+Chart 2, risk_level flag in API
+price_trend
+CRISIS / STABLE / STRONG / DECLINING
+Risk badge colour on metric card
+Build order and estimated effort
+Step
+Task
+Time
+Outcome
+1 — First
+Run margin calculation in Python for all 16 crops x 3
+scenarios
+2–3 hrs
+48 margin numbers in JSON
+2 — Next
+Build FastAPI /profit-risk endpoint returning this JSON
+2–3 hrs
+Working API the Angular can
+call
+3 — Then
+Connect Angular — replace the three hardcoded card
+values
+2–4 hrs
+Live numbers on the page
+4 — Last
+Add Chart 1 (margin bars) and Chart 2 (price vs
+break-even) with Chart.js
+3–5 hrs
+Fully functional module with
+charts
+Total estimated effort: 9–15 hours of development for a fully working Profit & Risk module with live data, real margin
+calculations, and two charts. The Angular layout already exists — the work is data connection, API, and chart
+integration only.
+
+
+--- PAGE 6 ---
+All source citations, cost derivation methodology, and data quality flags are in the cost_source and price_source columns of the
+XLSX, and in Riverland_Dataset_Provenance_Methodology.docx.
+
