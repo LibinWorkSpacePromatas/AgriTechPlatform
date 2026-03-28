@@ -5,6 +5,7 @@ from sqlalchemy import inspect, text
 from app.db.base import Base
 from app.db.database import engine
 from app.db.models import (
+    BlockDecision,
     SatelliteCache,
     SatelliteRefreshEventRecord,
     SatelliteRefreshJob,
@@ -99,6 +100,7 @@ def ensure_satellite_support_tables() -> None:
     Base.metadata.create_all(
         bind=engine,
         tables=[
+            BlockDecision.__table__,
             SatelliteCache.__table__,
             SatelliteRefreshJob.__table__,
             SatelliteRefreshEventRecord.__table__,
@@ -107,8 +109,39 @@ def ensure_satellite_support_tables() -> None:
     )
     _ensure_satellite_timeseries_schema()
     _ensure_sensor_support_tables()
+    ensure_crop_config_table()
     ensure_unified_farm_state_view()
     ensure_weather_timeseries_tables()
+
+
+def ensure_crop_config_table() -> None:
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS crop_config (
+                    crop TEXT PRIMARY KEY,
+                    optimal_moisture_min DOUBLE PRECISION,
+                    optimal_moisture_max DOUBLE PRECISION,
+                    root_depth_mm INTEGER,
+                    mad DOUBLE PRECISION
+                );
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO crop_config (crop, optimal_moisture_min, optimal_moisture_max, root_depth_mm, mad)
+                VALUES
+                ('Shiraz', 20, 40, 800, 0.5),
+                ('Wheat', 18, 28, 600, 0.5),
+                ('Almond', 25, 45, 1000, 0.45),
+                ('Citrus', 30, 50, 900, 0.5)
+                ON CONFLICT (crop) DO NOTHING;
+                """
+            )
+        )
 
 
 def ensure_unified_farm_state_view() -> None:

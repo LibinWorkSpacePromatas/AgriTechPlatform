@@ -8,7 +8,7 @@ from hashlib import md5
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.db.models import Block, SensorDefinition, SensorLatest, SensorReading
+from app.db.models import Block, SensorDefinition, SensorLatest, SensorReading, BlockDecision
 from app.schemas.sensors import (
     BlockSensorsResponse,
     DashboardSensorResponse,
@@ -153,6 +153,20 @@ class SensorService:
         definitions = self._ensure_sensor_state(db, block)
         self._refresh_live_readings_if_needed(db, block, definitions)
         db.commit()
+
+        # Update decision state for sensors
+        try:
+            from app.services.decision_engine import trigger_block_decision
+            decision = db.get(BlockDecision, block.id)
+            if not decision:
+                decision = BlockDecision(block_id=block.id)
+                db.add(decision)
+            decision.sensors_ready = True
+            db.commit()
+            trigger_block_decision(db, block.id)
+        except Exception:
+            pass
+
         return self._build_block_response(db, block)
 
     def get_sensor_history(
@@ -197,6 +211,20 @@ class SensorService:
         definitions = self._ensure_sensor_state(db, block)
         tick_time = self._refresh_live_readings_if_needed(db, block, definitions, force=True)
         db.commit()
+
+        # Update decision state for sensors
+        try:
+            from app.services.decision_engine import trigger_block_decision
+            decision = db.get(BlockDecision, block.id)
+            if not decision:
+                decision = BlockDecision(block_id=block.id)
+                db.add(decision)
+            decision.sensors_ready = True
+            db.commit()
+            trigger_block_decision(db, block.id)
+        except Exception:
+            pass
+
         return SensorSimulationResponse(
             block_id=str(block.id),
             updated_at=tick_time,

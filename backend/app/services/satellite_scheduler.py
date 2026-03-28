@@ -423,6 +423,13 @@ class SatelliteRefreshScheduler:
         db.add(job)
         db.commit()
 
+        # Trigger Decision Engine
+        try:
+            from app.services.decision_engine import trigger_block_decision
+            trigger_block_decision(db, block_id)
+        except Exception as exc:
+            logger.error("event=decision_trigger_failed block_id=%s error=%s", block_id, exc)
+
     def _mark_job_failed(self, db: Session, block_id: Any, error: str, started_at: float) -> None:
         job = db.get(SatelliteRefreshJob, block_id)
         if job is None:

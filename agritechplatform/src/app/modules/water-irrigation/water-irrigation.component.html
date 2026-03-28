@@ -152,6 +152,16 @@
                   <div class="ndwi-value-copy">
                     <span class="ndwi-value-label">Recommended action</span>
                     <p class="ndwi-support-copy">{{ irrigationStatus.recommendation }}</p>
+                    
+                    <div *ngIf="irrigationStatus.waterNeeded" class="ndwi-smart-metric mt-2">
+                      <span class="ndwi-value-label">Estimated Water</span>
+                      <p class="ndwi-support-copy font-bold text-blue-600">💧 {{ irrigationStatus.waterNeeded }} mm</p>
+                    </div>
+                    
+                    <div *ngIf="irrigationStatus.confidence" class="ndwi-smart-metric mt-2">
+                      <span class="ndwi-value-label">Confidence</span>
+                      <p class="ndwi-support-copy">{{ irrigationStatus.confidence * 100 | number:'1.0-0' }}%</p>
+                    </div>
                   </div>
                 </div>
               </div>

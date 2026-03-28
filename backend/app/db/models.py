@@ -200,3 +200,18 @@ class SensorLatest(Base):
     status = Column(String(16), nullable=False, default="Normal", server_default=text("'Normal'"))
     observed_at = Column(DateTime(timezone=True), nullable=False)
     updated_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), server_default=func.now())
+
+
+class BlockDecision(Base):
+    __tablename__ = "block_decisions"
+    __table_args__ = (
+        Index("ix_block_decisions_created_at", "created_at"),
+    )
+
+    block_id = Column(UUID(as_uuid=True), ForeignKey("blocks.id", ondelete="CASCADE"), primary_key=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), server_default=func.now())
+    satellite_ready = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    weather_ready = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    sensors_ready = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    decision_payload = Column(JSONB, nullable=True)
+    status = Column(String(32), nullable=False, default="pending", server_default=text("'pending'"))

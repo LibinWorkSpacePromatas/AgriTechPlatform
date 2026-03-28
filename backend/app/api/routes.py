@@ -15,7 +15,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.api import auth, scan, sensors
 from app.db.session import SessionLocal
-from app.db.models import Block, User
+from app.db.models import Block, User, BlockDecision
 from fastapi import Query
 from pydantic import BaseModel
 from app.schemas.opportunities import OpportunitiesResponse
@@ -265,8 +265,29 @@ def _upsert_block_geometry(
         if lat is not None and lon is not None:
             data = fetch_weather(lat, lon)
             store_weather(db, block_id, data)
+
+            # Update decision state for weather
+            decision = db.get(BlockDecision, block_id)
+            if not decision:
+                decision = BlockDecision(block_id=block_id)
+                db.add(decision)
+            decision.weather_ready = True
+            db.commit()
     except Exception as exc:
         logger.warning("Weather refresh failed for block %s: %s", block_id, exc)
+
+    # Trigger async satellite job immediately after geometry update
+    try:
+        from app.services.satellite_scheduler import satellite_refresh_scheduler
+        satellite_refresh_scheduler.enqueue_block_refresh(
+            db,
+            block_id,
+            reason="block_upsert",
+            priority=10, # High priority for user interaction
+            force=True
+        )
+    except Exception as exc:
+        logger.warning("Satellite enqueue failed for block %s: %s", block_id, exc)
 
     return {
         "status": "created" if existing is None else "updated",
@@ -585,8 +606,29 @@ def set_block_location(request: BlockLocationRequest, db: Session = Depends(get_
         if lat is not None and lon is not None:
             data = fetch_weather(lat, lon)
             store_weather(db, existing.id, data)
+
+            # Update decision state for weather
+            decision = db.get(BlockDecision, existing.id)
+            if not decision:
+                decision = BlockDecision(block_id=existing.id)
+                db.add(decision)
+            decision.weather_ready = True
+            db.commit()
     except Exception as exc:
         logger.warning("Weather refresh failed for block %s: %s", existing.id, exc)
+
+    # Trigger async satellite job
+    try:
+        from app.services.satellite_scheduler import satellite_refresh_scheduler
+        satellite_refresh_scheduler.enqueue_block_refresh(
+            db,
+            existing.id,
+            reason="location_update",
+            priority=10,
+            force=True
+        )
+    except Exception as exc:
+        logger.warning("Satellite enqueue failed for block %s: %s", existing.id, exc)
 
     return {
         "status": "updated",
@@ -733,6 +775,34 @@ def get_block_dashboard_insights(block_id: str, refresh: bool = Query(default=Fa
         raise HTTPException(status_code=500, detail=f"Database error while fetching dashboard block insights: {exc}") from exc
 
 
+@router.get("/api/blocks/{block_id}/decision", tags=["blocks"])
+def get_block_decision(block_id: str, db: Session = Depends(get_db)):
+    """
+    Fetches the latest irrigation decision payload for a specific block.
+    Supports both UUID and human-readable identifiers.
+    """
+    try:
+        block = resolve_block(db, block_id)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Error resolving block: {exc}") from exc
+
+    row = db.execute(
+        text("""
+            SELECT decision_payload 
+            FROM block_decisions 
+            WHERE block_id = :block_id
+        """),
+        {"block_id": str(block.id)}
+    ).first()
+
+    if not row:
+        return None
+
+    return row[0]  # JSON payload from decision_payload column
+
+
 @router.get("/api/blocks/{block_id}/unified-state", tags=["blocks"])
 def get_block_unified_state(block_id: str, db: Session = Depends(get_db)):
     try:
@@ -789,17 +859,17 @@ def get_block_unified_state(block_id: str, db: Session = Depends(get_db)):
     return {
         "block_id": str(row.get("block_id") or block.id),
         "sensors": {
-            "soil_moisture": _float(row.get("soil_moisture")) or 0.0,
-            "soil_temperature": _float(row.get("soil_temperature")) or 0.0,
-            "air_temperature": _float(row.get("air_temperature")) or 0.0,
-            "humidity": _float(row.get("humidity")) or 0.0,
-            "ph": _float(row.get("ph_level")) or 0.0,
+            "soil_moisture": _float(row.get("soil_moisture")),
+            "soil_temperature": _float(row.get("soil_temperature")),
+            "air_temperature": _float(row.get("air_temperature")),
+            "humidity": _float(row.get("humidity")),
+            "ph": _float(row.get("ph_level")),
         },
         "satellite": {
-            "ndvi": _float(row.get("ndvi")) or 0.0,
-            "ndwi": _float(row.get("ndwi")) or 0.0,
-            "evi": _float(row.get("evi")) or 0.0,
-            "lai": _float(row.get("lai")) or 0.0,
+            "ndvi": _float(row.get("ndvi")),
+            "ndwi": _float(row.get("ndwi")),
+            "evi": _float(row.get("evi")),
+            "lai": _float(row.get("lai")),
         },
         "weather": weather or {"last_24h": [], "last_7d": [], "next_7d": []},
         "weather_summary": weather_summary,

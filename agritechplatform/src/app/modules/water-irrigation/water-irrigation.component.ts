@@ -5,13 +5,14 @@ import { LucideAngularModule, Droplet, Waves, Calendar, Activity, AlertCircle, M
 import { WaterIrrigationService, IrrigationStatus } from '../../services/water-irrigation/water-irrigation.service';
 import { BlockService } from '../../shared/services/block.service';
 import { Block } from '../../shared/models';
-import { Subject, takeUntil, interval, of } from 'rxjs';
-import { switchMap, takeWhile, take, finalize } from 'rxjs/operators';
+import { Subject, takeUntil, interval, of, Subscription } from 'rxjs';
+import { switchMap, takeWhile, take, finalize, filter } from 'rxjs/operators';
 import * as L from 'leaflet';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/services/auth.service';
 import { UserDataService } from '../../core/services/user-data.service';
+import { SatelliteRefreshEventsService } from '../../core/services/satellite-refresh-events.service';
 
 @Component({
   selector: 'app-water-irrigation',
@@ -67,6 +68,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     private userDataService: UserDataService,
     private authService: AuthService,
     private cdr: ChangeDetectorRef,
+    private satelliteEventsService: SatelliteRefreshEventsService,
     @Inject(PLATFORM_ID) platformId: Object
   ) {
     this.isBrowser = isPlatformBrowser(platformId);
@@ -486,7 +488,6 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
         this.renderSpatialLayers();
         this.map.invalidateSize();
         this.refreshAfterGeometryChange();
-        this.fetchUnifiedFarmState();
       },
       error: (error: any) => {
         if (input) {
@@ -583,10 +584,38 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     this.isLoading = true;
     this.error = null;
 
-    this.waterIrrigationService.getIrrigationStatus(this.currentLan).subscribe({
-      next: status => {
-        console.log('Final Processed Irrigation Status:', status);
+    const blockId = this.currentLan;
+    const blockUUID = this.selectedBlock?.id;
+
+    // 1. Get basic irrigation status (NDWI etc)
+    this.waterIrrigationService.getIrrigationStatus(blockId).pipe(
+      switchMap(status => {
         this.irrigationStatus = status;
+        
+        // 2. Try to get smart decision from Decision Engine
+        if (blockUUID) {
+          return this.waterIrrigationService.getDecision(blockUUID);
+        }
+        return of(null);
+      }),
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: (decision: any) => {
+        console.log('Final Processed Irrigation Status + Decision:', { status: this.irrigationStatus, decision });
+        
+        if (decision && this.irrigationStatus) {
+          // Replace basic status with smart decision logic
+          this.irrigationStatus = {
+            ...this.irrigationStatus,
+            ndwi: decision.metadata?.ndwi ?? this.irrigationStatus.ndwi,
+            status: this.mapDecisionToStatus(decision.irrigation, decision.urgency),
+            recommendation: decision.reason,
+            urgency: decision.urgency,
+            waterNeeded: decision.water_needed_mm,
+            confidence: decision.confidence
+          };
+        }
+
         this.isLoading = false;
         this.error = null;
 
@@ -609,35 +638,54 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     });
   }
 
+  private mapDecisionToStatus(irrigation: string, urgency: string): IrrigationStatus['status'] {
+    if (irrigation === 'OFF' || irrigation === 'WAIT') return 'Well-watered';
+    if (urgency === 'HIGH') return 'Severe stress';
+    if (urgency === 'MEDIUM') return 'Moderate stress';
+    return 'Mild stress';
+  }
+
   private refreshAfterGeometryChange(): void {
     const blockId = this.currentLan;
-    // Do not flip global loading; keep UX stable and only update map/values.
+    const blockUUID = this.selectedBlock?.id;
 
-    this.waterIrrigationService.getIrrigationStatus(blockId, true).pipe(
-      switchMap((initial) => {
+    // 1. Trigger the refresh (minimal?refresh=true)
+    this.waterIrrigationService.getIrrigationStatus(blockId, true).subscribe({
+      next: (initial) => {
         this.irrigationStatus = initial;
         this.updateTileFromStatus();
-        const needsPolling = initial.dataQuality === 'no_data' || initial.ndwi === null;
-        if (!needsPolling) {
-          return of(initial);
+
+        // 2. Wait for completion using SSE (Pro Level)
+        if (blockUUID) {
+          this.satelliteEventsService.watchBlock(blockUUID).pipe(
+            filter(event => event.event === 'completed' || event.event === 'failed'),
+            take(1),
+            takeUntil(this.destroy$)
+          ).subscribe(event => {
+            console.log(`Satellite refresh ${event.event} for block ${blockId}`);
+            
+            // 3. Fetch final unified farm state AFTER completion
+            this.fetchUnifiedFarmState();
+            
+            // Also refresh irrigation status one last time to get final data
+            this.waterIrrigationService.getIrrigationStatus(blockId, false).subscribe(status => {
+              this.irrigationStatus = status;
+              this.updateTileFromStatus();
+            });
+          });
+        } else {
+          // Fallback if no UUID: simple delay (Practical Fix)
+          setTimeout(() => {
+            this.fetchUnifiedFarmState();
+            this.waterIrrigationService.getIrrigationStatus(blockId, false).subscribe(status => {
+              this.irrigationStatus = status;
+              this.updateTileFromStatus();
+            });
+          }, 5000);
         }
-        return interval(5000).pipe(
-          take(24),
-          switchMap(() => this.waterIrrigationService.getIrrigationStatus(blockId, false)),
-          takeWhile((status) => status.dataQuality === 'no_data' || status.ndwi === null, true)
-        );
-      }),
-      finalize(() => {
-        // No global re-render here; keep experience smooth
-      })
-    ).subscribe({
-      next: (status) => {
-        this.irrigationStatus = status;
-        this.updateTileFromStatus();
       },
-      error: (error: any) => {
-        console.error('Failed to refresh irrigation data after geometry change:', error);
-        // Do not surface a global error; keep the map stable
+      error: (error) => {
+        console.error('Failed to trigger refresh after geometry change:', error);
       }
     });
   }
