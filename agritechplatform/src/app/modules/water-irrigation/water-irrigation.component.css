@@ -21,6 +21,10 @@
   min-height: 0;
 }
 
+.left-column .map-shell {
+  margin-top: 0;
+}
+
 .right-column {
   display: flex;
   flex-direction: column;
@@ -2210,7 +2214,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
-  padding: 0 0.2rem;
+  padding: 0 0.2rem 0.15rem;
 }
 
 .map-shell-header h3 {
@@ -2218,6 +2222,97 @@
   color: #0f172a;
   font-size: 1.05rem;
   font-weight: 700;
+}
+
+.map-floating-controls {
+  position: absolute;
+  top: auto;
+  bottom: 78px;
+  left: 14px;
+  right: auto;
+  z-index: 1100;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  pointer-events: auto;
+}
+
+.layer-control {
+  position: relative;
+}
+
+.layer-toggle-btn {
+  width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.96);
+  color: #0f172a;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+  transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.layer-toggle-btn:hover {
+  transform: translateY(-1px);
+  border-color: #93c5fd;
+  background: #ffffff;
+}
+
+.layer-toggle-btn.active {
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  border-color: #1d4ed8;
+  color: #ffffff;
+}
+
+.layer-toggle-btn i-lucide {
+  width: 20px;
+  height: 20px;
+}
+
+.layer-menu {
+  position: absolute;
+  top: 0;
+  left: calc(100% + 10px);
+  right: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem;
+  border-radius: 999px;
+  border: 1px solid #dbeafe;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.16);
+  backdrop-filter: blur(10px);
+}
+
+.layer-option-btn {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  border-radius: 999px;
+  padding: 0.56rem 1.05rem;
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  min-width: 92px;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.layer-option-btn:hover {
+  border-color: #60a5fa;
+  background: #f8fbff;
+  transform: translateY(-1px);
+}
+
+.layer-option-btn.active {
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  border-color: #1d4ed8;
+  color: #ffffff;
 }
 
 .map-status-pill {
@@ -2413,6 +2508,29 @@
     width: 100%;
   }
 
+  .map-floating-controls {
+    top: auto;
+    bottom: 66px;
+    left: 10px;
+    right: auto;
+  }
+
+  .layer-menu {
+    top: calc(100% + 10px);
+    left: 0;
+    right: auto;
+    flex-direction: column;
+    align-items: stretch;
+    border-radius: 1rem;
+    padding: 0.45rem;
+  }
+
+  .layer-option-btn {
+    min-width: 118px;
+    padding: 0.58rem 0.95rem;
+    font-size: 0.84rem;
+  }
+
   .map-controls {
     left: 10px;
     right: 10px;
@@ -2463,11 +2581,6 @@
   .map-shell {
     min-height: auto;
     gap: 0.55rem;
-  }
-
-  .map-layout-grid {
-    min-height: auto;
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
   }
 
   .map-shell-header {
@@ -2522,7 +2635,7 @@
 
   .tools-card {
     padding: 0.88rem;
-    min-height: clamp(340px, 40vh, 460px);
+    min-height: auto;
   }
 
   .overview-grid {

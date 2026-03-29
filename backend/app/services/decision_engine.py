@@ -15,26 +15,84 @@ from app.services.weather_ingest import is_weather_fresh, fetch_weather, store_w
 logger = logging.getLogger(__name__)
 
 
-def _get_soil_factor(description: str | None) -> float:
-    """
-    Returns a soil-based adjustment factor for irrigation volume.
-    """
-    soil_text = (description or "").lower()
+def _get_weighted_soil_factor(data: dict[str, Any], db: Session) -> dict[str, Any]:
+    soils = [
+        (data.get("primary_soil_classification"), data.get("primary_soil_value")),
+        (data.get("secondary_soil_classification"), data.get("secondary_soil_value")),
+        (data.get("tertiary_soil_classification"), data.get("tertiary_soil_value")),
+    ]
 
-    sand_score = 1 if "sand" in soil_text else 0
-    clay_score = 1 if "clay" in soil_text else 0
-    loam_score = 1 if "loam" in soil_text else 0
+    codes = [str(code).strip().upper() for code, pct in soils if code and pct]
+    if not codes:
+        dominant = data.get("soil_subgroup", "")
+        if dominant:
+            codes = [str(dominant).strip().upper()]
 
-    if sand_score and clay_score:
-        return 1.1  # Mixed soil (e.g., loamy sand over red clay)
-    elif sand_score:
-        return 1.3  # High drainage
-    elif clay_score:
-        return 0.8  # High retention
-    elif loam_score:
-        return 1.0  # Balanced
-    
-    return 1.0
+    if not codes:
+        return {
+            "factor": 1.0,
+            "field_capacity": 0.28,
+            "wilting_point": 0.13,
+            "soil_label": "Unknown (default loam)",
+            "source": "default",
+        }
+
+    rows = db.execute(
+        text(
+            """
+            SELECT code, irrigation_factor, field_capacity, wilting_point, label
+            FROM soil_class_config
+            WHERE code = ANY(:codes)
+            """
+        ),
+        {"codes": codes},
+    ).mappings().all()
+    props_map = {str(row["code"]).strip().upper(): row for row in rows}
+
+    weighted_factor = 0.0
+    total_weight = 0.0
+    components: list[str] = []
+    for code, pct in soils:
+        if not code or pct is None:
+            continue
+        code_key = str(code).strip().upper()
+        props = props_map.get(code_key)
+        if not props:
+            continue
+        weight = float(pct) / 100.0
+        weighted_factor += float(props["irrigation_factor"]) * weight
+        total_weight += weight
+        components.append(f"{code}({pct}%)")
+
+    if total_weight == 0:
+        dominant = str(data.get("soil_subgroup", "")).strip().upper()
+        props = props_map.get(dominant)
+        if props:
+            return {
+                "factor": float(props["irrigation_factor"]),
+                "field_capacity": float(props["field_capacity"]),
+                "wilting_point": float(props["wilting_point"]),
+                "soil_label": str(props["label"]),
+                "source": f"ASC dominant {dominant}",
+            }
+        return {
+            "factor": 1.0,
+            "field_capacity": 0.28,
+            "wilting_point": 0.13,
+            "soil_label": "Unknown (default loam)",
+            "source": "default",
+        }
+
+    primary_code = str(data.get("primary_soil_classification", "")).strip().upper()
+    primary_props = props_map.get(primary_code)
+
+    return {
+        "factor": round(weighted_factor / total_weight, 3),
+        "field_capacity": float(primary_props["field_capacity"]) if primary_props else 0.28,
+        "wilting_point": float(primary_props["wilting_point"]) if primary_props else 0.13,
+        "soil_label": " + ".join(components),
+        "source": "soil_class_config DB weighted",
+    }
 
 
 def trigger_block_decision(db: Session, block_id: UUID) -> dict[str, Any] | None:
@@ -67,7 +125,7 @@ def trigger_block_decision(db: Session, block_id: UUID) -> dict[str, Any] | None
             return None
 
         # 2. Compute the decision
-        decision = _compute_irrigation_decision(data)
+        decision = _compute_irrigation_decision(data, db)
 
         # 3. Save the decision
         _save_decision(db, block_id, decision)
@@ -92,16 +150,27 @@ def _get_decision_data(db: Session, block_id: UUID) -> dict[str, Any] | None:
                 ufs.ndvi,
                 ufs.ndwi,
                 COALESCE(b.crop, u.primary_crop) AS crop,
-                COALESCE(b.soil_class, u.primary_soil) AS soil_type,
-                b.description,
+                COALESCE(b.area_ha, 0) AS area_ha,
+                b.lanslu,
                 cc.optimal_moisture_min,
                 cc.optimal_moisture_max,
                 cc.root_depth_mm,
-                cc.mad
+                cc.mad,
+                sr.soil_subgroup,
+                sr.primary_soil_classification,
+                sr.primary_soil_value,
+                sr.secondary_soil_classification,
+                sr.secondary_soil_value,
+                sr.tertiary_soil_classification,
+                sr.tertiary_soil_value,
+                scc.drainage_class AS primary_drainage_class,
+                scc.label AS primary_soil_label
             FROM unified_farm_state ufs
             JOIN blocks b ON b.id = ufs.block_id
             LEFT JOIN users u ON u.id = b.user_id
             JOIN crop_config cc ON cc.crop = COALESCE(b.crop, u.primary_crop)
+            LEFT JOIN soil_reference sr ON sr.lanslu = b.lanslu
+            LEFT JOIN soil_class_config scc ON scc.code = sr.primary_soil_classification
             WHERE ufs.block_id = :block_id
         """),
         {"block_id": str(block_id)}
@@ -134,25 +203,36 @@ def _get_decision_data(db: Session, block_id: UUID) -> dict[str, Any] | None:
         {"block_id": str(block_id)}
     ).scalar()
 
+    weather_available = weather_stats is not None and weather_stats["rain_24h"] is not None
+
     return {
         "block_id": str(block_id),
         "soil_moisture": row["soil_moisture"],
         "ndvi": row["ndvi"],
         "ndwi": row["ndwi"],
         "crop": row["crop"],
-        "soil_type": row["soil_type"],
-        "description": row["description"],
+        "area_ha": float(row["area_ha"] or 0.0),
         "optimal_moisture_min": row["optimal_moisture_min"],
         "optimal_moisture_max": row["optimal_moisture_max"],
         "root_depth_mm": row["root_depth_mm"],
         "mad": row["mad"],
-        "rain_24h": float(weather_stats["rain_24h"] or 0.0),
-        "temperature_avg": float(weather_stats["temperature_avg"]) if weather_stats["temperature_avg"] is not None else None,
-        "rain_next_48h": float(rain_next_48h or 0.0)
+        "weather_available": weather_available,
+        "rain_24h": float(weather_stats["rain_24h"] or 0.0) if weather_stats else 0.0,
+        "temperature_avg": float(weather_stats["temperature_avg"]) if weather_stats and weather_stats["temperature_avg"] is not None else None,
+        "rain_next_48h": float(rain_next_48h or 0.0),
+        "soil_subgroup": row["soil_subgroup"],
+        "primary_soil_classification": row["primary_soil_classification"],
+        "primary_soil_value": row["primary_soil_value"],
+        "secondary_soil_classification": row["secondary_soil_classification"],
+        "secondary_soil_value": row["secondary_soil_value"],
+        "tertiary_soil_classification": row["tertiary_soil_classification"],
+        "tertiary_soil_value": row["tertiary_soil_value"],
+        "primary_drainage_class": row["primary_drainage_class"],
+        "primary_soil_label": row["primary_soil_label"],
     }
 
 
-def _compute_irrigation_decision(data: dict[str, Any]) -> dict[str, Any]:
+def _compute_irrigation_decision(data: dict[str, Any], db: Session) -> dict[str, Any]:
     """
     The core irrigation reasoning logic.
     NDWI-Primary Architecture.
@@ -170,12 +250,16 @@ def _compute_irrigation_decision(data: dict[str, Any]) -> dict[str, Any]:
     optimal_max = float(data["optimal_moisture_max"] or 0.0)
     root_depth_mm = float(data.get("root_depth_mm", 600))
     mad = float(data.get("mad", 0.5))
+    weather_available = bool(data.get("weather_available", False))
     rain_24h = float(data["rain_24h"])
     rain_next_48h = float(data["rain_next_48h"])
     temp_avg = float(data["temperature_avg"]) if data.get("temperature_avg") is not None else None
+    area_ha = float(data.get("area_ha", 0.0))
 
     # 🔧 Optimization: Cache soil_factor at the top
-    soil_factor = _get_soil_factor(data["description"])
+    soil_props = _get_weighted_soil_factor(data, db)
+    soil_factor = float(soil_props["factor"])
+    drainage_class = str(data.get("primary_drainage_class") or "MODERATE").upper()
 
     # ✅ Unify rain threshold usage
     rain_threshold = root_depth_mm * 0.02 # 2% of root depth is a safe rain limit
@@ -186,6 +270,7 @@ def _compute_irrigation_decision(data: dict[str, Any]) -> dict[str, Any]:
             "irrigation": "OFF",
             "urgency": "LOW",
             "water_needed_mm": 0,
+            "water_needed_liters": 0.0,
             "reason": f"Heavy rain expected ({rain_next_48h}mm > {rain_threshold:.1f}mm limit), irrigation skipped",
             "confidence": 0.95,
             "metadata": {
@@ -194,7 +279,13 @@ def _compute_irrigation_decision(data: dict[str, Any]) -> dict[str, Any]:
                 "ndvi": ndvi,
                 "ndwi": ndwi,
                 "rain_24h": rain_24h,
-                "rain_next_48h": rain_next_48h
+                "rain_next_48h": rain_next_48h,
+                "soil_factor": soil_factor,
+                "soil_label": soil_props["soil_label"],
+                "soil_source": soil_props["source"],
+                "drainage_class": drainage_class,
+                "weather_available": weather_available,
+                "water_needed_liters": 0.0,
             }
         }
 
@@ -206,28 +297,26 @@ def _compute_irrigation_decision(data: dict[str, Any]) -> dict[str, Any]:
             ndwi_decision = {
                 "irrigation": "ON",
                 "urgency": "HIGH",
-                "base_water": 20,
                 "reason": "Severe water stress (NDWI < -0.3)"
             }
         elif ndwi < -0.1 and soil_moisture < optimal_max:
             ndwi_decision = {
                 "irrigation": "ON",
                 "urgency": "MEDIUM",
-                "base_water": 12,
+                
                 "reason": "Moderate water stress (NDWI)"
             }
         elif ndwi < 0.1:
             ndwi_decision = {
                 "irrigation": "WAIT",
                 "urgency": "LOW",
-                "base_water": 0,
+                
                 "reason": "Mild water stress (NDWI)"
             }
         else:
             ndwi_decision = {
                 "irrigation": "OFF",
                 "urgency": "LOW",
-                "base_water": 0,
                 "reason": "Well-watered (NDWI)"
             }
 
@@ -304,6 +393,7 @@ def _compute_irrigation_decision(data: dict[str, Any]) -> dict[str, Any]:
 
     # 💧 Scientific Water Quantity Calculation
     water_needed_mm = 0
+    water_needed_liters = 0.0
     if irrigation == "ON":
         # Better water calculation using root depth and MAD
         available_water = root_depth_mm * mad
@@ -322,6 +412,15 @@ def _compute_irrigation_decision(data: dict[str, Any]) -> dict[str, Any]:
 
         # Apply cached soil factor
         water_needed_mm *= soil_factor
+
+        drainage_factor = 1.0
+        if drainage_class == "VERY_SLOW":
+            drainage_factor = 0.70
+            reason += " (reduced for very slow drainage)"
+        elif drainage_class == "SLOW":
+            drainage_factor = 0.85
+            reason += " (reduced for slow drainage)"
+        water_needed_mm *= drainage_factor
 
         # 🌦 Evapotranspiration (ET) Adjustment
         et_factor = 1.0
@@ -344,17 +443,19 @@ def _compute_irrigation_decision(data: dict[str, Any]) -> dict[str, Any]:
             urgency = "LOW"
             water_needed_mm = 0
         else:
-            water_needed_mm = min(25, max(5, water_needed_mm)) # Cap and floor
+            max_irrigation = min(40, root_depth_mm * 0.04)
+            water_needed_mm = min(max_irrigation, max(5, water_needed_mm))
         
         water_needed_mm = round(water_needed_mm, 1)
+        water_needed_liters = round(water_needed_mm * area_ha * 10_000, 0) if area_ha > 0 else 0.0
 
     # ⚠️ Data-Driven Confidence calculation (Step 3: Weights)
     confidence = 0.0
     if ndwi is not None:
         confidence += 0.4
-    if soil_moisture is not None:
+    if soil_moisture is not None and soil_moisture > 0:
         confidence += 0.3
-    if rain_next_48h is not None:
+    if weather_available:
         confidence += 0.3
     confidence = min(1.0, confidence)
 
@@ -374,6 +475,7 @@ def _compute_irrigation_decision(data: dict[str, Any]) -> dict[str, Any]:
         "irrigation": irrigation,
         "urgency": urgency,
         "water_needed_mm": water_needed_mm,
+        "water_needed_liters": water_needed_liters,
         "reason": reason,
         "confidence": round(confidence, 2),
         "metadata": {
@@ -384,7 +486,12 @@ def _compute_irrigation_decision(data: dict[str, Any]) -> dict[str, Any]:
             "rain_24h": rain_24h,
             "rain_next_48h": rain_next_48h,
             "temp_avg": temp_avg,
-            "soil_factor": soil_factor
+            "soil_factor": soil_factor,
+            "soil_label": soil_props["soil_label"],
+            "soil_source": soil_props["source"],
+            "drainage_class": drainage_class,
+            "weather_available": weather_available,
+            "water_needed_liters": water_needed_liters,
         }
     }
 
@@ -410,7 +517,7 @@ def _save_decision(db: Session, block_id: UUID, decision: dict[str, Any]) -> Non
             "block_id": str(block_id),
             "payload": json.dumps(decision),
             "sat": decision["metadata"]["ndvi"] is not None,
-            "weath": True, # If we got past _get_decision_data, weather query ran
+            "weath": bool(decision["metadata"].get("weather_available", False)),
             "sens": decision["metadata"]["soil_moisture"] is not None
         }
     )

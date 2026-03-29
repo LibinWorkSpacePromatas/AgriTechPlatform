@@ -251,6 +251,8 @@ class EarthEngineClient:
             stats = summary.get("stats", {})
             pixel_count = int(stats.get("ndwi_count") or stats.get("ndvi_count") or 0)
             cloud_cover_pct = self._maybe_round(metadata_summary.get("cloud_cover_pct"), 2)
+            ndwi_min = self._maybe_round(stats.get("ndwi_min"))
+            ndwi_max = self._maybe_round(stats.get("ndwi_max"))
             data_quality = self._classify_quality(
                 pixel_count=pixel_count,
                 cloud_cover_pct=cloud_cover_pct,
@@ -260,6 +262,13 @@ class EarthEngineClient:
             ndwi_tile_url = None
 
             if generate_tile_url or (generate_tile_url is None and self._settings.satellite_enable_tile_urls):
+                logger.info(
+                    "event=ndwi_visualization_stats ndwi_mean=%s ndwi_min=%s ndwi_max=%s pixel_count=%s",
+                    self._validate_ratio_index(stats.get("ndwi_mean"), index_name="ndwi"),
+                    ndwi_min,
+                    ndwi_max,
+                    pixel_count,
+                )
                 ndvi_tile_url = self._build_tile_url(indices.select("ndvi").clip(geometry))
                 # Water screen keeps using the NDWI zone map.
                 ndwi_tile_url = self._build_ndwi_tile_url(indices.select("ndwi").clip(geometry))
@@ -364,7 +373,9 @@ class EarthEngineClient:
         assert ee is not None
 
         stats = indices.reduceRegion(
-            reducer=ee.Reducer.mean().combine(ee.Reducer.count(), sharedInputs=True),
+            reducer=ee.Reducer.mean()
+            .combine(ee.Reducer.count(), sharedInputs=True)
+            .combine(ee.Reducer.minMax(), sharedInputs=True),
             geometry=geometry,
             scale=self._settings.satellite_reduction_scale_meters,
             bestEffort=False,

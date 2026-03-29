@@ -82,6 +82,50 @@
             </div>
           </div>
         </div>
+
+        <div class="map-shell">
+          <div class="map-card-panel">
+            <div class="map-shell-header">
+              <div>
+                <h3>Boundary and irrigation view</h3>
+              </div>
+            </div>
+
+            <div class="map-wrapper card shadow-md">
+              <div id="map"></div>
+              <div class="map-floating-controls" (click)="$event.stopPropagation()">
+                <div class="layer-control">
+                  <button
+                    type="button"
+                    class="layer-toggle-btn"
+                    [class.active]="isBaseMapMenuOpen"
+                    (click)="toggleBaseMapMenu($event)"
+                    aria-label="Open map layers">
+                    <i-lucide [img]="LayersIcon"></i-lucide>
+                  </button>
+
+                  <div class="layer-menu" *ngIf="isBaseMapMenuOpen">
+                    <button
+                      *ngFor="let mode of baseMapModes"
+                      type="button"
+                      class="layer-option-btn"
+                      [class.active]="currentBaseMap === mode"
+                      (click)="setBaseMap(mode)">
+                      {{ mode === 'road' ? 'Road' : mode === 'terrain' ? 'Terrain' : 'Satellite' }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="map-glow"></div>
+              <div class="map-overlay" *ngIf="error">
+                <div class="error-msg">
+                  <i-lucide [img]="AlertIcon"></i-lucide>
+                  {{ error }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="right-column">
@@ -173,75 +217,47 @@
           <i-lucide [img]="MapPinIcon"></i-lucide>
           <p>Select a block to see irrigation details</p>
         </div>
-      </div>
 
-      <div class="map-shell full-width">
-        <div class="map-layout-grid">
-          <div class="map-card-panel">
-        <div class="map-shell-header">
-          <div>
-         
-            <h3>Boundary and irrigation view</h3>
-          </div>
-        </div>
-
-        <div class="map-wrapper card shadow-md">
-          <div id="map"></div>
-          <div class="map-glow"></div>
-          <div class="map-overlay" *ngIf="error">
-            <div class="error-msg">
-              <i-lucide [img]="AlertIcon"></i-lucide>
-              {{ error }}
-            </div>
-          </div>
-        </div>
+        <div class="card shadow-sm tools-card">
+          <div class="tools-card-header">
+            <h3>Boundary and location actions</h3>
           </div>
 
-          <div class="card shadow-sm tools-card">
-            <div class="tools-card-header">
-            
-              <h3>Boundary and location actions</h3>
-            </div>
-
-            <div class="tools-stack">
-              <div class="tools-section">
-                <span class="label">Boundary Tools</span>
-                <div class="boundary-actions">
-                  <button class="boundary-action-btn clear" (click)="clearBoundary()">Clear boundary</button>
-                  <label class="boundary-action-btn upload">
-                    Upload shapefile (.zip)
-                    <input type="file" (change)="uploadShapefile($event)" accept=".zip,.shp" style="display:none;">
-                  </label>
-                  <div class="info-popover-wrap upload-info-popover">
-                    <button
-                      type="button"
-                      class="info-icon-btn upload-info-btn"
-                      aria-label="Show shapefile upload help">
-                      <i-lucide [img]="InfoIcon"></i-lucide>
-                    </button>
-                    <div class="info-popover-panel upload-popover-panel" role="tooltip">
-                      <div class="info-panel-title">Shapefile upload</div>
-                      <p class="upload-popover-copy">Use a zipped shapefile with .shp, .shx, .dbf, and .prj files.</p>
-                    </div>
+          <div class="tools-stack">
+            <div class="tools-section">
+              <span class="label">Boundary Tools</span>
+              <div class="boundary-actions">
+                <button class="boundary-action-btn clear" (click)="clearBoundary()">Clear boundary</button>
+                <label class="boundary-action-btn upload">
+                  Upload shapefile (.zip)
+                  <input type="file" (change)="uploadShapefile($event)" accept=".zip,.shp" style="display:none;">
+                </label>
+                <div class="info-popover-wrap upload-info-popover">
+                  <button
+                    type="button"
+                    class="info-icon-btn upload-info-btn"
+                    aria-label="Show shapefile upload help">
+                    <i-lucide [img]="InfoIcon"></i-lucide>
+                  </button>
+                  <div class="info-popover-panel upload-popover-panel" role="tooltip">
+                    <div class="info-panel-title">Shapefile upload</div>
+                    <p class="upload-popover-copy">Use a zipped shapefile with .shp, .shx, .dbf, and .prj files.</p>
                   </div>
                 </div>
               </div>
+            </div>
 
-           
-
-              <div class="tools-section location-inline-section">
-                <div class="map-control-copy">
-                  <span class="label">Change Location</span>
-                  <span class="map-control-subtitle">Tap the map to place a new centroid</span>
-                </div>
-                <div class="map-action-group">
-                  <button class="retry-btn map-action-btn" [class.active]="isMoveMode" (click)="toggleMoveMode()">
-                    {{ isMoveMode ? 'Disable Move' : 'Enable Move' }}
-                  </button>
-                  <button class="retry-btn map-action-btn save" [disabled]="!isMoveMode || pendingLat === null || pendingLon === null" (click)="saveNewLocation()">Save Location</button>
-                </div>
+            <div class="tools-section location-inline-section">
+              <div class="map-control-copy">
+                <span class="label">Change Location</span>
+                <span class="map-control-subtitle">Tap the map to place a new centroid</span>
               </div>
-
+              <div class="map-action-group">
+                <button class="retry-btn map-action-btn" [class.active]="isMoveMode" (click)="toggleMoveMode()">
+                  {{ isMoveMode ? 'Disable Move' : 'Enable Move' }}
+                </button>
+                <button class="retry-btn map-action-btn save" [disabled]="!isMoveMode || pendingLat === null || pendingLon === null" (click)="saveNewLocation()">Save Location</button>
+              </div>
             </div>
           </div>
         </div>

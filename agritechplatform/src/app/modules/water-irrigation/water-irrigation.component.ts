@@ -14,6 +14,8 @@ import { AuthService } from '../../core/services/auth.service';
 import { UserDataService } from '../../core/services/user-data.service';
 import { SatelliteRefreshEventsService } from '../../core/services/satellite-refresh-events.service';
 
+type BaseMapMode = 'road' | 'terrain' | 'satellite';
+
 @Component({
   selector: 'app-water-irrigation',
   standalone: true,
@@ -22,6 +24,7 @@ import { SatelliteRefreshEventsService } from '../../core/services/satellite-ref
   styleUrl: './water-irrigation.component.css'
 })
 export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewInit {
+  readonly baseMapModes: BaseMapMode[] = ['road', 'terrain', 'satellite'];
   DropletIcon = Droplet;
   WavesIcon = Waves;
   CalendarIcon = Calendar;
@@ -42,8 +45,12 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
   selectedBlockName = '';
   selectedBlockLan = '';
   selectedBlock: Block | null = null;
+  weatherData: any = null;
+  sensorsData: any = null;
+  satelliteData: any = null;
 
   private map!: L.Map;
+  private baseMapLayer?: L.TileLayer;
   private centroidMarker?: L.CircleMarker;
   private polygonLayer?: L.GeoJSON;
   private mapTileLayer?: L.TileLayer;
@@ -54,10 +61,13 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
   private leafletDrawLoaded = false;
   private isBrowser: boolean;
   isMoveMode = false;
+  currentBaseMap: BaseMapMode = 'road';
   pendingLat: number | null = null;
   pendingLon: number | null = null;
   showCalculationDetails = false;
   isBlockMenuOpen = false;
+  isBaseMapMenuOpen = false;
+  private decisionPollSub?: Subscription;
 
   private destroy$ = new Subject<void>();
 
@@ -141,13 +151,71 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     L.Marker.prototype.options.icon = iconDefault;
 
     this.map = L.map('map').setView([this.latitude, this.longitude], 16);
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      minZoom: 3
-    }).addTo(this.map);
+    this.applyBaseMapLayer();
+    this.map.on('zoomend', () => this.updateTileFromStatus());
     this.configureDrawingTools();
     this.renderSpatialLayers();
+  }
+
+  setBaseMap(mode: BaseMapMode): void {
+    if (this.currentBaseMap === mode) {
+      this.isBaseMapMenuOpen = false;
+      return;
+    }
+    this.currentBaseMap = mode;
+    this.isBaseMapMenuOpen = false;
+    this.applyBaseMapLayer();
+  }
+
+  toggleBaseMapMenu(event?: Event): void {
+    event?.stopPropagation();
+    this.isBaseMapMenuOpen = !this.isBaseMapMenuOpen;
+  }
+
+  private applyBaseMapLayer(): void {
+    if (!this.map) {
+      return;
+    }
+
+    const config = this.getBaseMapConfig(this.currentBaseMap);
+
+    if (this.baseMapLayer) {
+      this.map.removeLayer(this.baseMapLayer);
+    }
+
+    this.baseMapLayer = L.tileLayer(config.url, {
+      attribution: config.attribution,
+      minZoom: 3,
+      maxZoom: config.maxZoom ?? 19
+    }).addTo(this.map);
+    this.baseMapLayer.setZIndex(1);
+  }
+
+  private getBaseMapConfig(mode: BaseMapMode): {
+    url: string;
+    attribution: string;
+    maxZoom?: number;
+  } {
+    switch (mode) {
+      case 'terrain':
+        return {
+          url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+          attribution: 'Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap',
+          maxZoom: 17
+        };
+      case 'satellite':
+        return {
+          url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+          attribution: 'Tiles &copy; Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+          maxZoom: 19
+        };
+      default:
+        return {
+          url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+          attribution: '&copy; OpenStreetMap contributors',
+          maxZoom: 19
+        };
+    }
   }
 
   private configureDrawingTools(): void {
@@ -543,7 +611,9 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     const baseUrl = environment.apiBaseUrl.replace(/\/$/, '');
     this.http.get<any>(`${baseUrl}/api/blocks/${this.selectedBlock.id}/unified-state`).subscribe({
       next: (data) => {
-        console.log('Unified farm state:', data);
+        this.weatherData = data?.weather ?? null;
+        this.sensorsData = data?.sensors ?? null;
+        this.satelliteData = data?.satellite ?? null;
       },
       error: (error: any) => {
         console.error('Error fetching unified farm state:', error);
@@ -570,11 +640,13 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
   @HostListener('document:click')
   onDocumentClick(): void {
     this.isBlockMenuOpen = false;
+    this.isBaseMapMenuOpen = false;
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+    this.decisionPollSub?.unsubscribe();
     if (this.map) {
       this.map.remove();
     }
@@ -664,10 +736,23 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
           ).subscribe(event => {
             console.log(`Satellite refresh ${event.event} for block ${blockId}`);
             
-            // 3. Fetch final unified farm state AFTER completion
             this.fetchUnifiedFarmState();
+            this.waterIrrigationService.getDecision(blockUUID).pipe(take(1)).subscribe((decision: any) => {
+              if (decision && this.irrigationStatus) {
+                this.irrigationStatus = {
+                  ...this.irrigationStatus,
+                  ndwi: decision.metadata?.ndwi ?? this.irrigationStatus.ndwi,
+                  status: this.mapDecisionToStatus(decision.irrigation, decision.urgency),
+                  recommendation: decision.reason,
+                  urgency: decision.urgency,
+                  waterNeeded: decision.water_needed_mm,
+                  confidence: decision.confidence
+                };
+                this.updateTileFromStatus();
+              }
+            });
+            this.pollForDecision(blockUUID);
             
-            // Also refresh irrigation status one last time to get final data
             this.waterIrrigationService.getIrrigationStatus(blockId, false).subscribe(status => {
               this.irrigationStatus = status;
               this.updateTileFromStatus();
@@ -690,19 +775,46 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     });
   }
 
+  private pollForDecision(blockUuid: string): void {
+    this.decisionPollSub?.unsubscribe();
+    this.decisionPollSub = interval(5000).pipe(
+      take(6),
+      switchMap(() => this.waterIrrigationService.getDecision(blockUuid)),
+      filter((decision: any) => !!decision),
+      take(1)
+    ).subscribe((decision: any) => {
+      if (decision && this.irrigationStatus) {
+        this.irrigationStatus = {
+          ...this.irrigationStatus,
+          ndwi: decision.metadata?.ndwi ?? this.irrigationStatus.ndwi,
+          status: this.mapDecisionToStatus(decision.irrigation, decision.urgency),
+          recommendation: decision.reason,
+          urgency: decision.urgency,
+          waterNeeded: decision.water_needed_mm,
+          confidence: decision.confidence
+        };
+        this.updateTileFromStatus();
+      }
+    });
+  }
+
   private updateTileFromStatus(): void {
     if (!this.map) return;
     const url = this.irrigationStatus?.mapTileUrl || null;
     if (url) {
+      const overlayOpacity = this.getOverlayOpacity();
       if (this.mapTileLayer && typeof (this.mapTileLayer as any).setUrl === 'function') {
         (this.mapTileLayer as any).setUrl(url);
+        if (typeof (this.mapTileLayer as any).setOpacity === 'function') {
+          (this.mapTileLayer as any).setOpacity(overlayOpacity);
+        }
       } else {
         if (this.mapTileLayer) {
           this.map.removeLayer(this.mapTileLayer);
         }
         const tileLabel = this.irrigationStatus?.mapTileType?.toUpperCase() || 'NDWI';
         this.mapTileLayer = L.tileLayer(url, {
-          opacity: 0.7,
+          opacity: overlayOpacity,
           zIndex: 1000,
           attribution: `${tileLabel} overlay © Sentinel-2 / Google Earth Engine`
         }).addTo(this.map);
@@ -712,6 +824,18 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
       this.map.removeLayer(this.mapTileLayer);
       this.mapTileLayer = undefined;
     }
+  }
+
+  private getOverlayOpacity(): number {
+    if (!this.map) {
+      return 0.7;
+    }
+
+    const zoom = this.map.getZoom();
+    if (zoom >= 15) return 0.72;
+    if (zoom >= 13) return 0.6;
+    if (zoom >= 10) return 0.38;
+    return 0.22;
   }
 
   ngAfterViewInit(): void {
@@ -897,7 +1021,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     if (this.irrigationStatus?.mapTileUrl) {
       const tileLabel = this.irrigationStatus.mapTileType?.toUpperCase() || 'NDWI';
       this.mapTileLayer = L.tileLayer(this.irrigationStatus.mapTileUrl, {
-        opacity: 0.7,
+        opacity: this.getOverlayOpacity(),
         zIndex: 1000,
         attribution: `${tileLabel} overlay © Sentinel-2 / Google Earth Engine`
       }).addTo(this.map);
