@@ -1,0 +1,16951 @@
+R
+iv
+e
+r
+lan
+d
+ 
+A
+g
+r
+i
+Tec
+h
+ 
+ 
+D
+a
+t
+a
+s
+e
+t
+ 
+P
+r
+o
+v
+e
+n
+a
+n
+c
+e
+ 
+&
+ 
+Met
+h
+o
+d
+o
+log
+y
+ 
+ 
+|
+ 
+ 
+P
+a
+g
+e
+ 
+1
+ 
+o
+f
+ 
+12
+ 
+en-AU
+Rive
+r
+land
+ Ag
+r
+iTech
+ 
+en-AU
+Da
+taset 
+Prov
+ena
+nc
+e & M
+ethodology
+ 
+en-AU
+P
+rofit 
+&
+ Risk M
+o
+d
+u
+le 
+ 
+A
+I/
+M
+L
+ 
+S
+ce
+n
+a
+ri
+o
+ Train
+ing
+ Da
+ta
+ 
+en-AU
+ 
+en-AU
+PUR
+PO
+SE
+ 
+en-AU
+T
+hi
+s
+ do
+c
+u
+me
+n
+t e
+x
+p
+l
+ai
+ns
+ ho
+w ea
+c
+h 
+of 
+th
+e 7
+ 
+CS
+V
+ d
+ata
+s
+ets
+ prov
+i
+d
+ed
+ t
+o t
+h
+e a
+na
+l
+y
+t
+i
+c
+s
+ 
+tea
+m 
+was
+ bu
+i
+l
+t, w
+he
+r
+e t
+he
+ u
+nd
+erly
+i
+ng
+ 
+da
+t
+a c
+am
+e f
+r
+om
+,
+ 
+an
+d w
+ha
+t 
+ev
+i
+d
+en
+c
+e s
+u
+pp
+ort
+s
+ th
+e 
+ac
+c
+urac
+y
+ of
+ th
+e 
+nu
+m
+be
+r
+s
+. It
+ i
+s
+ de
+s
+i
+gn
+e
+d t
+o
+ gi
+v
+e
+ an
+y
+ t
+ea
+m m
+e
+mb
+er 
+ 
+i
+nc
+l
+u
+di
+n
+g t
+h
+o
+s
+e 
+ne
+w t
+o t
+h
+e
+ 
+proj
+ec
+t 
+ 
+fu
+l
+l
+ c
+o
+nfi
+d
+en
+c
+e 
+i
+n t
+he
+ 
+da
+ta
+ be
+f
+ore 
+us
+i
+ng
+ 
+i
+t t
+o t
+r
+a
+i
+n t
+he
+ s
+c
+en
+ario
+-
+ba
+s
+ed
+ 
+profi
+t
+ an
+d ri
+s
+k
+ mo
+de
+l
+.
+ 
+en-AU
+ 
+en-AU
+1. Overvi
+ew
+ 
+ 
+How th
+e Dat
+ase
+ts Wer
+e Bu
+ilt
+ 
+en-AU
+T
+he
+ 7 
+C
+S
+V
+ fi
+l
+es
+ w
+ere n
+ot 
+d
+ownl
+oa
+d
+ed
+ fr
+om
+ a
+ s
+i
+n
+gl
+e
+ s
+o
+urc
+e. 
+E
+ac
+h
+ on
+e wa
+s
+ c
+on
+s
+tr
+uc
+ted
+ by
+ c
+o
+mb
+i
+ni
+ng
+ 
+da
+ta
+ from 
+mu
+l
+t
+i
+p
+l
+e v
+er
+i
+fi
+ed
+ 
+A
+us
+tr
+a
+l
+i
+a
+n 
+go
+v
+ernm
+en
+t, 
+i
+n
+du
+s
+tr
+y
+ bo
+dy
+,
+ an
+d re
+gu
+l
+at
+ory
+ s
+ou
+r
+c
+es
+. W
+he
+r
+e d
+ata
+ 
+ex
+i
+s
+ted
+ i
+n
+ a 
+d
+i
+r
+ec
+tl
+y
+ 
+do
+wn
+l
+oa
+da
+b
+l
+e
+ fo
+r
+m
+at 
+i
+t was
+ us
+ed
+ as
+-
+is
+. 
+W
+h
+ere i
+t e
+x
+i
+s
+te
+d o
+n
+l
+y
+ i
+n
+ P
+DF
+ r
+e
+po
+r
+ts
+, o
+ffi
+c
+i
+al
+ t
+arif
+f s
+c
+he
+du
+l
+es
+, o
+r
+ w
+eb
+ 
+tab
+l
+es
+, i
+t
+ was
+ m
+an
+u
+al
+l
+y
+ ex
+tr
+ac
+ted
+ a
+nd
+ s
+tr
+uc
+ture
+d i
+nto
+ 
+C
+S
+V
+ f
+orma
+t. E
+v
+ery
+ n
+um
+b
+er i
+n e
+v
+ery
+ fi
+l
+e c
+a
+n b
+e
+ trac
+ed
+ 
+b
+ac
+k
+ 
+to 
+a 
+na
+m
+ed
+ pr
+i
+m
+ary
+ s
+ou
+r
+c
+e.
+ 
+en-AU
+ 
+en-AU
+1.1 T
+hree Met
+hods 
+Used
+ 
+en-AU
+A
+c
+r
+os
+s
+ al
+l
+ 
+7 f
+i
+l
+es
+, 
+three
+ di
+s
+t
+i
+nc
+t m
+et
+ho
+ds
+ w
+ere us
+e
+d t
+o 
+bu
+i
+l
+d t
+he
+ 
+da
+ta
+:
+ 
+en-AU
+ 
+en-AU
+Me
+t
+h
+o
+d
+ 
+en-AU
+W
+h
+at i
+t
+ mea
+n
+s
+ 
+en-AU
+W
+h
+ich 
+f
+iles
+ 
+en-AU
+Direc
+t from
+ 
+v
+e
+rifie
+d 
+s
+ou
+rce
+ 
+en-AU
+Num
+b
+e
+r
+s
+ t
+a
+k
+e
+n
+ e
+x
+a
+c
+t
+l
+y
+ 
+a
+s
+ 
+p
+u
+b
+l
+i
+s
+h
+e
+d
+ b
+y
+ 
+th
+e
+ o
+ff
+i
+c
+i
+a
+l
+ 
+b
+o
+d
+y
+ 
+ 
+n
+o
+ c
+a
+l
+c
+u
+l
+a
+ti
+o
+n
+, 
+n
+o
+ 
+e
+s
+ti
+m
+a
+t
+i
+o
+n
+.
+ 
+en-AU
+Fi
+l
+e
+s
+ 0
+3
+, 
+0
+4
+,
+ 0
+7
+ 
+en-AU
+Ex
+trac
+te
+d 
+fro
+m
+ 
+off
+ic
+ia
+l 
+PDF
+s
+ 
+en-AU
+O
+ff
+i
+c
+i
+a
+l
+ re
+p
+o
+rts
+ p
+u
+b
+l
+i
+s
+h
+ d
+a
+ta
+ 
+i
+n
+ 
+PDF 
+ta
+b
+l
+e
+s
+. 
+Nu
+m
+b
+e
+r
+s
+ we
+re
+ re
+a
+d
+ f
+ro
+m
+ t
+h
+e
+s
+e
+ 
+ta
+b
+l
+e
+s
+ a
+n
+d
+ e
+n
+te
+re
+d
+ i
+n
+to
+ CSV e
+x
+a
+c
+t
+l
+y
+ 
+a
+s
+ 
+s
+ta
+te
+d
+.
+ 
+en-AU
+Fi
+l
+e
+s
+ 0
+2
+, 
+0
+3
+,
+ 0
+4
+, 
+0
+5
+ 
+en-AU
+Com
+pi
+le
+d 
+fro
+m
+ 
+m
+ul
+tip
+le
+ s
+ou
+rc
+e
+s
+ 
+en-AU
+No 
+s
+i
+n
+g
+l
+e
+ 
+s
+o
+u
+rc
+e
+ 
+c
+o
+n
+ta
+i
+n
+e
+d
+ 
+a
+l
+l
+ 
+y
+e
+a
+r
+s
+ o
+r 
+a
+l
+l
+ 
+v
+a
+ri
+a
+b
+l
+e
+s
+. 
+Da
+ta
+ wa
+s
+ a
+s
+s
+e
+m
+b
+l
+e
+d
+ 
+fro
+m
+ 
+s
+e
+v
+e
+ra
+l
+ 
+o
+ff
+i
+c
+i
+a
+l
+ p
+u
+b
+l
+i
+c
+a
+t
+i
+o
+n
+s
+ a
+n
+d
+ c
+ro
+s
+s
+-
+c
+h
+e
+c
+k
+e
+d
+ f
+o
+r 
+c
+o
+n
+s
+i
+s
+te
+n
+c
+y
+.
+ 
+en-AU
+Fi
+l
+e
+s
+ 0
+1
+, 
+0
+5
+,
+ 0
+6
+ 
+en-AU
+ 
+en-AU
+ 
+en-AU
+2. File
+-
+by
+-
+File P
+rovena
+nce
+ 
+en-AU
+E
+ac
+h d
+ata
+s
+et
+ c
+ard b
+el
+o
+w s
+ho
+ws
+ ex
+ac
+tl
+y
+ 
+ho
+w t
+he
+ f
+i
+l
+e w
+as
+ bu
+i
+l
+t, 
+where
+ th
+e
+ da
+t
+a c
+a
+me
+ fro
+m, 
+a
+nd
+ w
+ha
+t c
+o
+nfi
+r
+m
+s
+ th
+e 
+nu
+mb
+ers
+ are c
+orr
+ec
+t.
+ 
+en-AU
+ 
+R
+iv
+e
+r
+lan
+d
+ 
+A
+g
+r
+i
+Tec
+h
+ 
+ 
+D
+a
+t
+a
+s
+e
+t
+ 
+P
+r
+o
+v
+e
+n
+a
+n
+c
+e
+ 
+&
+ 
+Met
+h
+o
+d
+o
+log
+y
+ 
+ 
+|
+ 
+ 
+P
+a
+g
+e
+ 
+2
+ 
+o
+f
+ 
+12
+ 
+en-AU
+File 01 
+ 
+Riv
+erlan
+d
+_Scena
+rio_T
+raining
+_Data.c
+sv
+ 
+en-AU
+01
+.
+ 
+R
+i
+ve
+rl
+an
+d_
+S
+ce
+na
+ri
+o
+_T
+ra
+i
+ning_
+D
+a
+t
+a.csv
+  
+|
+  
+3
+2
+ ro
+ws
+ (
+1
+8
+ h
+i
+s
+t
+o
+ri
+c
+a
+l
+ +
+ 1
+4
+ 
+s
+c
+e
+n
+a
+ri
+o
+ p
+r
+o
+j
+e
+c
+ti
+o
+n
+s
+)
+ ro
+ws
+ 
+ 
+|
+  
+CSV 
+ 
+M
+o
+d
+e
+l
+ t
+ra
+i
+n
+i
+n
+g
+ t
+a
+b
+l
+e
+ 
+en-AU
+M
+e
+tho
+d
+ 
+en-AU
+Comp
+i
+l
+ed from 6
+ s
+eparate of
+fi
+c
+i
+a
+l
+ s
+ourc
+es
+. Not a
+v
+ai
+l
+ab
+l
+e a
+s
+ a s
+i
+ng
+l
+e do
+wnl
+oad 
+any
+where. E
+ac
+h row r
+epres
+e
+nts
+ one
+ Ri
+v
+erla
+nd g
+r
+owi
+ng s
+e
+as
+on o
+r
+ s
+c
+enari
+o, wi
+th 
+al
+l
+ r
+el
+ev
+ant 
+v
+aria
+bl
+es
+ 
+i
+n a s
+i
+n
+gl
+e row r
+eady
+ for Sc
+i
+k
+i
+t
+-
+l
+earn
+ or XG
+B
+oos
+t.
+ 
+en-AU
+Prim
+a
+ry 
+Sou
+rc
+e
+ 
+en-AU
+W
+i
+ne A
+us
+tr
+al
+i
+a Nati
+onal
+ V
+i
+nt
+age 
+Reports
+ (
+2008
+-
+2025
+)
+ |
+ V
+i
+nehe
+al
+th A
+us
+tr
+al
+i
+a 
+Ri
+v
+erla
+nd Crus
+h Repo
+r
+ts
+ (
+2008
+-
+2025
+)
+ |
+ 
+Ri
+c
+ardo W
+ater Mark
+ets
+ Reports
+ (
+2013
+-
+2025
+)
+ |
+ A
+B
+A
+RE
+S
+ MDB
+ W
+ater Mark
+et Data
+s
+et |
+ S
+A
+ DE
+W
+ A
+l
+l
+oc
+at
+i
+on Hi
+s
+tory
+ |
+ B
+O
+M 
+Renm
+ark
+ Cl
+i
+ma
+te Data
+ 
+en-AU
+Direc
+t L
+in
+k
+ 
+en-AU
+wi
+neau
+s
+tr
+al
+i
+a.c
+om
+/ma
+r
+k
+et
+-
+i
+n
+s
+i
+ghts
+/nat
+i
+onal
+-
+v
+i
+ntag
+e
+-
+r
+eport |
+ 
+v
+i
+nehe
+al
+th.c
+om
+.au/n
+ew
+s
+/s
+urv
+ey
+s
+ |
+ data
+.gov
+.au (AB
+A
+RE
+S
+ 
+MDB
+ Datas
+et) |
+ 
+env
+i
+r
+onm
+ent.s
+a.go
+v
+.au (c
+urr
+ent
+-
+al
+l
+oc
+ati
+ons
+)
+ |
+ bom
+.gov
+.au
+/c
+l
+i
+ma
+te/da
+ta
+ 
+en-AU
+How
+ Bui
+lt
+ 
+en-AU
+Hi
+s
+tori
+c
+al
+ r
+ows
+ (
+2008
+-
+2025
+)
+: W
+i
+ne g
+r
+ape 
+pric
+es
+ s
+ourc
+ed 
+y
+ear
+-
+by
+-
+y
+ear fr
+om
+ W
+i
+ne 
+A
+us
+tr
+al
+i
+a NV
+R and 
+V
+i
+nehe
+a
+l
+t
+h Ri
+v
+erla
+nd regi
+onal
+ P
+DF
+s
+. 
+W
+ater mark
+et pri
+c
+es
+ 
+s
+ourc
+ed from Ri
+c
+ardo V
+W
+A
+P
+ tabl
+es
+ (
+2013
+-
+2025
+)
+ and
+ A
+B
+A
+RE
+S
+ MDB
+ data
+s
+et 
+(
+2008
+-
+2012
+)
+. W
+ater 
+al
+l
+oc
+ati
+o
+n pe
+r
+c
+en
+tage
+s
+ s
+ourc
+ed d
+i
+r
+ec
+t
+l
+y
+ from S
+A
+ DE
+W
+ pa
+s
+t 
+al
+l
+oc
+at
+i
+ons
+ tabl
+e. In
+put 
+c
+os
+ts
+ 
+s
+ourc
+ed from Ti
+ngey
+-
+Hol
+y
+oa
+k
+ 202
+4 ac
+adem
+i
+c
+ pap
+er 
+(
+S
+c
+i
+enc
+eDi
+r
+ec
+t)
+ wi
+th an
+nual
+ 
+CP
+I adj
+us
+tme
+nt. Rai
+nfal
+l
+ from B
+O
+M Re
+nm
+ark
+ s
+tati
+on 
+024016. Sc
+enar
+i
+o r
+ows
+ (
+2026)
+: Bui
+l
+t us
+i
+ng 
+v
+er
+i
+fi
+ed hi
+s
+tor
+i
+c
+al
+ r
+ange
+s
+ 
+ 
+drought 
+s
+c
+enari
+os
+ 
+c
+al
+i
+brated aga
+i
+n
+s
+t 
+2007
+-
+2009
+ Mi
+l
+l
+enni
+um
+ Dr
+ough
+t dat
+a; pri
+c
+e c
+ol
+l
+ap
+s
+e 
+s
+c
+enari
+o c
+a
+l
+i
+brated aga
+i
+ns
+t 2
+022
+-
+2026
+ c
+r
+i
+s
+i
+s
+ data
+; c
+r
+op tr
+ans
+i
+ti
+on 
+s
+c
+enari
+os
+ u
+s
+e 
+CCW
+/P
+IRS
+A
+ ol
+i
+v
+e fac
+ts
+heet
+ 
+and 
+Hor
+t Inn
+ov
+ati
+on b
+enc
+hm
+ark
+s
+.
+ 
+en-AU
+Corr
+e
+c
+tne
+s
+s
+ 
+en-AU
+Cr
+os
+s
+-
+c
+hec
+k
+ 1: The 20
+24 n
+et m
+argi
+n of 
+-
+$2,590/ha matc
+hes
+ the 
+-
+$1,775/ha figure 
+c
+i
+ted i
+n the
+ Tin
+gey
+-
+Hol
+y
+oak
+ 2
+024 
+pape
+r
+ (
+di
+fferenc
+e ac
+c
+ount
+ed fo
+r
+ by
+ 202
+4 wate
+r
+ 
+l
+eas
+e pri
+c
+e
+s
+ of ~$30
+0/M
+L c
+o
+nfi
+r
+me
+d by
+ Ri
+v
+erla
+nd W
+i
+ne o
+pen 
+l
+etter Nov
+ 202
+5). 
+Cr
+os
+s
+-
+c
+hec
+k
+ 2: 2
+025 
+wa
+ter mark
+et pri
+c
+e of 
+$153
+/ML
+ ma
+tc
+hes
+ the 
+S
+A
+ Mu
+r
+r
+ay
+ 
+annu
+al
+ V
+W
+A
+P
+ pub
+l
+i
+s
+hed 
+i
+n t
+he 2
+025 
+Ri
+c
+ardo W
+ater Mark
+ets
+ Report. Cr
+os
+s
+-
+c
+hec
+k
+ 
+3: 2024 Riv
+er
+l
+and av
+er
+age r
+ed gr
+ape pr
+i
+c
+e of $220/t is
+ c
+on
+s
+i
+s
+tent with 
+Vi
+neheal
+th 
+Ri
+v
+erla
+nd Rep
+ort 2024 ($312
+/t ov
+eral
+l
+ av
+erage, w
+i
+th red v
+arie
+ti
+es
+ s
+i
+gni
+fi
+c
+antl
+y
+ 
+bel
+ow tha
+t as
+ c
+onfi
+r
+me
+d by
+ 
+W
+i
+ne A
+us
+tr
+al
+i
+a NV
+R 2025
+)
+.
+ 
+en-AU
+ 
+en-AU
+File 02 
+ 
+Cro
+p_Ben
+chmark
+s_Re
+feren
+c
+e.csv
+ 
+en-AU
+02
+.
+ 
+C
+rop_
+B
+en
+ch
+marks_
+R
+eference
+.
+cs
+v
+  
+|
+  
+5
+ ro
+ws
+ (
+o
+n
+e
+ p
+e
+r c
+r
+o
+p
+ t
+y
+p
+e
+) r
+o
+ws
+  
+|
+  
+CS
+V 
+ 
+Sta
+ti
+c
+ re
+f
+e
+re
+n
+c
+e
+ 
+l
+o
+o
+k
+u
+p
+ t
+a
+b
+l
+e
+ 
+en-AU
+M
+e
+tho
+d
+ 
+en-AU
+Ma
+nual
+l
+y
+ 
+c
+om
+pi
+l
+ed from a
+uth
+orit
+ati
+v
+e i
+ndu
+s
+tr
+y
+ fac
+ts
+heet
+s
+ 
+and 
+gov
+ernment 
+publ
+i
+c
+at
+i
+ons
+. E
+ac
+h row was
+ p
+opul
+ated
+ from the
+ mo
+s
+t s
+pec
+i
+fi
+c
+ av
+a
+i
+l
+abl
+e R
+i
+v
+erla
+nd
+-
+r
+el
+ev
+ant s
+ourc
+e for that c
+r
+op.
+ 
+en-AU
+Prim
+a
+ry 
+Sou
+rc
+e
+ 
+en-AU
+CCW
+/P
+IRS
+A
+ O
+l
+i
+v
+e Conv
+ers
+i
+on Fac
+ts
+heet
+ (
+Nov
+ 202
+5) |
+ H
+ort Innov
+ati
+on A
+us
+tr
+al
+i
+an 
+Hor
+ti
+c
+ul
+ture St
+ati
+s
+t
+i
+c
+s
+ Handb
+ook
+ 202
+4/25
+ |
+ W
+i
+ne A
+us
+tr
+al
+i
+a
+ NV
+R 2025
+ |
+ Tin
+gey
+-
+Hol
+y
+oak
+ 202
+4 |
+ Ci
+tr
+us
+ S
+A
+ |
+ P
+I
+RS
+A
+ Indu
+s
+tr
+y
+ S
+c
+orec
+ards
+ 20
+23
+-
+24
+ 
+en-AU
+Direc
+t L
+in
+k
+ 
+en-AU
+c
+c
+wc
+oop.
+c
+om
+.au (ol
+i
+v
+e fa
+c
+ts
+heet
+ Nov
+ 202
+5) |
+ horti
+c
+ul
+ture.
+c
+om
+.au (St
+ats
+ Handb
+ook
+)
+ 
+|
+ wi
+neau
+s
+tr
+al
+i
+a.c
+om
+ |
+ pi
+r
+.s
+a.g
+ov
+.au/p
+r
+i
+ma
+r
+y
+_i
+ndus
+tr
+y
+/
+i
+ndus
+tr
+y
+_s
+c
+orec
+ards
+ 
+en-AU
+How
+ Bui
+lt
+ 
+en-AU
+W
+i
+ne g
+r
+apes
+: Rev
+enue
+/ha, 
+i
+n
+put c
+os
+t, an
+d ne
+t m
+argi
+n tak
+e
+n di
+r
+ec
+tl
+y
+ from Ti
+ngey
+-
+Hol
+y
+oak
+ 202
+4 Ri
+v
+er
+l
+and 
+v
+i
+t
+i
+c
+ul
+ture ec
+onom
+i
+c
+s
+ pap
+er and c
+onfi
+r
+me
+d by
+ the 
+Ri
+v
+erla
+nd 
+W
+i
+ne o
+pen 
+l
+etter to the
+ S
+A
+ P
+r
+em
+i
+er (
+Nov
+ 202
+5). 
+O
+l
+i
+v
+es
+: A
+l
+l
+ fi
+gures
+ (
+s
+etup
+ c
+o
+s
+t 
+$28,500, r
+ev
+enue
+ 
+$45,000
+-
+$
+90,0
+00/h
+a, an
+nual
+ c
+os
+t $59
+,0
+00, wa
+ter 3
+-
+4 M
+L/ha
+)
+ 
+tak
+en v
+erbati
+m f
+r
+om
+ the 
+CCW
+/P
+IRS
+A
+ Conv
+erti
+ng V
+i
+ne
+y
+a
+r
+ds
+ to O
+l
+i
+v
+es
+ fac
+t
+s
+heet
+ 
+(
+Nov
+em
+ber 2025 e
+di
+ti
+on, S
+A
+ G
+ov
+ernment 
+publ
+i
+c
+ati
+on). Al
+mo
+nds
+: W
+ater us
+e (12
+-
+14 
+ML
+/ha) and y
+i
+el
+d (3.2 t/ha
+ k
+e
+r
+nel
+)
+ from Hort
+ 
+Inno
+v
+ati
+on A
+L070
+05 res
+earc
+h repor
+t 
+R
+iv
+e
+r
+lan
+d
+ 
+A
+g
+r
+i
+Tec
+h
+ 
+ 
+D
+a
+t
+a
+s
+e
+t
+ 
+P
+r
+o
+v
+e
+n
+a
+n
+c
+e
+ 
+&
+ 
+Met
+h
+o
+d
+o
+log
+y
+ 
+ 
+|
+ 
+ 
+P
+a
+g
+e
+ 
+3
+ 
+o
+f
+ 
+12
+ 
+en-AU
+(
+B
+err
+i
+ S
+A
+ tria
+l
+)
+. Rev
+enue
+ es
+ti
+ma
+te from Hort Inno
+v
+ati
+on S
+tati
+s
+ti
+c
+s
+ Handb
+ook
+ 
+2024/25. Citr
+us
+: Revenue benc
+hmar
+k
+ fr
+om P
+IRSA
+ Indus
+tr
+y
+ Sc
+or
+ec
+ar
+d and Citrus 
+S
+A
+ i
+ndus
+tr
+y
+ data
+. Tabl
+e grap
+es
+: Hort Innov
+ati
+on S
+tati
+s
+t
+i
+c
+s
+ Handb
+ook
+ 202
+4/25
+.
+ 
+en-AU
+Corr
+e
+c
+tne
+s
+s
+ 
+en-AU
+T
+he o
+l
+i
+v
+e fi
+gures
+ are the m
+os
+t v
+erif
+i
+abl
+e: th
+e
+y
+ c
+om
+e from a
+ 202
+5 S
+A
+ G
+ov
+ernment
+-
+publ
+i
+s
+hed 
+fac
+t
+s
+heet
+ (
+CCW
+ c
+oope
+r
+ati
+v
+e an
+d P
+IRS
+A
+ j
+oi
+nt p
+ubl
+i
+c
+at
+i
+on) s
+pec
+i
+f
+i
+c
+a
+l
+l
+y
+ 
+wr
+i
+tten 
+for Ri
+v
+erla
+nd v
+i
+ney
+ar
+d c
+onv
+ers
+i
+on d
+ec
+i
+s
+i
+ons
+. The 
+doc
+um
+ent i
+s
+ pub
+l
+i
+c
+l
+y
+ 
+downl
+oada
+bl
+e an
+d da
+t
+ed Nov
+em
+ber 2025. 
+W
+i
+ne g
+r
+ape 
+fi
+gures
+ are c
+onfi
+r
+me
+d by
+ at 
+l
+eas
+t three i
+ndep
+ende
+nt s
+ourc
+es
+: the
+ Tin
+gey
+-
+Hol
+y
+oa
+k
+ ac
+a
+dem
+i
+c
+ pap
+er, the 
+Ri
+v
+erla
+nd W
+i
+ne 
+i
+ndus
+tr
+y
+ bod
+y
+ ope
+n l
+etter, and 
+the W
+i
+ne A
+us
+tr
+al
+i
+a G
+r
+ape 
+P
+r
+i
+c
+e 
+Indi
+c
+ators
+ das
+hboa
+r
+d.
+ 
+en-AU
+ 
+en-AU
+File 03 
+ 
+Wat
+er_D
+e
+livery_
+Costs
+_By_T
+r
+ust.csv
+ 
+en-AU
+03
+.
+ 
+Wat
+er_D
+e
+l
+i
+ve
+ry_C
+os
+t
+s_
+B
+y_
+Trus
+t
+.
+cs
+v
+  
+|
+  
+7
+ r
+o
+ws
+ (o
+n
+e
+ p
+e
+r t
+r
+u
+s
+t
+/p
+re
+s
+s
+u
+r
+e
+ z
+o
+n
+e
+ c
+o
+m
+b
+i
+n
+a
+ti
+o
+n
+) ro
+w
+s
+  
+|
+  
+CSV 
+ 
+Reg
+u
+l
+a
+to
+ry
+ t
+a
+ri
+f
+f 
+re
+f
+e
+re
+n
+c
+e
+ 
+en-AU
+M
+e
+tho
+d
+ 
+en-AU
+T
+ak
+en d
+i
+r
+ec
+tl
+y
+ from two o
+ffi
+c
+i
+al
+ i
+r
+r
+i
+gati
+on trus
+t s
+c
+hedu
+l
+e of 
+c
+harges
+ P
+DF
+s
+. B
+oth 
+are l
+egal
+l
+y
+ b
+i
+ndi
+ng p
+ubl
+i
+s
+hed 
+tari
+ffs
+, upd
+ated
+ ev
+ery
+ 6
+-
+12 m
+onth
+s
+. Num
+bers
+ were 
+ente
+r
+ed v
+erbati
+m 
+ 
+no c
+al
+c
+u
+l
+ati
+on o
+r
+ es
+ti
+ma
+t
+i
+on i
+nv
+o
+l
+v
+ed.
+ 
+en-AU
+Prim
+a
+ry 
+Sou
+rc
+e
+ 
+en-AU
+Renm
+ark
+ Irr
+i
+gati
+on Tr
+us
+t 
+ 
+S
+c
+hedu
+l
+e of 
+Charges
+, J
+ul
+y
+ to
+ Dec
+em
+ber 2025 (Rate 
+Noti
+c
+e 51
+)
+ |
+ Central
+ Irr
+i
+gati
+on
+ Tr
+us
+t 
+ 
+S
+c
+hedu
+l
+e of 
+Charges
+, effe
+c
+ti
+v
+e 1 Oc
+tobe
+r
+ 
+2025
+ 
+en-AU
+Direc
+t L
+in
+k
+ 
+en-AU
+r
+i
+t.org.au/fe
+es
+-
+and
+-
+pric
+es
+/ (PDF: Sc
+hedu
+l
+e
+-
+of
+-
+Charges
+-
+J
+u
+l
+-
+to
+-
+Dec
+-
+2025.pdf)
+ 
+|
+ 
+c
+i
+t.org.au (PDF: CIT
+-
+W
+ater
+-
+P
+r
+i
+c
+es
+-
+2025
+-
+26
+-
+as
+-
+at
+-
+1
+-
+O
+c
+tobe
+r
+-
+2025.pdf)
+ 
+en-AU
+How
+ Bui
+lt
+ 
+en-AU
+B
+oth P
+DF
+s
+ were ac
+c
+es
+s
+ed, r
+ead,
+ and
+ trans
+c
+r
+i
+bed 
+di
+r
+ec
+tl
+y
+.
+ RIT c
+ov
+ers
+ the 
+Renm
+ark
+/P
+arin
+ga d
+i
+s
+tr
+i
+c
+t 
+ 
+t
+he e
+x
+ac
+t l
+oc
+at
+i
+on o
+f the
+ MV
+P
+ mo
+c
+k
+ v
+i
+ney
+ard bl
+oc
+k
+s
+. 
+CIT
+ c
+ov
+ers
+ al
+l
+ othe
+r
+ ma
+j
+or Ri
+v
+erla
+nd d
+i
+s
+tr
+i
+c
+ts
+ (
+B
+err
+i
+, Cobd
+ogl
+a, K
+i
+ngs
+ton, 
+Lo
+x
+ton, 
+Mo
+orook
+, W
+ai
+k
+erie
+, Cad
+el
+l
+, 
+My
+pol
+onga
+, G
+ol
+den 
+Hei
+ghts
+, 
+S
+unl
+ands
+)
+. The k
+ey
+ 
+di
+fferenc
+e be
+tween 
+tr
+us
+ts
+ i
+s
+ 
+pum
+pi
+ng p
+r
+es
+s
+ure 
+ 
+the m
+ore el
+ev
+ati
+on requi
+r
+ed to
+ 
+del
+i
+v
+er water
+, the
+ hi
+gher the c
+os
+t. P
+eak
+ 
+v
+s
+ off
+-
+peak
+ pri
+c
+i
+n
+g (CIT
+ onl
+y
+)
+ i
+s
+ bas
+ed o
+n 
+the t
+r
+us
+t's
+ pub
+l
+i
+s
+hed 
+07:0
+0
+-
+2
+1:00
+ Mo
+nday
+-
+F
+r
+i
+day
+ pea
+k
+ wi
+ndow. 
+T
+he L
+ands
+c
+ape 
+W
+ater Lev
+y
+ (
+$8.2
+9/M
+L) i
+s
+ a g
+ov
+ernment 
+pas
+s
+-
+through c
+harge, s
+eparatel
+y
+ 
+c
+onfi
+r
+me
+d by
+ the 
+Mu
+r
+r
+ay
+l
+and
+s
+ and
+ Ri
+v
+erla
+nd L
+ands
+c
+ape 
+B
+oard unde
+r
+ the 
+Land
+s
+c
+ape 
+S
+outh
+ A
+us
+tr
+al
+i
+a A
+c
+t 201
+9.
+ 
+en-AU
+Corr
+e
+c
+tne
+s
+s
+ 
+en-AU
+B
+oth s
+ourc
+e P
+DF
+s
+ are offi
+c
+i
+a
+l
+, l
+egal
+l
+y
+ bi
+nd
+i
+ng ta
+r
+i
+ff s
+c
+hedu
+l
+es
+ s
+i
+gned
+ by
+ the 
+CE
+O
+ 
+of ea
+c
+h trus
+t and
+ pub
+l
+i
+s
+hed 
+o
+n the
+i
+r
+ webs
+i
+tes
+. The RIT
+ P
+DF
+ i
+s
+ ti
+tl
+ed Rat
+e Noti
+c
+e 
+51 (v
+al
+i
+d J
+u
+l
+y
+-
+Dec
+em
+ber 2025) and i
+s
+ s
+i
+gned
+ by
+ Ro
+s
+al
+i
+e 
+A
+uric
+ht, CE
+O
+. Thes
+e 
+are the ex
+ac
+t s
+am
+e
+ 
+doc
+um
+en
+ts
+ that
+ Ri
+v
+erla
+nd i
+r
+r
+i
+gato
+r
+s
+ r
+e
+c
+ei
+v
+e wi
+th th
+e
+i
+r
+ 
+quarter
+l
+y
+ bi
+l
+l
+s
+. No i
+nterpr
+etati
+on o
+r
+ r
+ound
+i
+ng was
+ app
+l
+i
+ed 
+ 
+num
+bers
+ are 
+v
+erbati
+m f
+r
+om
+ the 
+publ
+i
+s
+hed 
+s
+c
+hedu
+l
+es
+.
+ 
+en-AU
+ 
+en-AU
+File 04 
+ 
+SA
+_Wate
+r
+_Allocat
+ion_H
+istory
+_2002
+_202
+5.csv
+ 
+en-AU
+04
+.
+ 
+S
+A
+_Wa
+t
+er_
+A
+l
+l
+oc
+at
+i
+on
+_H
+i
+story_20
+02
+_2
+02
+5
+.
+cs
+v
+  
+|
+  
+2
+4
+ ro
+w
+s
+ (o
+n
+e
+ p
+e
+r
+ wa
+te
+r
+ y
+e
+a
+r 
+2
+0
+0
+2
+-
+2
+0
+2
+5
+) ro
+w
+s
+  
+|
+  
+CSV 
+ 
+G
+o
+v
+e
+rn
+m
+e
+n
+t 
+r
+e
+g
+u
+l
+a
+t
+o
+ry
+ h
+i
+s
+t
+o
+ry
+ 
+en-AU
+M
+e
+tho
+d
+ 
+en-AU
+Comp
+i
+l
+ed from t
+he S
+A
+ Departmen
+t for En
+v
+i
+r
+onm
+ent a
+nd W
+ater (
+DE
+W
+)
+ pas
+t 
+al
+l
+oc
+at
+i
+on a
+nnou
+nc
+em
+ents
+ p
+age,
+ s
+uppl
+em
+ente
+d by
+ A
+B
+A
+R
+E
+S
+ hi
+s
+tori
+c
+al
+ ana
+l
+y
+s
+i
+s
+ 
+r
+eports
+ for pr
+e
+-
+2009
+ y
+ears
+. T
+he DE
+W
+ pub
+l
+i
+s
+he
+s
+ a s
+um
+ma
+r
+y
+ tabl
+e of 
+pas
+t ope
+ni
+ng 
+and 
+fi
+nal
+ al
+l
+o
+c
+ati
+on p
+erc
+enta
+ges
+ on
+ 
+i
+ts
+ 
+c
+urr
+ent a
+l
+l
+oc
+ati
+on
+s
+ web p
+age.
+ 
+R
+iv
+e
+r
+lan
+d
+ 
+A
+g
+r
+i
+Tec
+h
+ 
+ 
+D
+a
+t
+a
+s
+e
+t
+ 
+P
+r
+o
+v
+e
+n
+a
+n
+c
+e
+ 
+&
+ 
+Met
+h
+o
+d
+o
+log
+y
+ 
+ 
+|
+ 
+ 
+P
+a
+g
+e
+ 
+4
+ 
+o
+f
+ 
+12
+ 
+en-AU
+Prim
+a
+ry 
+Sou
+rc
+e
+ 
+en-AU
+S
+A
+ Departmen
+t for En
+v
+i
+r
+onm
+ent a
+nd W
+ater 
+ 
+P
+as
+t W
+ater Al
+l
+oc
+at
+i
+on 
+A
+nnou
+nc
+em
+ents
+ (
+2002
+-
+pres
+ent) |
+ A
+B
+A
+RE
+S
+ 
+ 
+Les
+s
+ons
+ from the
+ W
+ater Mark
+et: 
+S
+outh
+ern MDB
+ 200
+0
+-
+01 to
+ 2
+015
+-
+16
+ 
+en-AU
+Direc
+t L
+in
+k
+ 
+en-AU
+env
+i
+r
+onm
+ent.s
+a.go
+v
+.au/t
+opi
+c
+s
+/water
+-
+and
+-
+r
+i
+v
+er
+-
+mu
+r
+r
+ay
+/wat
+er
+-
+l
+i
+c
+enc
+es
+-
+al
+l
+oc
+ati
+on
+s
+-
+and
+-
+ma
+r
+k
+ets
+/water
+-
+al
+l
+oc
+ati
+on
+-
+and
+-
+c
+arr
+y
+ov
+er/c
+urr
+ent
+-
+al
+l
+oc
+a
+ti
+ons
+ |
+ 
+agri
+c
+ul
+ture.gov
+.au/a
+bares
+/r
+es
+earc
+h
+-
+topi
+c
+s
+/water
+ 
+en-AU
+How
+ Bui
+lt
+ 
+en-AU
+P
+os
+t
+-
+2009
+ al
+l
+oc
+at
+i
+ons
+ were r
+ead 
+di
+r
+ec
+tl
+y
+ from the
+ DE
+W
+ p
+as
+t al
+l
+o
+c
+ati
+ons
+ tab
+l
+e on
+ 
+the g
+ov
+ernment 
+webs
+i
+te. P
+r
+e
+-
+2009
+ Mi
+l
+l
+enni
+um
+ Dr
+ough
+t al
+l
+oc
+ati
+ons
+ (
+2004
+-
+2009
+)
+ 
+wer
+e s
+ourc
+ed from A
+B
+A
+RE
+S
+ r
+es
+earc
+h repor
+ts
+ whi
+c
+h c
+onta
+i
+n the
+ hi
+s
+tori
+c
+al
+ S
+A
+ 
+Mu
+r
+r
+ay
+ Cl
+as
+s
+ 3 al
+l
+o
+c
+ati
+on 
+pe
+r
+c
+enta
+ges
+ as
+ doc
+um
+ente
+d da
+ta. The c
+arr
+y
+ov
+er 
+c
+ol
+um
+n (whether unus
+ed a
+l
+l
+o
+c
+ati
+on c
+oul
+d be
+ 
+c
+arr
+i
+ed to
+ the 
+fol
+l
+owi
+ng y
+ear)
+ was
+ 
+s
+ourc
+ed from t
+he S
+A
+ Ri
+v
+er M
+urr
+ay
+ W
+ater Al
+l
+oc
+ati
+on P
+l
+an rul
+es
+ and
+ DE
+W
+ ann
+ual
+ 
+anno
+unc
+em
+ents
+. 202
+5
+-
+26 openi
+ng al
+l
+oc
+at
+i
+on of 100%
+ was
+ c
+o
+nfi
+r
+me
+d by
+ the 
+DE
+W
+ 
+pres
+s
+ r
+el
+eas
+e da
+ted A
+pril
+ 20
+25, s
+tati
+ng i
+t 
+i
+s
+ the 
+fi
+fth 
+c
+ons
+e
+c
+uti
+v
+e 
+y
+ear of 100
+% 
+open
+i
+ng a
+l
+l
+oc
+at
+i
+on.
+ 
+en-AU
+Corr
+e
+c
+tne
+s
+s
+ 
+en-AU
+T
+he S
+A
+ DE
+W
+ i
+s
+ the 
+l
+ega
+l
+ aut
+hori
+ty
+ for SA
+ Ri
+v
+er Murr
+ay
+ water al
+l
+oc
+ati
+ons
+ und
+er the 
+Land
+s
+c
+ape 
+S
+outh
+ A
+us
+tr
+al
+i
+a A
+c
+t 201
+9. The al
+l
+oc
+ati
+on p
+erc
+e
+ntag
+es
+ i
+t pub
+l
+i
+s
+hes
+ are 
+the offi
+c
+i
+a
+l
+ gaz
+etted fi
+gur
+es
+ 
+ 
+they
+ are the nu
+mb
+ers
+ that
+ ac
+tual
+l
+y
+ app
+ear on 
+i
+r
+r
+i
+gato
+r
+s
+ water 
+ac
+c
+ount
+s
+. The 100% al
+l
+oc
+ati
+ons
+ for 2021
+-
+2025
+ are s
+eparatel
+y
+ 
+c
+onfi
+r
+me
+d by
+ the 
+S
+A
+ DE
+W
+ pr
+es
+s
+ r
+el
+eas
+e of 
+A
+pri
+l
+ 202
+5. The M
+i
+l
+l
+enn
+i
+um
+ Dr
+ough
+t 
+perc
+enta
+ges
+ are c
+r
+os
+s
+-
+r
+efere
+nc
+ed a
+gai
+ns
+t m
+ul
+t
+i
+pl
+e A
+B
+A
+R
+E
+S
+ pub
+l
+i
+c
+ati
+ons
+ whi
+c
+h al
+l
+ 
+r
+eport c
+ons
+i
+s
+tent 
+fi
+gures
+.
+ 
+en-AU
+ 
+en-AU
+File 05 
+ 
+Wat
+er_M
+a
+rket_Pr
+ice_
+Histor
+y_
+SA_Mur
+ray.c
+sv
+ 
+en-AU
+05
+.
+ 
+Wat
+er_
+M
+arke
+t
+_P
+r
+i
+c
+e_
+H
+i
+story_S
+A
+_
+M
+urray
+.
+cs
+v
+  
+|
+  
+2
+4
+ ro
+w
+s
+ (o
+n
+e
+ p
+e
+r
+ y
+e
+a
+r 
+2
+0
+0
+2
+-
+2
+0
+2
+5
+) 
+ro
+ws
+  
+|
+  
+CSV 
+ 
+Wa
+te
+r 
+m
+a
+r
+k
+e
+t 
+p
+r
+i
+c
+e
+ t
+i
+m
+e
+ s
+e
+ri
+e
+s
+ 
+en-AU
+M
+e
+tho
+d
+ 
+en-AU
+Comp
+i
+l
+ed from Ri
+c
+ardo W
+ate
+r
+ Ma
+r
+k
+ets
+ Reports
+ (
+2013
+-
+202
+5) for
+ the 
+v
+erif
+i
+ed p
+erio
+d, 
+and 
+fr
+om
+ the 
+A
+B
+A
+RE
+S
+ MDB
+ W
+ater Mark
+et Catc
+hm
+ent Da
+tas
+et an
+d hi
+s
+tori
+c
+a
+l
+ 
+A
+B
+A
+RE
+S
+ r
+eports
+ for ear
+l
+i
+er y
+ears
+. Ri
+c
+ardo i
+s
+ the 
+l
+ead
+i
+ng i
+ndep
+ende
+nt an
+al
+y
+s
+t of 
+s
+outh
+ern MDB
+ water mark
+et
+s.
+ 
+en-AU
+Prim
+a
+ry 
+Sou
+rc
+e
+ 
+en-AU
+Ri
+c
+ardo W
+ater Mark
+ets
+ Report 2025
+ (
+S
+A
+ Mu
+r
+r
+ay
+ ann
+ual
+ V
+W
+A
+P
+ $15
+3/M
+L) |
+ 
+Ri
+c
+ardo W
+ater Mark
+ets
+ Report 2024
+ (
+S
+A
+ Mu
+r
+r
+ay
+ ann
+ual
+ V
+W
+A
+P
+ $94
+/ML
+, 202
+3
+-
+24) 
+|
+ A
+B
+A
+RE
+S
+ MDB
+ W
+ater Mark
+et Catc
+hm
+ent Da
+tas
+et (2002
+-
+2021
+)
+ |
+ A
+B
+A
+RE
+S
+ 
+Les
+s
+ons
+ from the
+ W
+ater Mark
+et report (
+2000
+-
+2016
+)
+ 
+|
+ W
+at
+er Ex
+c
+hang
+e hi
+s
+tori
+c
+al
+ 
+pric
+e rec
+ords
+ 
+en-AU
+Direc
+t L
+in
+k
+ 
+en-AU
+r
+i
+c
+ardo.c
+om
+/en/n
+ews
+-
+and
+-
+i
+ns
+i
+ghts
+/i
+ndus
+tr
+y
+-
+i
+ns
+i
+ght
+s
+/202
+5
+-
+r
+i
+c
+ardo
+-
+water
+-
+ma
+r
+k
+ets
+-
+r
+eport |
+ ag
+r
+i
+c
+ul
+ture.gov
+.au/a
+bares
+/r
+es
+earc
+h
+-
+topi
+c
+s
+/water/mdb
+-
+water
+-
+ma
+r
+k
+et
+-
+data
+s
+et |
+ data
+.gov
+.au (AB
+A
+RE
+S
+ W
+ater T
+r
+ade 
+Mo
+del
+ Datas
+et)
+ 
+en-AU
+How
+ Bui
+lt
+ 
+en-AU
+2024
+-
+25 p
+r
+i
+c
+e ($153/M
+L): T
+a
+k
+en d
+i
+r
+ec
+tl
+y
+ from the
+ 202
+5 Ri
+c
+ardo W
+ater Mark
+ets
+ 
+Report, whi
+c
+h s
+tates
+ 'the a
+nnua
+l
+ v
+ol
+um
+e
+-
+wei
+ghte
+d av
+erag
+e pri
+c
+e ac
+r
+os
+s
+ the 
+s
+outh
+ern MDB
+ was
+ $15
+3 pe
+r
+ ML
+' and t
+hat S
+A
+ Mu
+r
+r
+ay
+ pri
+c
+es
+ were '89%
+ to 1
+59% 
+hi
+gher at the
+ end
+ of th
+e y
+ear.' 
+2023
+-
+24 p
+r
+i
+c
+e ($94/M
+L): T
+a
+k
+en from t
+he 2
+024 
+Ri
+c
+ardo Report tabl
+e of 
+annu
+al
+ V
+W
+A
+P
+s
+. 201
+9
+-
+20 p
+r
+i
+c
+es
+ (
+$
+420/
+ML
+, $38
+0/M
+L): 
+Confi
+r
+me
+d by
+ the 
+Ri
+v
+erla
+nd 
+W
+i
+ne s
+ec
+tor'
+s
+ own 
+c
+orr
+es
+pond
+enc
+e refer
+enc
+i
+ng wat
+er 
+l
+eas
+e pri
+c
+e
+s
+ 'abov
+e $8
+00/M
+L' for temp
+orar
+y
+ water du
+r
+i
+ng th
+e d
+r
+ough
+t pea
+k
+, and
+ 
+the Dri
+nk
+s
+ Tr
+ade 
+arti
+c
+l
+e (Nov
+ 202
+5) noti
+ng 2
+024
+-
+25 l
+eas
+e pri
+c
+es
+ around $3
+00/M
+L. 
+P
+r
+e
+-
+2013
+ pri
+c
+es
+: S
+ourc
+ed from t
+he A
+B
+A
+RE
+S
+ MDB
+ hi
+s
+tori
+c
+al
+ data
+s
+et (di
+r
+ec
+t CS
+V
+ 
+downl
+oad 
+fr
+om
+ data
+.gov
+.au) whi
+c
+h c
+onta
+i
+n
+s
+ the 
+ful
+l
+ t
+i
+me
+ s
+erie
+s
+ of S
+A
+ Mu
+r
+r
+ay
+ 
+al
+l
+oc
+at
+i
+on p
+r
+i
+c
+es
+ from 200
+2.
+ 
+en-AU
+Corr
+e
+c
+tne
+s
+s
+ 
+en-AU
+T
+he 2
+025 
+Ri
+c
+ardo fi
+gure (
+$1
+53/M
+L) i
+s
+ i
+ndep
+ende
+ntl
+y
+ 
+c
+onf
+i
+r
+me
+d by
+ the 
+Ri
+v
+erla
+nd 
+W
+i
+ne o
+pen 
+l
+etter to the
+ S
+A
+ P
+r
+em
+i
+er (
+Nov
+em
+ber 2025) 
+whi
+c
+h s
+tates
+ water l
+eas
+e 
+pric
+es
+ for 2024
+-
+25 were 'ar
+o
+und 
+$300
+/ML
+, 50% greate
+r
+ t
+han 
+the y
+ear pr
+i
+or'
+ 
+ 
+R
+iv
+e
+r
+lan
+d
+ 
+A
+g
+r
+i
+Tec
+h
+ 
+ 
+D
+a
+t
+a
+s
+e
+t
+ 
+P
+r
+o
+v
+e
+n
+a
+n
+c
+e
+ 
+&
+ 
+Met
+h
+o
+d
+o
+log
+y
+ 
+ 
+|
+ 
+ 
+P
+a
+g
+e
+ 
+5
+ 
+o
+f
+ 
+12
+ 
+en-AU
+c
+ons
+i
+s
+tent 
+wi
+th th
+e Ri
+c
+ardo a
+l
+l
+oc
+at
+i
+on V
+W
+A
+P
+ p
+l
+us
+ a 
+l
+eas
+e 
+premi
+um
+. The 
+Mi
+l
+l
+enn
+i
+um
+ Dr
+ough
+t pea
+k
+s
+ (
+$320
+-
+450/
+ML
+)
+ are c
+ons
+i
+s
+tent 
+ac
+r
+os
+s
+ A
+B
+A
+RE
+S
+, 
+Ri
+c
+ardo, and 
+the W
+ater Ex
+c
+h
+ange
+ hi
+s
+tori
+c
+al
+ r
+ec
+ords
+ wh
+i
+c
+h
+ note
+ 'dr
+ough
+t pea
+k
+s
+ 
+and 
+l
+eads
+ to a
+l
+l
+ t
+i
+me
+ hi
+gh te
+mp
+orar
+y
+ al
+l
+oc
+ati
+on p
+r
+i
+c
+e of 
+$1,2
+00/M
+L' i
+n 20
+07
+-
+08, wi
+th 
+S
+A
+ Mu
+r
+r
+ay
+ pri
+c
+es
+ s
+om
+ewhat 
+l
+ower due to 
+i
+ts
+ pos
+i
+t
+i
+on i
+n th
+e ba
+s
+i
+n.
+ 
+en-AU
+ 
+en-AU
+File 06 
+ 
+Riv
+erlan
+d
+_Winegr
+ape_
+Price
+_
+History
+_By_
+Variet
+y
+.csv
+ 
+en-AU
+06
+.
+ 
+R
+i
+ve
+rl
+an
+d_
+Wi
+ne
+g
+ra
+pe
+_P
+ri
+ce
+_H
+i
+s
+t
+ory_
+B
+y_
+V
+ari
+ety
+.
+cs
+v
+  
+|
+  
+4
+3
+ ro
+ws
+ 
+(v
+a
+r
+i
+e
+ty
+ 
+x
+ y
+e
+a
+r 
+c
+o
+m
+b
+i
+n
+a
+ti
+o
+n
+s
+, 
+2
+0
+1
+5
+-
+2
+0
+2
+5
+) ro
+w
+s
+  
+|
+  
+CSV 
+ 
+Va
+ri
+e
+ty
+-
+l
+e
+v
+e
+l
+ 
+p
+ri
+c
+e
+ t
+i
+m
+e
+ s
+e
+r
+i
+e
+s
+ 
+en-AU
+M
+e
+tho
+d
+ 
+en-AU
+Comp
+i
+l
+ed from W
+i
+ne A
+us
+tr
+al
+i
+a Nati
+onal
+ V
+i
+ntag
+e Repo
+r
+ts
+ a
+nd V
+i
+nehe
+al
+th 
+A
+us
+tr
+al
+i
+a S
+A
+ 
+W
+i
+negrape Crus
+h S
+urv
+ey
+ r
+egi
+onal
+ 
+s
+um
+ma
+r
+y
+ r
+eports
+ for the 
+Ri
+v
+erla
+nd. B
+oth a
+r
+e pu
+bl
+i
+s
+he
+d an
+nual
+l
+y
+. V
+arie
+t
+y
+-
+l
+ev
+el
+ pri
+c
+i
+ng d
+ata f
+or the 
+Ri
+v
+erla
+nd i
+s
+ a
+v
+ai
+l
+abl
+e from 2
+015 
+i
+n the
+ NV
+R
+ 
+and 
+fr
+om
+ 200
+0 i
+n the
+ r
+egi
+onal
+ 
+P
+DF
+s
+.
+ 
+en-AU
+Prim
+a
+ry 
+Sou
+rc
+e
+ 
+en-AU
+W
+i
+ne A
+us
+tr
+al
+i
+a 
+ 
+Nati
+onal
+ V
+i
+ntag
+e Repo
+r
+t 202
+5 (and p
+r
+i
+or
+ y
+ears
+)
+ |
+ V
+i
+nehe
+al
+th 
+A
+us
+tr
+al
+i
+a 
+ 
+S
+A
+ W
+i
+negrape Crus
+h S
+urv
+ey
+, Ri
+v
+erla
+nd Reg
+i
+onal
+ S
+um
+ma
+r
+y
+ 
+Reports
+ 202
+4 an
+d 20
+25 |
+ W
+i
+ne A
+us
+tr
+al
+i
+a 
+ 
+V
+i
+ntag
+e S
+urv
+ey
+ P
+r
+i
+c
+e Di
+s
+pers
+i
+on 
+S
+preads
+heet
+s
+ (
+2008
+-
+2025
+, d
+ownl
+oada
+bl
+e E
+x
+c
+e
+l
+)
+ 
+en-AU
+Direc
+t L
+in
+k
+ 
+en-AU
+wi
+neau
+s
+tr
+al
+i
+a.c
+om
+/ma
+r
+k
+et
+-
+i
+n
+s
+i
+ghts
+/nat
+i
+onal
+-
+v
+i
+ntag
+e
+-
+r
+eport (
+E
+x
+c
+el
+ pri
+c
+e 
+di
+s
+pers
+i
+on d
+ownl
+oad
+s
+)
+ |
+ v
+i
+nehe
+al
+th.c
+om
+.au/wp
+-
+c
+onte
+nt/up
+l
+oads
+/Ri
+v
+erla
+nd
+-
+r
+eport
+-
+2025.pdf 
+|
+ v
+i
+neheal
+th.c
+om.au/wp
+-
+c
+onte
+nt/up
+l
+oads
+/
+Ri
+v
+erla
+nd
+-
+r
+eport
+-
+2024.pdf
+ 
+en-AU
+How
+ Bui
+lt
+ 
+en-AU
+Chardonnay
+ 202
+4 pri
+c
+e ($36
+6/t) and c
+r
+us
+h (106,738
+t)
+: Ta
+k
+en v
+erbati
+m f
+r
+om
+ the 
+V
+i
+nehe
+al
+th Ri
+v
+erla
+nd Rep
+ort 
+2024
+, Tabl
+e: W
+i
+negrape i
+ntak
+e s
+um
+ma
+r
+y
+ 
+ 
+whi
+tes
+. O
+v
+eral
+l
+ 202
+5 whi
+te grape a
+v
+erage (
++6%
+ to $
+400/
+t
+)
+: Fr
+om
+ W
+i
+ne 
+A
+us
+tr
+al
+i
+a NV
+R 2025
+ pres
+s
+ r
+el
+eas
+e. The 202
+5 
+nati
+onal
+ wei
+ghte
+d av
+erage for 
+purc
+has
+ed g
+r
+apes
+ (
+$604
+/t) i
+s
+ s
+tated
+ i
+n the
+ NV
+R 2025
+ s
+um
+ma
+r
+y
+. Ri
+v
+erla
+nd
+-
+s
+pec
+i
+f
+i
+c
+ v
+arie
+t
+y
+ pri
+c
+e
+s
+ for Sh
+i
+r
+az
+ and
+ Cabernet are es
+ti
+ma
+ted f
+r
+om
+ the 
+nati
+onal
+ 
+i
+nl
+and 
+r
+ed p
+r
+i
+c
+e s
+erie
+s
+ (
+NV
+R)
+ adj
+us
+ted f
+or the Ri
+v
+erla
+nd's
+ 
+pos
+i
+ti
+on a
+s
+ a wa
+r
+m 
+i
+nl
+and 
+r
+egi
+on, c
+r
+os
+s
+-
+c
+hec
+k
+ed
+ aga
+i
+ns
+t the
+ Ri
+v
+erla
+nd 
+c
+r
+us
+h 
+s
+urv
+ey
+ pri
+c
+e 
+di
+s
+tr
+i
+buti
+on b
+ands
+ (
+% pur
+c
+ha
+s
+ed b
+el
+ow $20
+0/t, $
+200
+-
+300/t, etc.).
+ 
+en-AU
+Corr
+e
+c
+tne
+s
+s
+ 
+en-AU
+T
+he Cha
+r
+donn
+ay
+ and
+ Col
+om
+bard fi
+gures
+ (
+the wh
+i
+te v
+arie
+ti
+es
+)
+ are di
+r
+ec
+tl
+y
+ 
+v
+erif
+i
+abl
+e from th
+e V
+i
+nehe
+a
+l
+t
+h P
+DF
+s
+ whi
+c
+h pu
+bl
+i
+s
+h ex
+a
+c
+t t
+onna
+ge a
+nd a
+v
+erage 
+pric
+e by
+ v
+arie
+t
+y
+ for the Ri
+v
+erl
+and.
+ The r
+ed v
+arie
+ty
+ pri
+c
+es
+ (
+S
+hi
+r
+az
+, Cabe
+r
+net, 
+Me
+r
+l
+ot) ar
+e c
+r
+os
+s
+-
+c
+hec
+k
+ed a
+gai
+ns
+t: (1)
+ W
+i
+ne A
+us
+tr
+al
+i
+a NV
+R war
+m i
+nl
+and 
+r
+ed 
+pric
+e s
+erie
+s
+; (2)
+ The Ri
+v
+erla
+n
+d W
+i
+ne o
+pen 
+l
+etter (
+Nov
+ 202
+5) s
+tati
+ng 'S
+hi
+r
+az
+ 
+2026
+ v
+i
+ntag
+e pri
+c
+es
+ $80
+-
+$12
+0/t' c
+onfi
+r
+mi
+ng th
+e c
+r
+i
+s
+i
+s
+ traj
+e
+c
+tory
+; (3)
+ P
+IRS
+A
+'s
+ 
+own s
+tatem
+ent t
+hat 'ap
+prox
+i
+ma
+te c
+os
+t of $
+2,50
+0/ha
+ to m
+anag
+e red wi
+ne g
+r
+apes
+' 
+i
+mp
+l
+i
+e
+s
+ pri
+c
+es
+ mu
+s
+t ex
+c
+eed 
+t
+hi
+s
+ to b
+e v
+i
+abl
+e 
+ 
+c
+onfi
+r
+m
+i
+ng th
+e s
+ub
+-
+v
+i
+abl
+e 
+pric
+i
+ng s
+hown i
+n the
+ f
+i
+l
+e for 2
+022
+-
+2025.
+ 
+en-AU
+ 
+en-AU
+File 07 
+ 
+SA
+_Elect
+r
+icity_T
+ariff_R
+efere
+n
+ce.csv
+ 
+en-AU
+07
+.
+ 
+S
+A
+_E
+l
+ec
+t
+ri
+ci
+t
+y_
+T
+ari
+f
+f
+_R
+eference
+.
+cs
+v
+  
+|
+  
+5
+ r
+o
+ws
+ (o
+n
+e
+ p
+e
+r 
+ta
+ri
+f
+f 
+ty
+p
+e
+) ro
+w
+s
+  
+|
+  
+CSV 
+ 
+Reg
+u
+l
+a
+to
+ry
+ 
+ta
+ri
+ff
+ r
+e
+fe
+re
+n
+c
+e
+ 
+en-AU
+M
+e
+tho
+d
+ 
+en-AU
+T
+ak
+en d
+i
+r
+ec
+tl
+y
+ from the
+ A
+us
+tr
+al
+i
+an E
+nergy
+ Regul
+ator (
+A
+E
+R)
+ Defau
+l
+t M
+ark
+et O
+ffer 
+2025
+-
+26 fi
+nal
+ dete
+r
+mi
+nati
+on a
+nd S
+A
+ P
+ower Networ
+k
+s
+ 202
+5
+-
+26 p
+r
+i
+c
+i
+ng p
+r
+opos
+al
+. B
+oth 
+are publ
+i
+c
+l
+y
+ av
+ai
+l
+abl
+e regul
+at
+ory
+ doc
+um
+ents
+. No c
+al
+c
+ul
+at
+i
+on requi
+r
+ed 
+ 
+r
+ates
+ are as
+ 
+publ
+i
+s
+hed.
+ 
+R
+iv
+e
+r
+lan
+d
+ 
+A
+g
+r
+i
+Tec
+h
+ 
+ 
+D
+a
+t
+a
+s
+e
+t
+ 
+P
+r
+o
+v
+e
+n
+a
+n
+c
+e
+ 
+&
+ 
+Met
+h
+o
+d
+o
+log
+y
+ 
+ 
+|
+ 
+ 
+P
+a
+g
+e
+ 
+6
+ 
+o
+f
+ 
+12
+ 
+en-AU
+Prim
+a
+ry 
+Sou
+rc
+e
+ 
+en-AU
+A
+us
+tr
+al
+i
+an E
+nergy
+ Regul
+ator 
+ 
+Defaul
+t M
+ark
+et O
+ffer 2025
+-
+26 Fi
+nal
+ Determi
+nati
+on 
+(
+DMO
+ 7, p
+ubl
+i
+s
+hed 
+26 M
+ay
+ 202
+5) |
+ S
+A
+ P
+ower Netwo
+r
+k
+s
+ 
+ 
+Ini
+ti
+al
+ P
+r
+i
+c
+i
+ng P
+r
+opos
+a
+l
+ 
+O
+v
+erv
+i
+ew 202
+5
+-
+26 |
+ E
+nergy
+A
+us
+tr
+al
+i
+a 
+ 
+Control
+l
+ed L
+oad 
+/ 
+Ir
+r
+i
+gati
+on P
+um
+p tari
+ff 
+i
+nformati
+on |
+ E
+S
+CO
+S
+A
+ 
+ 
+E
+nergy
+ Retai
+l
+ P
+r
+i
+c
+e O
+ffers
+ Com
+pari
+s
+on Rep
+ort 2024
+-
+25
+ 
+en-AU
+Direc
+t L
+in
+k
+ 
+en-AU
+aer.gov
+.au/i
+ndus
+tr
+y
+/r
+egi
+s
+ters
+/
+r
+es
+ourc
+es
+/r
+ev
+i
+ews
+/defa
+ul
+t
+-
+m
+ark
+et
+-
+offer
+-
+p
+r
+i
+c
+es
+-
+2025
+-
+26 
+|
+ s
+apowe
+r
+network
+s
+.c
+om
+.au/y
+our
+-
+power/bi
+l
+l
+i
+ng/ta
+r
+i
+ffs
+-
+we
+-
+c
+harge
+-
+to
+-
+di
+s
+tr
+i
+bute
+-
+y
+our
+-
+el
+ec
+tr
+i
+c
+i
+ty
+/ |
+ es
+c
+o
+s
+a.s
+a.go
+v
+.a
+u (Retai
+l
+ P
+r
+i
+c
+e Com
+pari
+s
+on 
+Report 2024
+-
+25
+)
+ 
+en-AU
+How
+ Bui
+lt
+ 
+en-AU
+S
+tand
+ard fl
+at rate (38
+-
+42c
+/k
+W
+h): T
+hi
+s
+ i
+s
+ the 
+A
+E
+R DMO
+ 7
+ r
+eferenc
+e pri
+c
+e for S
+A
+ 
+s
+ma
+l
+l
+ bu
+s
+i
+nes
+s
+ on a
+ s
+i
+ngl
+e
+-
+r
+ate t
+arif
+f, eff
+ec
+ti
+v
+e 1 
+J
+ul
+y
+ 202
+5
+. The DMO
+ i
+s
+ the 
+l
+egal
+l
+y
+ 
+enfo
+r
+c
+ed m
+ax
+i
+mu
+m retai
+l
+ pri
+c
+e. Con
+tr
+ol
+l
+ed l
+oad 
+i
+r
+r
+i
+gati
+on p
+um
+p rate (
+~20c
+/k
+W
+h): 
+E
+nergy
+A
+us
+tr
+a
+l
+i
+a ex
+p
+l
+i
+c
+i
+t
+l
+y
+ l
+i
+s
+t
+s
+ i
+r
+r
+i
+gati
+on p
+um
+ps
+ a
+s
+ a c
+ontr
+ol
+l
+ed l
+oad 
+appl
+i
+anc
+e 
+el
+i
+gi
+b
+l
+e for the s
+eparatel
+y
+-
+me
+tered off
+-
+peak
+ c
+i
+r
+c
+ui
+t. The r
+ate repres
+ents
+ 
+approx
+i
+ma
+tel
+y
+ 50% of th
+e s
+ta
+ndard tari
+ff, c
+ons
+i
+s
+tent 
+wi
+th h
+i
+s
+tori
+c
+a
+l
+ c
+ontrol
+l
+ed 
+l
+oad 
+r
+ates
+ i
+n S
+A
+ as
+ r
+eported by
+ E
+S
+CO
+S
+A
+. Large bu
+s
+i
+nes
+s
+ r
+ate (42c
+/k
+W
+h): F
+r
+om
+ S
+A
+ 
+P
+ower Networ
+k
+s
+ unb
+undl
+ed ta
+r
+i
+ff s
+tr
+uc
+ture for
+ c
+us
+tom
+ers
+ abo
+v
+e 16
+0 M
+W
+h/y
+ear.
+ 
+en-AU
+Corr
+e
+c
+tne
+s
+s
+ 
+en-AU
+T
+he A
+E
+R DMO
+ i
+s
+ a Com
+mo
+nweal
+th regul
+atory
+ i
+ns
+tr
+um
+ent 
+ 
+i
+t i
+s
+ l
+ega
+l
+l
+y
+ bi
+ndi
+ng a
+nd 
+publ
+i
+s
+hed 
+annu
+al
+l
+y
+ b
+y
+ the 
+i
+nd
+epen
+dent
+ r
+egul
+ator. T
+he 2
+02
+5
+-
+26 DM
+O
+ 7 fi
+nal
+ 
+dete
+r
+mi
+nati
+on was
+ pub
+l
+i
+s
+hed
+ on 2
+6 M
+ay
+ 202
+5 an
+d c
+onfi
+r
+me
+d S
+A
+ s
+ma
+l
+l
+ bus
+i
+ne
+s
+s
+ 
+pric
+e i
+nc
+r
+eas
+e
+s
+ of 0
+.8
+-
+8.5% 
+fr
+om
+ 1 J
+ul
+y
+ 202
+5. E
+S
+CO
+S
+A
+'s
+ 
+2024
+-
+25 annual
+ r
+epor
+t 
+i
+ndep
+ende
+ntl
+y
+ c
+onf
+i
+r
+ms
+ S
+A
+ h
+as
+ the 
+hi
+ghes
+t el
+e
+c
+tr
+i
+c
+i
+ty
+ pri
+c
+es
+ i
+n A
+us
+tr
+al
+i
+a at 
+ov
+er 
+40c
+/k
+W
+h for bus
+i
+ne
+s
+s
+ 
+c
+us
+to
+me
+r
+s
+, c
+ons
+i
+s
+tent 
+wi
+th th
+e rates
+ i
+n thi
+s
+ fi
+l
+e. The c
+ontrol
+l
+ed 
+l
+oad 
+i
+r
+r
+i
+gati
+on rate i
+s
+ 
+c
+onfi
+r
+m
+ed b
+y
+ E
+nergy
+A
+us
+tr
+al
+i
+a'
+s
+ pub
+l
+i
+s
+hed 
+tari
+ff pa
+ge whi
+c
+h 
+ex
+pl
+i
+c
+i
+tl
+y
+ c
+l
+as
+s
+i
+fi
+e
+s
+ i
+r
+r
+i
+gati
+on 
+pum
+ps
+ as
+ c
+ontrol
+l
+ed l
+oad 
+ap
+pl
+i
+anc
+e
+s
+.
+ 
+en-AU
+ 
+en-AU
+ 
+en-AU
+3. Imp
+orta
+nt
+ N
+ot
+es fo
+r 
+th
+e 
+Analy
+tics T
+eam
+ 
+en-AU
+ 
+en-AU
+3.1 What
+ is dir
+ectly
+ 
+downloa
+dable 
+vs w
+hat was 
+manu
+ally 
+s
+tructure
+d
+ 
+en-AU
+T
+he
+ fo
+l
+l
+owi
+ng
+ 
+da
+tas
+e
+ts
+ c
+an
+ 
+be
+ d
+own
+l
+oa
+de
+d
+ di
+r
+ec
+t
+l
+y
+ as
+ 
+CS
+V
+ or E
+x
+c
+e
+l
+ by
+ th
+e t
+e
+am
+ 
+an
+d 
+us
+ed
+ t
+o e
+x
+te
+nd
+ or 
+up
+d
+a
+te 
+th
+e 
+fi
+l
+es
+ prov
+i
+d
+ed
+:
+ 
+en-AU
+ 
+en-AU
+en-AU
+ 
+B
+O
+M R
+en
+m
+ark
+ wea
+t
+he
+r
+ d
+at
+a (dai
+l
+y
+ C
+S
+V
+, s
+t
+ati
+on
+ 
+02
+4
+01
+6): bo
+m.g
+ov
+.
+au
+/c
+l
+i
+m
+ate
+/
+da
+t
+a/
+ 
+en-AU
+en-AU
+ 
+O
+pe
+n
+-
+Me
+teo
+ 
+hi
+s
+tor
+i
+c
+al
+ 
+weat
+he
+r
+ A
+P
+I (J
+S
+O
+N/C
+S
+V
+, fre
+e, 
+no
+ k
+ey
+)
+: o
+p
+en
+-
+m
+ete
+o
+.c
+om
+/e
+n/d
+oc
+s
+/h
+i
+s
+tori
+c
+a
+l
+-
+weat
+h
+er
+-
+ap
+i
+ 
+ 
+us
+e
+ l
+a
+t=
+-
+34
+.
+18
+, 
+l
+on
+=
+1
+40
+.7
+4
+ 
+en-AU
+en-AU
+ 
+A
+B
+A
+R
+E
+S
+ 
+MDB
+ W
+ate
+r
+ M
+ark
+et 
+Catc
+h
+me
+n
+t Dat
+as
+et 
+(
+d
+i
+r
+e
+c
+t CS
+V
+)
+: 
+ag
+r
+i
+c
+u
+l
+tur
+e.g
+ov
+.
+au
+/
+ab
+ares
+/r
+es
+ea
+r
+c
+h
+-
+top
+i
+c
+s
+/wa
+ter/m
+db
+-
+wat
+er
+-
+ma
+r
+k
+et
+-
+da
+tas
+et
+ 
+en-AU
+en-AU
+ 
+W
+i
+ne
+ 
+A
+us
+tr
+al
+i
+a 
+pric
+e 
+di
+s
+pe
+r
+s
+i
+on
+ s
+pre
+ad
+s
+he
+ets
+ (
+E
+x
+c
+el
+)
+: 
+wi
+ne
+au
+s
+tr
+a
+l
+i
+a
+.c
+om
+/
+ma
+r
+k
+et
+-
+i
+ns
+i
+gh
+ts
+/
+na
+t
+i
+on
+al
+-
+v
+i
+n
+tag
+e
+-
+r
+ep
+ort 
+ 
+s
+c
+r
+ol
+l
+ to
+ 's
+preads
+h
+ee
+t f
+ormat' 
+l
+i
+nk
+ 
+en-AU
+en-AU
+ 
+Hor
+t In
+n
+ov
+ati
+on
+ 
+S
+ta
+ti
+s
+ti
+c
+s
+ H
+an
+db
+oo
+k
+ (
+E
+x
+c
+el
+)
+:
+ ho
+r
+t
+i
+c
+ul
+t
+ure.c
+om
+.a
+u 
+ 
+A
+us
+tr
+a
+l
+i
+an
+ H
+orti
+c
+ul
+t
+ure 
+S
+tat
+i
+s
+ti
+c
+s
+ 
+Hand
+bo
+ok
+ 2
+02
+4/2
+5
+ 
+en-AU
+ 
+en-AU
+3.2 Dat
+a that r
+equir
+es updat
+ing
+ 
+en-AU
+T
+he
+ fo
+l
+l
+owi
+ng
+ f
+i
+l
+es
+ wi
+l
+l
+ 
+ne
+e
+d
+ to
+ b
+e refr
+es
+he
+d a
+s
+ n
+ew d
+at
+a i
+s
+ p
+ub
+l
+i
+s
+he
+d:
+ 
+en-AU
+ 
+en-AU
+en-AU
+ 
+F
+i
+l
+e 
+03
+ (
+W
+at
+er De
+l
+i
+v
+ery
+ Cos
+ts
+)
+: RIT pub
+l
+i
+s
+h
+es
+ ne
+w
+ s
+c
+he
+du
+l
+es
+ ev
+ery
+ 6 
+mo
+nt
+hs
+ (
+J
+an
+ua
+r
+y
+ an
+d J
+ul
+y
+)
+. CIT 
+up
+da
+tes
+ an
+nu
+a
+l
+l
+y
+ i
+n Oc
+to
+be
+r
+. Che
+c
+k
+ r
+i
+t.o
+r
+g
+.au
+/
+fee
+s
+-
+an
+d
+-
+pric
+es
+ an
+d c
+i
+t.o
+r
+g
+.au
+ 
+ea
+c
+h 
+s
+ea
+s
+on
+.
+ 
+R
+iv
+e
+r
+lan
+d
+ 
+A
+g
+r
+i
+Tec
+h
+ 
+ 
+D
+a
+t
+a
+s
+e
+t
+ 
+P
+r
+o
+v
+e
+n
+a
+n
+c
+e
+ 
+&
+ 
+Met
+h
+o
+d
+o
+log
+y
+ 
+ 
+|
+ 
+ 
+P
+a
+g
+e
+ 
+7
+ 
+o
+f
+ 
+12
+ 
+en-AU
+en-AU
+ 
+F
+i
+l
+e 
+06
+ (
+W
+i
+ne
+gra
+pe
+ 
+P
+r
+i
+c
+es
+)
+:
+ New v
+i
+nta
+g
+e d
+ata
+ 
+i
+s
+ pu
+bl
+i
+s
+he
+d 
+by
+ W
+i
+ne
+ 
+A
+us
+tr
+a
+l
+i
+a e
+ac
+h
+ J
+ul
+y
+. A
+dd
+ t
+he
+ n
+ew y
+e
+ar 
+r
+ow a
+fte
+r
+ 
+ea
+c
+h v
+i
+nta
+ge
+ r
+e
+po
+r
+t.
+ 
+en-AU
+en-AU
+ 
+F
+i
+l
+e 
+05
+ (
+W
+at
+er Mark
+et 
+P
+r
+i
+c
+e
+s
+)
+: Ri
+c
+ardo p
+ub
+l
+i
+s
+h
+es
+ th
+e 
+a
+nn
+ua
+l
+ r
+e
+po
+r
+t e
+ac
+h S
+ep
+t
+em
+b
+er/O
+c
+tob
+er. U
+pd
+at
+e t
+h
+e 
+V
+W
+A
+P
+ r
+ow f
+or the 
+c
+o
+mp
+l
+et
+ed
+ wa
+ter y
+ea
+r
+.
+ 
+en-AU
+en-AU
+ 
+F
+i
+l
+e 
+04
+ (
+A
+l
+l
+oc
+at
+i
+on
+ Hi
+s
+tory
+)
+: 
+S
+A
+ 
+DE
+W
+ a
+nn
+o
+un
+c
+es
+ o
+pe
+n
+i
+ng
+ a
+l
+l
+oc
+ati
+on
+s
+ i
+n A
+pri
+l
+ ea
+c
+h
+ 
+y
+ea
+r
+. A
+d
+d t
+h
+e n
+ew row 
+at 
+th
+e s
+tart of
+ ea
+c
+h 
+wate
+r
+ y
+ea
+r
+.
+ 
+en-AU
+ 
+en-AU
+3.3 What
+ the s
+cena
+r
+io label 
+colum
+n me
+ans
+ 
+en-AU
+In 
+F
+i
+l
+e 0
+1, 
+t
+he
+ s
+c
+en
+ario
+_
+l
+a
+b
+el
+ c
+o
+l
+um
+n i
+s
+ t
+he
+ k
+ey
+ v
+ari
+ab
+l
+e f
+or th
+e s
+c
+en
+ar
+i
+o
+-
+ba
+s
+e
+d m
+od
+e
+l
+. H
+i
+s
+tori
+c
+a
+l
+ r
+ows
+ are 
+l
+a
+be
+l
+l
+ed
+ 
+wi
+th 
+the
+ 
+ac
+tua
+l
+ c
+on
+di
+t
+i
+o
+n t
+h
+at 
+y
+ea
+r
+ (
+e.
+g. 
+dro
+ug
+h
+t, f
+l
+oo
+d
+_y
+ea
+r
+, c
+hi
+na
+_
+tari
+ffs
+)
+. 
+P
+r
+oj
+ec
+ti
+on
+ r
+ows
+ are 
+l
+ab
+el
+l
+e
+d wi
+th 
+t
+he
+ 
+s
+c
+en
+ario
+ 
+na
+m
+e (e.g
+. wa
+t
+er_
+c
+ut_
+50
+pc
+t, t
+r
+an
+s
+i
+ti
+on
+_
+ol
+i
+v
+e_
+y
+r
+7). T
+he
+ mo
+de
+l
+ l
+ea
+r
+ns
+ fro
+m t
+he
+ hi
+s
+t
+oric
+al
+ l
+a
+be
+l
+s
+ wha
+t
+ 
+c
+on
+di
+t
+i
+o
+ns
+ prod
+uc
+e wh
+at 
+o
+u
+tc
+om
+es
+, th
+en
+ 
+ap
+p
+l
+i
+es
+ th
+a
+t l
+e
+arni
+n
+g t
+o 
+pred
+i
+c
+t n
+e
+t_m
+argi
+n_
+ha
+ un
+de
+r
+ th
+e p
+r
+oj
+ec
+t
+i
+on
+ 
+s
+c
+en
+ario
+ 
+l
+ab
+el
+s
+.
+ 
+en-AU
+ 
+en-AU
+3.4 Limi
+tation
+s and 
+caveat
+s
+ 
+en-AU
+en-AU
+ 
+Ri
+v
+erla
+nd
+-
+s
+pe
+c
+i
+f
+i
+c
+ v
+arie
+ty
+ p
+r
+i
+c
+e d
+at
+a (Sh
+i
+r
+az
+, C
+ab
+ern
+et,
+ Me
+r
+l
+ot) for y
+ea
+r
+s
+ b
+efo
+r
+e 
+20
+22
+ i
+s
+ 
+es
+ti
+m
+ate
+d f
+r
+om
+ 
+the
+ n
+ati
+on
+a
+l
+ 
+i
+nl
+an
+d wa
+r
+m
+ r
+e
+gi
+o
+n s
+erie
+s
+. 
+A
+c
+tua
+l
+ R
+i
+v
+erla
+n
+d
+-
+s
+pe
+c
+i
+fi
+c
+ 
+da
+ta
+ fo
+r
+ th
+os
+e y
+e
+ars
+ c
+an
+ be
+ 
+ob
+t
+ai
+n
+ed
+ 
+by
+ 
+r
+eq
+ue
+s
+ti
+ng
+ 
+hi
+s
+tor
+i
+c
+ r
+eg
+i
+on
+a
+l
+ 
+da
+ta 
+fr
+om
+ 
+W
+i
+ne
+ 
+A
+us
+tr
+a
+l
+i
+a
+ at
+ ma
+r
+k
+et.
+i
+ns
+i
+g
+hts
+@w
+i
+n
+ea
+us
+t
+r
+al
+i
+a
+.c
+om
+.
+ 
+en-AU
+en-AU
+ 
+P
+r
+e
+-
+20
+1
+3 w
+ate
+r
+ m
+ark
+et 
+pric
+es
+ (
+F
+i
+l
+e 
+05
+)
+ are
+ s
+ou
+r
+c
+ed
+ fro
+m t
+he
+ A
+B
+A
+RE
+S
+ MD
+B
+ 
+da
+tas
+et 
+wh
+i
+c
+h u
+s
+es
+ m
+od
+el
+l
+ed
+ 
+an
+d 
+es
+ti
+m
+ate
+d p
+r
+i
+c
+es
+ f
+or s
+o
+me
+ y
+ea
+r
+s
+. Th
+ey
+ are f
+l
+ag
+ge
+d
+ i
+n t
+he
+ 
+da
+ta
+_q
+u
+al
+i
+ty
+ c
+ol
+um
+n
+ 
+as
+ 
+'es
+ti
+ma
+ted
+_A
+B
+A
+RE
+S
+'.
+ 
+en-AU
+en-AU
+ 
+T
+he
+ s
+c
+en
+ari
+o p
+r
+oj
+ec
+t
+i
+on
+ r
+o
+ws
+ i
+n Fi
+l
+e 
+01
+ 
+are c
+al
+i
+bra
+ted
+ 
+fr
+om
+ h
+i
+s
+tori
+c
+a
+l
+ r
+an
+ge
+s
+ 
+ 
+t
+h
+ey
+ are no
+t fo
+r
+ec
+as
+ts
+. 
+T
+he
+y
+ r
+ep
+r
+es
+en
+t p
+l
+au
+s
+i
+bl
+e f
+u
+ture c
+on
+d
+i
+t
+i
+on
+s
+ 
+un
+d
+er s
+pe
+c
+i
+f
+i
+ed
+ 
+as
+s
+um
+pt
+i
+o
+ns
+ an
+d
+ s
+ho
+u
+l
+d b
+e 
+l
+a
+be
+l
+l
+e
+d a
+s
+ s
+uc
+h 
+i
+n 
+an
+y
+ mo
+de
+l
+ ou
+tpu
+ts
+ 
+pres
+en
+t
+ed
+ to
+ s
+tak
+eh
+o
+l
+d
+ers
+.
+ 
+en-AU
+en-AU
+ 
+Inp
+ut
+ c
+os
+t e
+s
+c
+al
+a
+ti
+o
+n i
+n Fi
+l
+e
+ 01
+ a
+pp
+l
+i
+es
+ 
+a C
+P
+I
+-
+l
+i
+k
+e
+ ad
+j
+us
+tme
+nt
+ y
+ea
+r
+-
+on
+-
+y
+ea
+r
+. 
+A
+c
+tua
+l
+ 
+i
+np
+ut 
+c
+os
+ts
+ ma
+y
+ v
+ary
+ by
+ 
+farm b
+as
+ed
+ o
+n l
+ab
+o
+ur, c
+he
+mi
+c
+al
+, a
+n
+d c
+on
+tr
+ac
+tor c
+os
+ts
+ whi
+c
+h f
+l
+uc
+tu
+ate
+ 
+i
+n
+de
+p
+en
+d
+en
+tl
+y
+ of
+ C
+P
+I.
+ 
+en-AU
+ 
+en-AU
+ 
+en-AU
+R
+iv
+e
+r
+lan
+d
+ 
+A
+g
+r
+i
+Tec
+h
+ 
+ 
+D
+a
+t
+a
+s
+e
+t
+ 
+P
+r
+o
+v
+e
+n
+a
+n
+c
+e
+ 
+&
+ 
+Met
+h
+o
+d
+o
+log
+y
+ 
+ 
+|
+ 
+ 
+Mar
+c
+h
+ 
+2
+0
+2
+6
+ 
+ 
+|
+ 
+ 
+C
+o
+n
+f
+ide
+n
+t
+ial
+ 
+ 
+I
+n
+t
+e
+r
+n
+a
+l
+ 
+U
+s
+e
+ 
+On
+ly
+ 
+en-AU
+ 
+ 
+en-AU
+ 
+en-AU
+4. El
+ectrici
+ty Co
+sts 
+ 
+R
+iverl
+an
+d
+ Farmers
+ 
+en-AU
+S
+ou
+t
+h 
+A
+us
+tr
+al
+i
+a 
+ha
+s
+ th
+e h
+i
+g
+he
+s
+t e
+l
+ec
+tr
+i
+c
+i
+ty
+ pr
+i
+c
+es
+ i
+n
+ A
+u
+s
+tr
+al
+i
+a.
+ Ri
+v
+er
+l
+an
+d f
+arm
+ers
+ fa
+c
+e s
+i
+gn
+i
+fi
+c
+a
+nt 
+e
+l
+ec
+tr
+i
+c
+i
+ty
+ c
+os
+ts
+ fo
+r
+ 
+i
+r
+r
+i
+ga
+t
+i
+o
+n p
+u
+mp
+s
+, c
+o
+ol
+i
+ng
+,
+ s
+he
+d 
+eq
+u
+i
+p
+me
+nt
+, a
+n
+d f
+ar
+m o
+pe
+r
+ati
+on
+s
+. H
+owev
+er, f
+armer
+s
+ who
+ q
+ua
+l
+i
+fy
+ fo
+r
+ t
+he
+ c
+o
+ntrol
+l
+ed
+ 
+l
+oa
+d (i
+r
+r
+i
+g
+ati
+on
+ 
+pu
+m
+p)
+ 
+tari
+ff 
+c
+an
+ pa
+y
+ a
+pp
+r
+ox
+i
+ma
+t
+el
+y
+ h
+al
+f
+ 
+the
+ s
+ta
+nd
+ard r
+ate
+ 
+ 
+m
+ak
+i
+n
+g i
+r
+r
+i
+g
+ati
+on
+ s
+c
+he
+du
+l
+i
+n
+g o
+ne
+ 
+of 
+th
+e 
+hi
+g
+he
+s
+t
+-
+v
+al
+u
+e c
+os
+t red
+uc
+ti
+o
+n o
+p
+po
+r
+tu
+ni
+t
+i
+es
+.
+ 
+en-AU
+ 
+en-AU
+CSV Fi
+le
+ 
+en-AU
+08_Ri
+v
+erla
+nd_Far
+me
+r
+_E
+l
+ec
+tr
+i
+c
+i
+t
+y
+_Cos
+ts
+.
+c
+s
+v
+  |
+  6 rows
+  |
+  6 ta
+r
+i
+ff ty
+pes
+ 
+en-AU
+M
+e
+tho
+d
+ 
+en-AU
+T
+ak
+en d
+i
+r
+ec
+tl
+y
+ from regul
+atory
+ doc
+um
+ents
+. No c
+a
+l
+c
+u
+l
+ati
+on 
+or es
+ti
+ma
+ti
+on. Nu
+mb
+ers
+ 
+are as
+ pub
+l
+i
+s
+hed 
+by
+ the 
+A
+us
+t
+r
+al
+i
+an E
+nergy
+ Regul
+ator and S
+A
+ P
+ower Networ
+k
+s
+.
+ 
+en-AU
+Prim
+a
+ry 
+Sou
+rc
+e
+s
+ 
+en-AU
+A
+E
+R Defaul
+t M
+ark
+et O
+ffer 20
+25
+-
+26 Fi
+nal
+ Determi
+nati
+on (DMO
+ 7) |
+ S
+A
+ P
+owe
+r
+ 
+Network
+s
+ A
+nnua
+l
+ P
+r
+i
+c
+i
+ng P
+r
+opos
+al
+ 202
+5
+-
+26 |
+ E
+nergy
+A
+us
+tr
+al
+i
+a Cont
+r
+ol
+l
+ed L
+oad 
+T
+arif
+f |
+ E
+S
+CO
+S
+A
+ E
+nergy
+ Ret
+ai
+l
+ P
+r
+i
+c
+e Com
+pari
+s
+on Rep
+ort 2024
+-
+25
+ 
+R
+iv
+e
+r
+lan
+d
+ 
+A
+g
+r
+i
+Tec
+h
+ 
+ 
+D
+a
+t
+a
+s
+e
+t
+ 
+P
+r
+o
+v
+e
+n
+a
+n
+c
+e
+ 
+&
+ 
+Met
+h
+o
+d
+o
+log
+y
+ 
+ 
+|
+ 
+ 
+P
+a
+g
+e
+ 
+8
+ 
+o
+f
+ 
+12
+ 
+en-AU
+Sou
+rce
+ L
+in
+k
+s
+ 
+en-AU
+aer.gov
+.au/i
+ndus
+tr
+y
+/r
+egi
+s
+ters
+/
+r
+es
+ourc
+es
+/r
+ev
+i
+ews
+/defa
+ul
+t
+-
+m
+ark
+et
+-
+offer
+-
+p
+r
+i
+c
+es
+-
+2025
+-
+26 |
+ s
+apowe
+r
+netwo
+r
+k
+s
+.c
+om
+.a
+u/y
+our
+-
+power/bi
+l
+l
+i
+ng/ta
+r
+i
+ffs
+-
+we
+-
+c
+harge
+-
+to
+-
+di
+s
+tr
+i
+bute
+-
+y
+our
+-
+el
+ec
+tr
+i
+c
+i
+t
+y
+/ |
+ es
+c
+os
+a.
+s
+a.g
+ov
+.au 
+ 
+Retai
+l
+ P
+r
+i
+c
+e Com
+pa
+r
+i
+s
+on Rep
+ort 2024
+-
+25
+ 
+en-AU
+Corr
+e
+c
+tne
+s
+s
+ 
+en-AU
+T
+he A
+E
+R DMO
+ 7 i
+s
+ a l
+egal
+l
+y
+ 
+bi
+ndi
+ng Com
+mo
+nweal
+th regul
+atory
+ i
+ns
+tr
+um
+ent 
+publ
+i
+s
+hed 
+26 M
+ay
+ 202
+5. E
+S
+CO
+S
+A
+ i
+ndep
+ende
+ntl
+y
+ c
+onfi
+r
+m
+s
+ S
+A
+ has
+ the 
+hi
+ghe
+s
+t 
+el
+ec
+tr
+i
+c
+i
+ty
+ pri
+c
+e
+s
+ i
+n A
+u
+s
+tr
+al
+i
+a 
+at ov
+er 40c
+/k
+W
+h for bus
+i
+ne
+s
+s
+. The c
+ontrol
+l
+ed l
+oad 
+r
+ate i
+s
+ c
+onfi
+r
+me
+d by
+ E
+nergy
+A
+us
+tr
+al
+i
+a whi
+c
+h e
+x
+pl
+i
+c
+i
+t
+l
+y
+ 
+l
+i
+s
+t
+s
+ i
+r
+r
+i
+gati
+on p
+um
+ps
+ as
+ 
+el
+i
+gi
+b
+l
+e c
+ontrol
+l
+ed 
+l
+oad 
+appl
+i
+a
+nc
+es
+.
+ 
+en-AU
+ 
+en-AU
+4.1 SA 
+Electr
+icity T
+ariff Su
+mmar
+y 
+ 
+Al
+l Farm T
+ypes
+ 
+en-AU
+ 
+en-AU
+Fa
+rme
+r Ty
+p
+e
+ 
+en-AU
+Ta
+riff T
+y
+p
+e
+ 
+en-AU
+Rate
+ 
+(c
+/k
+Wh
+)
+ 
+en-AU
+Pe
+a
+k
+ W
+i
+nd
+o
+w
+ 
+en-AU
+Note
+s
+ 
+en-AU
+Sm
+a
+ll
+ fa
+rm
+ /
+ 
+res
+id
+e
+nti
+a
+l
+ 
+en-AU
+Sta
+nd
+a
+rd fl
+a
+t ra
+te
+ 
+en-AU
+40c
+ 
+en-AU
+All 
+tim
+e
+s
+ 
+en-AU
+AER
+ DM
+O
+ 7
+ re
+fe
+ren
+c
+e
+ 
+pric
+e
+ 
+ 
+go
+v
+e
+rnm
+e
+nt
+-
+s
+e
+t m
+a
+x
+im
+u
+m
+ 
+en-AU
+Sm
+a
+ll
+ fa
+rm
+ /
+ 
+res
+id
+e
+nti
+a
+l
+ 
+en-AU
+TOU
+ 
+ 
+pe
+a
+k
+ p
+e
+riod
+ 
+en-AU
+52c
+ 
+en-AU
+1
+6
+:0
+0
+-
+2
+1
+:0
+0
+ 
+w
+e
+e
+k
+da
+y
+s
+ 
+en-AU
+Avo
+id
+ run
+ni
+ng
+ 
+irriga
+tio
+n 
+du
+ri
+ng
+ th
+i
+s
+ 
+w
+in
+do
+w
+ 
+en-AU
+Sm
+a
+ll
+ fa
+rm
+ /
+ 
+res
+id
+e
+nti
+a
+l
+ 
+en-AU
+TOU
+ 
+ 
+off
+-
+pe
+a
+k
+ 
+en-AU
+30c
+ 
+en-AU
+All 
+oth
+e
+r ho
+urs
+ 
+en-AU
+Shi
+ft i
+rr
+ig
+a
+tio
+n
+ to
+ 
+m
+orni
+ng
+/o
+v
+e
+rnig
+ht
+ 
+en-AU
+ALL 
+irriga
+tin
+g 
+fa
+rme
+rs
+ 
+en-AU
+Cont
+roll
+e
+d 
+l
+oa
+d 
+(pu
+m
+p)
+ 
+en-AU
+~2
+0
+c
+ 
+en-AU
+2
+3
+:0
+0
+-
+0
+7
+:0
+0
+ o
+n
+l
+y
+ 
+en-AU
+M
+O
+ST 
+RELEVANT 
+ 
+5
+0
+%
+ o
+f
+ s
+t
+a
+n
+d
+a
+r
+d
+ ra
+t
+e
+. 
+Req
+u
+i
+re
+s
+ s
+e
+p
+a
+r
+a
+te
+ 
+p
+u
+m
+p
+ m
+e
+te
+r.
+ 
+en-AU
+La
+rge
+ fa
+rm 
+(>1
+6
+0
+ 
+M
+Wh
+/y
+r)
+ 
+en-AU
+La
+rge
+ b
+u
+s
+in
+e
+s
+s
+ 
+en-AU
+42c
+ 
+en-AU
+Neg
+oti
+a
+te
+d
+ 
+en-AU
+In
+c
+lu
+de
+s
+ d
+e
+m
+a
+nd
+ 
+c
+ha
+rge
+ 
+ 
+ne
+go
+ti
+a
+te
+ 
+di
+rec
+tly
+ 
+w
+ith
+ re
+ta
+il
+e
+r
+ 
+en-AU
+All 
+fa
+rms
+ 
+w
+ith
+ 
+s
+ol
+a
+r
+ 
+en-AU
+Fe
+e
+d
+-
+in
+ t
+a
+riff 
+(e
+x
+po
+rt)
+ 
+en-AU
+0
+6c
+ 
+en-AU
+Day
+tim
+e
+ (
+e
+x
+po
+rt)
+ 
+en-AU
+Sol
+a
+r s
+e
+lf
+-
+c
+on
+s
+um
+pti
+on
+ 
+(a
+v
+oi
+di
+n
+g 
+im
+p
+ort) 
+w
+orth 
+3
+0
+4
+0
+c
+/k
+W
+h
+ 
+en-AU
+ 
+en-AU
+4.2 Annu
+al El
+ectric
+i
+ty Cost
+ 
+Per H
+ectar
+e
+ (Wine G
+rapes
+)
+ 
+en-AU
+B
+as
+ed
+ 
+on
+ 
+a t
+y
+p
+i
+c
+al
+ v
+i
+ne
+y
+ard
+ us
+i
+ng
+ 50
+0
+8
+00
+ k
+W
+h/h
+a/y
+e
+ar for
+ pu
+mp
+i
+ng
+, c
+oo
+l
+i
+n
+g, 
+a
+n
+d e
+q
+ui
+p
+me
+nt:
+ 
+en-AU
+ 
+en-AU
+Ta
+riff Us
+e
+d
+ 
+en-AU
+k
+Wh
+/h
+a
+/
+y
+r
+ 
+en-AU
+Rate
+ (c
+/k
+Wh
+)
+ 
+en-AU
+Annu
+a
+l 
+Cos
+t/
+ha
+ 
+en-AU
+Sa
+v
+in
+g 
+v
+s
+ s
+t
+a
+nd
+a
+rd
+ 
+en-AU
+Sta
+nd
+a
+rd fl
+a
+t ra
+te
+ 
+en-AU
+650
+ 
+en-AU
+40c
+ 
+en-AU
+$
+2
+6
+0
+/h
+a
+ 
+en-AU
+ 
+en-AU
+TOU
+ (m
+ix
+ p
+e
+a
+k
+/o
+ffp
+e
+a
+k
+)
+ 
+en-AU
+650
+ 
+en-AU
+~3
+6
+c
+ a
+v
+g
+ 
+en-AU
+$
+2
+3
+4
+/h
+a
+ 
+en-AU
+$
+2
+6
+/h
+a
+ 
+en-AU
+Cont
+roll
+e
+d 
+l
+oa
+d 
+ 
+p
+um
+p 
+on
+l
+y
+ 
+en-AU
+5
+0
+0
+ (p
+u
+m
+p 
+k
+Wh
+)
+ 
+en-AU
+20c
+ 
+en-AU
+$
+1
+0
+0
+/h
+a
+ 
+en-AU
+$
+1
+3
+0
+/h
+a
+ s
+a
+v
+in
+g
+ 
+en-AU
+Sta
+nd
+a
+rd +
+ 
+s
+ol
+a
+r 
+off
+s
+e
+t
+ 
+en-AU
+6
+5
+0
+ l
+e
+s
+s
+ 
+s
+ol
+a
+r
+ 
+en-AU
+ne
+t 2
+8
+c
+ a
+v
+g
+ 
+en-AU
+$
+1
+8
+2
+/h
+a
+ 
+en-AU
+$
+7
+8
+/h
+a
+ 
+en-AU
+ 
+en-AU
+KEY INSIG
+HT
+ 
+en-AU
+T
+he
+ c
+on
+tr
+o
+l
+l
+ed
+ 
+l
+oa
+d 
+i
+r
+r
+i
+ga
+t
+i
+o
+n p
+u
+mp
+ t
+arif
+f (~
+20
+c
+/k
+W
+h) i
+s
+ 
+the
+ s
+i
+ng
+l
+e m
+os
+t i
+mp
+ac
+tf
+ul
+ 
+el
+ec
+tr
+i
+c
+i
+ty
+ c
+os
+t reduc
+t
+i
+on
+ 
+av
+ai
+l
+ab
+l
+e t
+o Ri
+v
+er
+l
+an
+d f
+ar
+me
+r
+s
+. It
+ r
+eq
+ui
+r
+es
+ 
+i
+ns
+ta
+l
+l
+i
+ng
+ 
+a s
+ec
+on
+d 
+R
+iv
+e
+r
+lan
+d
+ 
+A
+g
+r
+i
+Tec
+h
+ 
+ 
+D
+a
+t
+a
+s
+e
+t
+ 
+P
+r
+o
+v
+e
+n
+a
+n
+c
+e
+ 
+&
+ 
+Met
+h
+o
+d
+o
+log
+y
+ 
+ 
+|
+ 
+ 
+P
+a
+g
+e
+ 
+9
+ 
+o
+f
+ 
+12
+ 
+en-AU
+me
+ter f
+or the
+ pu
+mp
+ c
+i
+r
+c
+u
+i
+t 
+ 
+a o
+ne
+-
+ti
+me
+ c
+os
+t 
+ 
+b
+ut 
+h
+al
+v
+es
+ th
+e c
+os
+t o
+f ru
+nn
+i
+ng
+ 
+i
+r
+r
+i
+ga
+t
+i
+o
+n p
+u
+mp
+s
+. Th
+i
+s
+ i
+s
+ ex
+ac
+tl
+y
+ why
+ th
+e M
+V
+P
+ W
+ate
+r
+ 
+&
+ Irr
+i
+ga
+t
+i
+on
+ mo
+du
+l
+e's
+ ov
+ern
+i
+g
+ht 
+s
+c
+he
+du
+l
+i
+ng
+ fe
+a
+ture 
+ha
+s
+ d
+i
+r
+e
+c
+t fi
+na
+nc
+i
+a
+l
+ v
+al
+ue
+: 
+i
+t s
+h
+i
+fts
+ p
+um
+p 
+op
+era
+ti
+o
+n i
+nto
+ 
+the
+ 
+c
+on
+tr
+ol
+l
+ed
+ l
+o
+ad
+ w
+i
+n
+do
+w, s
+av
+i
+ng
+ 
+ap
+pr
+ox
+i
+ma
+tel
+y
+ 
+$1
+0
+0
+-
+$1
+50
+/h
+a/y
+ea
+r
+ i
+n e
+l
+ec
+tr
+i
+c
+i
+ty
+ al
+o
+ne
+, 
+on
+ to
+p o
+f
+ th
+e
+ wat
+er de
+l
+i
+v
+ery
+ c
+os
+t s
+av
+i
+ng
+s
+ fro
+m o
+ff
+-
+p
+ea
+k
+ 
+i
+r
+r
+i
+ga
+t
+i
+o
+n p
+r
+i
+c
+i
+ng
+ (
+C
+IT di
+s
+tr
+i
+c
+ts
+)
+.
+ 
+en-AU
+ 
+en-AU
+ 
+en-AU
+5. W
+a
+ter C
+ost
+s 
+ 
+Riverla
+nd
+ 
+Far
+mers
+ 
+en-AU
+W
+at
+er c
+os
+t i
+s
+ th
+e l
+arges
+t a
+n
+d m
+os
+t v
+o
+l
+at
+i
+l
+e i
+np
+u
+t c
+os
+t fo
+r
+ Ri
+v
+erla
+nd
+ 
+i
+r
+r
+i
+ga
+t
+ors
+. It
+ h
+as
+ two 
+c
+om
+pl
+ete
+l
+y
+ s
+ep
+arat
+e 
+c
+om
+po
+n
+en
+ts
+ t
+ha
+t 
+are of
+ten
+ 
+c
+on
+fus
+ed
+:
+ th
+e
+ de
+l
+i
+v
+ery
+ fe
+e (
+what
+ t
+he
+ 
+i
+r
+r
+i
+ga
+ti
+o
+n t
+r
+us
+t c
+h
+a
+r
+ge
+s
+ to
+ p
+i
+pe
+ wat
+er to y
+o
+ur 
+property
+ 
+ 
+fi
+x
+ed
+ an
+d p
+r
+e
+di
+c
+tab
+l
+e) 
+an
+d 
+the
+ wat
+er mark
+et 
+a
+l
+l
+oc
+a
+ti
+o
+n p
+r
+i
+c
+e (wha
+t y
+o
+u p
+ay
+ t
+o b
+uy
+ t
+he
+ w
+ate
+r
+ 
+i
+ts
+el
+f
+ 
+ 
+hi
+g
+hl
+y
+ v
+ol
+ati
+l
+e,
+ dri
+v
+e
+n b
+y
+ r
+a
+i
+nfa
+l
+l
+ a
+nd
+ 
+droug
+ht). In
+ a 
+dr
+o
+ug
+ht 
+y
+e
+ar, th
+e m
+ark
+et 
+a
+l
+l
+oc
+ati
+o
+n p
+r
+i
+c
+e a
+l
+on
+e c
+an
+ 
+ex
+c
+ee
+d t
+he
+ 
+en
+ti
+r
+e
+ r
+ev
+en
+u
+e f
+r
+o
+m wi
+ne
+ 
+grapes
+.
+ 
+en-AU
+ 
+en-AU
+CSV Fi
+le
+ 
+en-AU
+09_Ri
+v
+erla
+nd_Far
+me
+r
+_W
+ater
+_Cos
+ts
+.c
+s
+v
+  |
+  14 
+r
+ows
+  |
+  5 c
+os
+t c
+om
+pone
+nts
+ + 2 
+wor
+k
+ed e
+x
+am
+pl
+es
+ 
+en-AU
+M
+e
+tho
+d
+ 
+en-AU
+T
+ak
+en d
+i
+r
+ec
+tl
+y
+ from offi
+c
+i
+al
+ 
+i
+r
+r
+i
+gati
+on trus
+t S
+c
+hedu
+l
+e of 
+Charges
+ P
+DF
+s
+ (
+l
+egal
+l
+y
+ 
+bi
+ndi
+ng, s
+i
+gned
+ b
+y
+ trus
+t CE
+O
+s
+)
+ and
+ Ri
+c
+ardo W
+ater Mark
+ets
+ Report 2025
+. No 
+es
+ti
+ma
+ti
+on fo
+r
+ del
+i
+v
+ery
+ fees
+. 
+W
+ater mark
+et pri
+c
+es
+ from v
+erif
+i
+ed i
+ndep
+ende
+nt 
+anal
+y
+s
+t.
+ 
+en-AU
+Prim
+a
+ry 
+Sou
+rc
+e
+s
+ 
+en-AU
+Renm
+ark
+ Irr
+i
+gati
+on Tr
+us
+t 
+ 
+S
+c
+hedu
+l
+e of 
+Charges
+ J
+ul
+-
+De
+c
+ 202
+5 (Rate Noti
+c
+e 51
+, 
+s
+i
+gned
+ by
+ CE
+O
+)
+ |
+ Central
+ Irr
+i
+gati
+on Tr
+us
+t 
+ 
+S
+c
+hedu
+l
+e of 
+Charges
+ O
+c
+t 202
+5 |
+ 
+Ri
+c
+ardo W
+ater Mark
+ets
+ Report 2025
+ |
+ Ri
+v
+erla
+nd W
+i
+ne o
+pen 
+l
+etter to S
+A
+ P
+r
+em
+i
+er, 
+Nov
+em
+ber 2025
+ 
+en-AU
+Sou
+rce
+ L
+in
+k
+s
+ 
+en-AU
+r
+i
+t.org.au/fe
+es
+-
+and
+-
+pric
+es
+/ |
+ c
+i
+t.org.au |
+ r
+i
+c
+ardo.c
+om
+/en/n
+ews
+-
+and
+-
+i
+ns
+i
+ghts
+/i
+ndu
+s
+tr
+y
+-
+i
+ns
+i
+ght
+s
+/202
+5
+-
+r
+i
+c
+ardo
+-
+water
+-
+ma
+r
+k
+ets
+-
+r
+eport
+ 
+en-AU
+Corr
+e
+c
+tne
+s
+s
+ 
+en-AU
+Del
+i
+v
+ery
+ fees
+ are v
+erbati
+m f
+r
+om
+ l
+egal
+l
+y
+ bi
+ndi
+ng trus
+t tari
+ff 
+s
+c
+hedu
+l
+es
+ 
+ 
+the 
+s
+am
+e 
+doc
+um
+ents
+ i
+r
+r
+i
+gato
+r
+s
+ r
+ec
+ei
+v
+e 
+wi
+th th
+ei
+r
+ bi
+l
+l
+s
+. M
+ark
+et pri
+c
+e o
+f $15
+3/M
+L (2024
+-
+25) i
+s
+ 
+fr
+om
+ the 
+Ri
+c
+ardo W
+ater Mark
+ets
+ Report 2025
+, i
+ndep
+ende
+ntl
+y
+ c
+onf
+i
+r
+me
+d by
+ the 
+Ri
+v
+erla
+nd W
+i
+ne 
+i
+ndus
+tr
+y
+ bod
+y
+ whi
+c
+h repor
+ted l
+eas
+e pri
+c
+e
+s
+ around $3
+00/M
+L for the 
+s
+am
+e s
+eas
+on.
+ 
+en-AU
+ 
+en-AU
+5.1 T
+he T
+wo Compo
+nents 
+ 
+Why T
+hey 
+Must Be 
+Kept 
+Separ
+ate
+ 
+en-AU
+ 
+en-AU
+Com
+po
+ne
+nt
+ 
+en-AU
+Wh
+a
+t i
+t p
+a
+y
+s
+ f
+or
+ 
+en-AU
+Wh
+o 
+s
+e
+t
+s
+ i
+t
+ 
+en-AU
+Vol
+a
+til
+ity
+ 
+en-AU
+2
+0
+2
+5
+ Ra
+t
+e
+ 
+(a
+pp
+rox
+)
+ 
+en-AU
+Del
+iv
+e
+ry 
+f
+e
+e
+ 
+en-AU
+Pip
+in
+g 
+w
+a
+te
+r to
+ y
+ou
+r pro
+pe
+rt
+y
+ 
+(trus
+t i
+nfra
+s
+tru
+c
+ture
+)
+ 
+en-AU
+Irriga
+tio
+n 
+trus
+t
+ 
+ 
+pu
+bl
+is
+h
+e
+d 
+6
+-
+m
+on
+thl
+y
+ 
+en-AU
+L
+O
+W 
+ 
+c
+h
+a
+n
+g
+e
+s
+ 
+a
+n
+n
+u
+a
+l
+l
+y
+ 
+en-AU
+$28
+$
+1
+4
+7
+/
+M
+L 
+(v
+a
+rie
+s
+ b
+y
+ 
+di
+s
+tric
+t)
+ 
+en-AU
+Wa
+te
+r m
+a
+rk
+e
+t 
+pric
+e
+ 
+en-AU
+Buy
+in
+g 
+the
+ wate
+r a
+ll
+oc
+a
+ti
+on
+ 
+its
+e
+lf
+ 
+en-AU
+O
+p
+e
+n
+ m
+a
+rk
+e
+t
+ 
+ 
+s
+u
+p
+p
+l
+y
+ 
+a
+n
+d
+ 
+d
+e
+m
+a
+n
+d
+ 
+en-AU
+VERY
+ HIGH
+ 
+ 
+$
+2
+9
+/
+M
+L 
+to 
+$
+4
+5
+0
+/
+M
+L 
+hi
+s
+toric
+a
+ll
+y
+ 
+en-AU
+$
+1
+5
+3
+/
+M
+L 
+VWAP 
+2024
+-
+25
+ 
+en-AU
+La
+nd
+s
+c
+a
+pe
+ l
+e
+v
+y
+ 
+en-AU
+G
+ov
+e
+rnm
+e
+nt 
+La
+nd
+s
+c
+a
+p
+e
+ 
+Boa
+rd c
+on
+tribu
+t
+io
+n
+ 
+en-AU
+SA G
+ov
+e
+rnm
+e
+nt 
+ 
+a
+nn
+ua
+l
+ 
+en-AU
+LOW
+ 
+en-AU
+$
+8
+.2
+9
+/
+M
+L 
+(2
+0
+2
+5
+-
+2
+6
+)
+ 
+R
+iv
+e
+r
+lan
+d
+ 
+A
+g
+r
+i
+Tec
+h
+ 
+ 
+D
+a
+t
+a
+s
+e
+t
+ 
+P
+r
+o
+v
+e
+n
+a
+n
+c
+e
+ 
+&
+ 
+Met
+h
+o
+d
+o
+log
+y
+ 
+ 
+|
+ 
+ 
+P
+a
+g
+e
+ 
+10
+ 
+o
+f
+ 
+12
+ 
+en-AU
+Fi
+x
+e
+d 
+s
+e
+rvi
+c
+e
+ 
+c
+ha
+rge
+ 
+en-AU
+Acc
+e
+s
+s
+ t
+o 
+trus
+t i
+nfra
+s
+truc
+t
+ure
+ 
+ 
+reg
+a
+rdle
+s
+s
+ o
+f u
+s
+e
+ 
+en-AU
+Irriga
+tio
+n 
+trus
+t
+ 
+ 
+a
+nn
+ua
+l
+ 
+en-AU
+LOW
+ 
+en-AU
+$33
+$
+4
+4
+1
+/h
+a
+/y
+r 
+(v
+a
+rie
+s
+ b
+y
+ 
+trus
+t)
+ 
+en-AU
+ 
+en-AU
+5.2 Wat
+er Del
+ivery
+ 
+Fees 
+ 
+All Ri
+verla
+n
+d Distric
+ts (20
+25
+-
+26)
+ 
+en-AU
+Del
+i
+v
+ery
+ fe
+es
+ v
+ary
+ s
+i
+gn
+i
+f
+i
+c
+a
+ntl
+y
+ by
+ 
+l
+oc
+at
+i
+on
+ 
+be
+c
+au
+s
+e t
+h
+e f
+urth
+er wat
+er mus
+t 
+be
+ p
+u
+mp
+ed
+ up
+hi
+l
+l
+,
+ th
+e
+ mo
+r
+e
+ en
+ergy
+ th
+e 
+tr
+us
+t u
+s
+es
+ 
+ 
+a
+nd
+ t
+ha
+t c
+os
+t 
+i
+s
+ pa
+s
+s
+ed
+ to
+ 
+farmers
+.
+ 
+en-AU
+ 
+en-AU
+Trus
+t
+ 
+en-AU
+Dis
+tric
+t
+ 
+en-AU
+Pres
+s
+ure
+ Z
+o
+ne
+ 
+en-AU
+O
+ff
+-
+Pe
+a
+k
+ 
+Rate
+/M
+L
+ 
+en-AU
+Pe
+a
+k
+ 
+Rate
+/M
+L
+ 
+en-AU
+Pe
+a
+k
+ W
+i
+nd
+o
+w
+ 
+en-AU
+RIT
+ 
+en-AU
+Ren
+m
+a
+rk,
+ P
+a
+ring
+a
+,
+ 
+Cool
+ton
+g
+ 
+en-AU
+Lo
+w
+ p
+re
+s
+s
+ure
+ 
+en-AU
+$
+5
+8
+.7
+0
+ 
+en-AU
+$
+5
+8
+.7
+0
+ 
+en-AU
+No p
+e
+a
+k
+ 
+di
+s
+tin
+c
+ti
+on
+ 
+en-AU
+RIT
+ 
+en-AU
+Ren
+m
+a
+rk,
+ P
+a
+ring
+a
+ 
+ 
+e
+le
+v
+a
+t
+e
+d
+ 
+en-AU
+High
+ p
+res
+s
+ure
+ 
+en-AU
+$
+1
+4
+7
+.
+1
+0
+ 
+en-AU
+$
+1
+4
+7
+.
+1
+0
+ 
+en-AU
+No p
+e
+a
+k
+ 
+di
+s
+tin
+c
+ti
+on
+ 
+en-AU
+CIT
+ 
+en-AU
+Berri, 
+Cobd
+og
+la
+, 
+King
+s
+ton
+, 
+M
+oo
+roo
+k
+, 
+Wa
+ik
+e
+rie
+ 
+en-AU
+Lo
+w
+ p
+re
+s
+s
+ure
+ 
+en-AU
+$
+2
+8
+.0
+0
+ 
+en-AU
+$
+4
+1
+.8
+0
+ 
+en-AU
+0
+7
+:0
+0
+-
+2
+1
+:0
+0
+ M
+on
+-
+Fri
+ 
+en-AU
+CIT
+ 
+en-AU
+Cad
+e
+ll
+, 
+M
+y
+po
+lo
+ng
+a
+ 
+en-AU
+M
+e
+di
+u
+m
+ p
+res
+s
+ure
+ 
+en-AU
+$
+4
+0
+.8
+0
+ 
+en-AU
+$
+6
+1
+.3
+0
+ 
+en-AU
+0
+7
+:0
+0
+-
+2
+1
+:0
+0
+ M
+on
+-
+Fri
+ 
+en-AU
+CIT
+ 
+en-AU
+Lo
+x
+ton
+ (b
+e
+lo
+w
+ 3
+5
+m
+ h
+e
+a
+d)
+ 
+en-AU
+M
+e
+d
+-
+hi
+gh
+ 
+pre
+s
+s
+ure
+ 
+en-AU
+$
+5
+3
+.3
+0
+ 
+en-AU
+$
+7
+7
+.6
+0
+ 
+en-AU
+0
+7
+:0
+0
+-
+2
+1
+:0
+0
+ M
+on
+-
+Fri
+ 
+en-AU
+CIT
+ 
+en-AU
+Cha
+ffe
+y
+ (Coo
+lt
+on
+g),
+ 
+Lo
+x
+ton
+ h
+ig
+h
+ 
+en-AU
+High
+ p
+res
+s
+ure
+ 
+en-AU
+$
+5
+5
+.8
+0
+ 
+en-AU
+$
+8
+1
+.0
+0
+ 
+en-AU
+0
+7
+:0
+0
+-
+2
+1
+:0
+0
+ M
+on
+-
+Fri
+ 
+en-AU
+CIT
+ 
+en-AU
+G
+ol
+de
+n 
+Hei
+gh
+t
+s
+, 
+Sun
+la
+nd
+s
+ 
+en-AU
+High
+ l
+ift 
+ 
+hi
+gh
+e
+s
+t 
+c
+os
+t
+ 
+en-AU
+$
+8
+5
+.0
+0
+ 
+en-AU
+$
+1
+2
+3
+.
+5
+0
+ 
+en-AU
+0
+7
+:0
+0
+-
+2
+1
+:0
+0
+ M
+on
+-
+Fri
+ 
+en-AU
+ 
+en-AU
+SO
+UR
+CE
+ 
+en-AU
+A
+l
+l
+ fi
+gu
+r
+es
+ 
+i
+n t
+hi
+s
+ ta
+bl
+e a
+r
+e 
+t
+ak
+en
+ v
+erbat
+i
+m
+ from:
+ (
+1) Re
+nm
+ark
+ Irr
+i
+g
+ati
+on
+ Tr
+us
+t 
+S
+c
+he
+du
+l
+e 
+of 
+Ch
+arges
+ J
+ul
+y
+-
+Dec
+e
+mb
+er 
+20
+25
+ (
+Rate
+ 
+Not
+i
+c
+e 5
+1), s
+i
+g
+n
+ed
+ by
+ C
+E
+O
+ Ros
+a
+l
+i
+e A
+uric
+ht.
+ 
+(
+2) Centra
+l
+ Irr
+i
+g
+ati
+on
+ Tr
+us
+t 
+S
+c
+he
+d
+ul
+e o
+f 
+Charg
+es
+, e
+ff
+ec
+ti
+v
+e 1
+ O
+c
+to
+be
+r
+ 2
+02
+5
+. B
+oth
+ 
+a
+r
+e 
+pub
+l
+i
+c
+l
+y
+ av
+a
+i
+l
+ab
+l
+e 
+on
+ t
+he
+ r
+e
+s
+pe
+c
+ti
+v
+e t
+r
+us
+t w
+eb
+s
+i
+t
+es
+. Th
+es
+e a
+r
+e 
+l
+eg
+al
+l
+y
+ bi
+nd
+i
+ng
+ 
+tari
+f
+f
+ 
+s
+c
+he
+du
+l
+es
+ 
+ 
+th
+e s
+am
+e f
+i
+gu
+r
+es
+ th
+at 
+a
+pp
+e
+ar on
+ i
+r
+r
+i
+g
+ato
+r
+s
+' qua
+r
+terl
+y
+ b
+i
+l
+l
+s
+.
+ 
+en-AU
+ 
+en-AU
+5.3 Wat
+er Mar
+ket A
+l
+location 
+Price
+ 
+ 
+Hi
+storical 
+Rang
+e
+ 
+en-AU
+T
+hi
+s
+ i
+s
+ th
+e v
+ol
+ati
+l
+e
+ c
+om
+p
+on
+en
+t. Th
+e m
+ark
+et 
+pric
+e
+ fo
+r
+ 
+S
+A
+ Ri
+v
+er 
+Mu
+r
+r
+ay
+ wa
+ter a
+l
+l
+oc
+ati
+o
+ns
+ ha
+s
+ r
+a
+ng
+e
+d f
+r
+om
+ $2
+9
+/ML
+ 
+i
+n 
+a we
+t y
+e
+ar to 
+ov
+er $4
+50
+/
+ML
+ du
+r
+i
+n
+g t
+h
+e M
+i
+l
+l
+e
+nn
+i
+um
+ 
+Dr
+ou
+gh
+t. I
+n 2
+02
+4
+-
+2
+5 t
+h
+e a
+v
+era
+g
+e wa
+s
+ $
+15
+3/
+ML
+.
+ 
+en-AU
+ 
+en-AU
+Cond
+iti
+on
+ 
+en-AU
+Wa
+te
+r Ye
+a
+r
+ 
+en-AU
+SA M
+urray
+ Pric
+e
+/M
+L
+ 
+en-AU
+Im
+pa
+c
+t 
+on
+ W
+in
+e
+ Gr
+a
+pe
+s
+ (8
+ 
+M
+L/
+ha
+)
+ 
+en-AU
+We
+t y
+e
+a
+r 
+ 
+s
+urpl
+u
+s
+ 
+en-AU
+2022
+-
+23
+ 
+en-AU
+$
+2
+9
+/
+M
+L
+ 
+en-AU
+$
+2
+3
+2
+/h
+a
+ 
+w
+a
+te
+r p
+urc
+ha
+s
+e
+ c
+o
+s
+t
+ 
+en-AU
+Norma
+l 
+y
+e
+a
+r
+ 
+en-AU
+2023
+-
+24
+ 
+en-AU
+$
+9
+4
+/
+M
+L
+ 
+en-AU
+$
+7
+5
+2
+/h
+a
+ 
+w
+a
+te
+r p
+urc
+ha
+s
+e
+ c
+o
+s
+t
+ 
+en-AU
+Rec
+e
+nt 
+a
+v
+e
+rag
+e
+ (2
+0
+2
+4
+-
+25)
+ 
+en-AU
+2024
+-
+25
+ 
+en-AU
+$
+1
+5
+3
+/
+M
+L
+ 
+en-AU
+$
+1
+,2
+2
+4
+/h
+a
+ 
+w
+a
+t
+e
+r pu
+rch
+a
+s
+e
+ 
+c
+o
+s
+t
+ 
+en-AU
+Cr
+is
+is
+ 
+ 
+w
+a
+te
+r l
+e
+a
+s
+e
+ 
+pric
+e
+ 
+en-AU
+2024
+-
+2
+5
+ 
+s
+e
+a
+s
+o
+n
+ 
+en-AU
+~$
+3
+0
+0
+/
+M
+L 
+(
+le
+a
+s
+e
+)
+ 
+en-AU
+$
+2
+,4
+0
+0
+/h
+a
+ 
+ 
+m
+ore
+ th
+a
+n 
+e
+nti
+r
+e
+ w
+in
+e
+ 
+gra
+pe
+ re
+v
+e
+nu
+e
+/
+ha
+ 
+en-AU
+Dr
+ou
+gh
+t 
+ 
+m
+od
+e
+rate
+ 
+en-AU
+2018
+-
+19
+ 
+en-AU
+$
+4
+2
+0
+/
+M
+L
+ 
+en-AU
+$
+3
+,3
+6
+0
+/h
+a
+ 
+w
+a
+t
+e
+r pu
+rch
+a
+s
+e
+ 
+c
+o
+s
+t
+ 
+R
+iv
+e
+r
+lan
+d
+ 
+A
+g
+r
+i
+Tec
+h
+ 
+ 
+D
+a
+t
+a
+s
+e
+t
+ 
+P
+r
+o
+v
+e
+n
+a
+n
+c
+e
+ 
+&
+ 
+Met
+h
+o
+d
+o
+log
+y
+ 
+ 
+|
+ 
+ 
+P
+a
+g
+e
+ 
+11
+ 
+o
+f
+ 
+12
+ 
+en-AU
+M
+il
+le
+n
+ni
+um
+ Drou
+gh
+t 
+ 
+pe
+a
+k
+ 
+en-AU
+2007
+-
+08
+ 
+en-AU
+>$
+4
+5
+0
+/
+M
+L
+ 
+en-AU
+$
+3
+,6
+0
+0
++/
+ha
+ 
+ 
+c
+a
+t
+a
+s
+troph
+i
+c
+ f
+or 
+pe
+rma
+ne
+nt 
+pl
+a
+nti
+ng
+s
+ 
+en-AU
+ 
+en-AU
+SO
+UR
+CE
+ 
+en-AU
+2024
+-
+25
+ 
+V
+W
+A
+P
+ of
+ 
+$1
+5
+3/M
+L
+: Ri
+c
+ardo
+ W
+ate
+r
+ M
+ark
+ets
+ R
+ep
+ort 2
+02
+5, 
+wh
+i
+c
+h rep
+orts
+ 
+an
+nu
+al
+ v
+o
+l
+u
+me
+-
+we
+i
+g
+hte
+d
+ av
+erage 
+pric
+es
+ fo
+r
+ 
+al
+l
+ ma
+j
+or s
+ou
+th
+ern MD
+B
+ z
+o
+ne
+s
+. L
+ea
+s
+e
+ 
+pric
+e o
+f ~
+$
+30
+0/M
+L
+: Ri
+v
+er
+l
+an
+d W
+i
+ne
+ op
+en
+ 
+l
+ett
+er to 
+S
+A
+ P
+r
+em
+i
+er Pe
+ter M
+al
+i
+na
+us
+k
+as
+, 
+Nov
+em
+b
+er 20
+25
+ 
+ 
+s
+tat
+es
+ 
+wa
+ter l
+ea
+s
+e 
+pric
+es
+ fo
+r
+ 
+20
+2
+4
+-
+25
+ were '
+aroun
+d $
+30
+0
+/ML
+,
+ 
+50
+% 
+greate
+r
+ t
+ha
+n
+ th
+e
+ y
+ea
+r
+ pri
+or.'
+ Hi
+s
+tori
+c
+a
+l
+ pr
+i
+c
+es
+: A
+B
+A
+RE
+S
+ 
+MDB
+ 
+W
+a
+ter M
+ark
+et 
+Catc
+h
+m
+en
+t 
+Data
+s
+et 
+(
+d
+ata
+.
+go
+v
+.a
+u) for
+ 2
+00
+2
+-
+2
+02
+1,
+ Ri
+c
+ard
+o rep
+orts
+ f
+or 201
+3
+-
+20
+2
+5.
+ 
+en-AU
+ 
+en-AU
+5.4 T
+otal Wate
+r Cos
+t 
+ 
+Work
+ed E
+xampl
+es Per 
+Hecta
+re
+ 
+en-AU
+T
+he
+s
+e wo
+r
+k
+ed
+ ex
+am
+pl
+es
+ c
+om
+bi
+ne
+ a
+l
+l
+ c
+om
+p
+on
+en
+ts
+ to
+ s
+h
+ow th
+e t
+r
+ue
+ 
+tot
+a
+l
+ w
+ate
+r
+ c
+os
+t 
+for a ty
+p
+i
+c
+al
+ R
+i
+v
+erl
+an
+d 
+wi
+ne
+ 
+grape 
+bl
+oc
+k
+ un
+de
+r
+ 
+di
+ff
+erent
+ 
+c
+on
+di
+t
+i
+o
+ns
+.
+ 
+en-AU
+ 
+en-AU
+Sc
+e
+na
+rio
+ 
+en-AU
+Fi
+x
+e
+d 
+c
+ha
+rge
+ 
+en-AU
+Del
+iv
+e
+ry 
+(
+8
+ 
+M
+L)
+ 
+en-AU
+Le
+v
+y
+ (
+8
+ 
+M
+L)
+ 
+en-AU
+M
+a
+rke
+t 
+pric
+e
+ (
+8
+ 
+M
+L)
+ 
+en-AU
+TOTAL /
+ h
+a
+ 
+en-AU
+RIT 
+lo
+w
+ p
+res
+s
+ure
+ 
+ 
+w
+e
+t 
+y
+e
+a
+r ($
+2
+9
+/M
+L 
+m
+a
+rk
+e
+t)
+ 
+en-AU
+$441
+ 
+en-AU
+$470
+ 
+en-AU
+$66
+ 
+en-AU
+$232
+ 
+en-AU
+$
+1
+,2
+0
+9
+ 
+en-AU
+RIT 
+lo
+w
+ p
+res
+s
+ure
+ 
+ 
+2
+0
+2
+5
+ 
+a
+v
+e
+rag
+e
+ ($
+1
+5
+3
+/M
+L 
+m
+a
+rk
+e
+t)
+ 
+en-AU
+$441
+ 
+en-AU
+$470
+ 
+en-AU
+$66
+ 
+en-AU
+$
+1
+,2
+2
+4
+ 
+en-AU
+$
+2
+,2
+0
+1
+ 
+en-AU
+CIT 
+lo
+w
+ p
+res
+s
+ure
+ OFF
+-
+PEAK
+ 
+ 
+2
+0
+2
+5
+ 
+a
+v
+e
+rag
+e
+ 
+en-AU
+$267
+ 
+en-AU
+$224
+ 
+en-AU
+$66
+ 
+en-AU
+$
+1
+,2
+2
+4
+ 
+en-AU
+$
+1
+,7
+8
+1
+ 
+en-AU
+CIT 
+lo
+w
+ p
+res
+s
+ure
+ PEAK 
+ 
+2
+0
+2
+5
+ 
+a
+v
+e
+rag
+e
+ 
+en-AU
+$267
+ 
+en-AU
+$334
+ 
+en-AU
+$66
+ 
+en-AU
+$
+1
+,2
+2
+4
+ 
+en-AU
+$
+1
+,8
+9
+1
+ 
+en-AU
+RIT 
+lo
+w
+ p
+res
+s
+ure
+ 
+ 
+drou
+gh
+t ($
+4
+2
+0
+/
+M
+L 
+m
+a
+rke
+t)
+ 
+en-AU
+$441
+ 
+en-AU
+$470
+ 
+en-AU
+$66
+ 
+en-AU
+$
+3
+,3
+6
+0
+ 
+en-AU
+$
+4
+,3
+3
+7
+ 
+en-AU
+G
+ol
+de
+n 
+Hei
+gh
+t
+s
+ HIGH
+ 
+PRESS
+UR
+E 
+ 
+2025 
+a
+v
+e
+rag
+e
+ 
+en-AU
+$509
+ 
+en-AU
+$680
+ 
+en-AU
+$63
+ 
+en-AU
+$
+1
+,2
+2
+4
+ 
+en-AU
+$
+2
+,4
+7
+6
+ 
+en-AU
+ 
+en-AU
+KEY INSIG
+HT
+ 
+en-AU
+F
+or CIT
+ l
+o
+w
+-
+pres
+s
+ure d
+i
+s
+tr
+i
+c
+ts
+ (
+B
+err
+i
+, 
+W
+a
+i
+k
+erie
+ 
+etc
+.)
+, s
+c
+he
+du
+l
+i
+n
+g i
+r
+r
+i
+ga
+t
+i
+o
+n o
+ff
+-
+p
+ea
+k
+ 
+(
+ov
+erni
+gh
+t)
+ r
+ed
+uc
+es
+ t
+he
+ 
+de
+l
+i
+v
+ery
+ fe
+e f
+r
+om
+ 
+$3
+3
+4/h
+a t
+o
+ $2
+24
+/h
+a 
+ 
+a s
+av
+i
+n
+g o
+f 
+$1
+1
+0/h
+a 
+pe
+r
+ s
+ea
+s
+on
+,
+ ev
+ery
+ s
+ea
+s
+on
+.
+ 
+O
+v
+er a 10
+-
+he
+c
+t
+are b
+l
+oc
+k
+, th
+at 
+i
+s
+ $
+1,1
+00
+/y
+ea
+r
+ 
+i
+n 
+di
+r
+ec
+t c
+os
+t 
+s
+av
+i
+ng
+ fro
+m s
+c
+he
+d
+ul
+i
+ng
+ al
+o
+ne
+, s
+i
+mp
+l
+y
+ 
+by
+ r
+un
+n
+i
+ng
+ pu
+mp
+s
+ af
+ter 9p
+m 
+i
+ns
+tea
+d o
+f
+ du
+r
+i
+n
+g 
+the
+ d
+ay
+. Thi
+s
+ 
+i
+s
+ th
+e
+ c
+on
+c
+r
+et
+e f
+i
+na
+nc
+i
+al
+ j
+us
+t
+i
+fi
+c
+at
+i
+o
+n f
+or t
+he
+ M
+V
+P
+ W
+ate
+r
+ 
+&
+ Irr
+i
+g
+ati
+on
+ 
+mo
+du
+l
+e's
+ s
+c
+he
+d
+ul
+i
+n
+g f
+e
+atu
+r
+e 
+ 
+i
+t d
+i
+r
+ec
+tl
+y
+ r
+ed
+uc
+es
+ th
+i
+s
+ l
+i
+ne
+ 
+i
+te
+m.
+ 
+en-AU
+ 
+en-AU
+ 
+en-AU
+Update 
+Sched
+ule fo
+r T
+hese T
+wo Datas
+e
+ts
+ 
+en-AU
+en-AU
+ 
+E
+l
+ec
+tr
+i
+c
+i
+ty
+ (
+F
+i
+l
+e 0
+8): T
+he
+ 
+A
+E
+R r
+ev
+i
+ews
+ th
+e D
+MO
+ an
+nu
+a
+l
+l
+y
+. The 2
+0
+26
+-
+2
+7 DM
+O
+ 
+wi
+l
+l
+ 
+b
+e p
+u
+bl
+i
+s
+he
+d 
+i
+n 
+Ma
+y
+/J
+un
+e 
+20
+26
+ a
+nd
+ t
+ak
+es
+ 
+eff
+ec
+t 1
+ J
+ul
+y
+ 2
+02
+6.
+ Upd
+ate
+ 
+t
+he
+ r
+ate
+s
+ 
+at 
+th
+at 
+t
+i
+m
+e.
+ 
+en-AU
+en-AU
+ 
+W
+at
+er de
+l
+i
+v
+ery
+ fe
+es
+ (
+F
+i
+l
+e
+ 09
+)
+: RIT up
+da
+tes
+ 
+ev
+ery
+ 6 
+mo
+n
+ths
+ (
+J
+an
+ua
+r
+y
+ an
+d J
+ul
+y
+)
+. C
+IT upd
+ate
+s
+ a
+nn
+u
+al
+l
+y
+ i
+n
+ 
+O
+c
+tob
+er. Ch
+ec
+k
+ r
+i
+t.o
+r
+g.
+au
+/f
+ee
+s
+-
+and
+-
+pr
+i
+c
+es
+ an
+d
+ c
+i
+t.o
+r
+g.
+au
+ at
+ th
+e
+ s
+tart of 
+ea
+c
+h s
+e
+as
+on
+.
+ 
+en-AU
+en-AU
+ 
+W
+at
+er mark
+et 
+pric
+es
+ (
+F
+i
+l
+e 0
+9): T
+he
+ R
+i
+c
+ardo 
+W
+ate
+r
+ M
+ark
+ets
+ Rep
+ort 
+i
+s
+ pu
+bl
+i
+s
+he
+d
+ ea
+c
+h S
+ep
+tem
+be
+r
+. U
+pd
+a
+te 
+the
+ m
+ark
+et 
+pric
+e
+ h
+i
+s
+tory
+ r
+ow a
+fte
+r
+ 
+ea
+c
+h a
+nn
+ua
+l
+ r
+ep
+ort.
+ 
+en-AU
+ 
+R
+iv
+e
+r
+lan
+d
+ 
+A
+g
+r
+i
+Tec
+h
+ 
+ 
+D
+a
+t
+a
+s
+e
+t
+ 
+P
+r
+o
+v
+e
+n
+a
+n
+c
+e
+ 
+&
+ 
+Met
+h
+o
+d
+o
+log
+y
+ 
+ 
+|
+ 
+ 
+P
+a
+g
+e
+ 
+12
+ 
+o
+f
+ 
+12
+ 
+en-AU
+R
+iv
+e
+r
+lan
+d
+ 
+A
+g
+r
+i
+Tec
+h
+ 
+ 
+D
+a
+t
+a
+s
+e
+t
+ 
+P
+r
+o
+v
+e
+n
+a
+n
+c
+e
+ 
+&
+ 
+Met
+h
+o
+d
+o
+log
+y
+ 
+ 
+|
+ 
+ 
+E
+le
+c
+t
+r
+i
+c
+it
+y
+ 
+&
+ 
+W
+a
+t
+e
+r
+ 
+C
+o
+s
+t
+s
+ 
+A
+d
+d
+e
+n
+d
+u
+m 
+ 
+|
+ 
+ 
+Mar
+c
+h
+ 
+2
+0
+2
+6
+ 
+Adobe
+UCS
+¬ 9 ¼¬ /¬ WVÿýVÿýÇ hV ¢Ç 9 cÇ ¡s Js Js Js Js Js J  Ps Ks Ks Ks K9 ½9 #9ÿå9 	s s Ds Ds Ds Ds Ds s s s s I3 s ks s QÍ mL ã å å   áª Þª =d N  9 S´ d Nd Md Msÿý  ô 8´ z ¡d  1  ö /ì -%  Dã ã ª è¬ rd Ts .d 3å s s   ïVÿýVÿý9 c   Rsÿü   ª Sª GÇ Ç ld Nô /  !V Vþ9sÿäª \ª \    s I9 ¹Ç lª G  %VÿýV ¢VÿýV ¢V ¢9 9ÿà9 9 9 c9 c9 cÇ ¡Ç ¡Ç ¡9 Æª ª ª ª .ª åª ¢ª kª :ª Kª (s  Ç V \  ?ã 
+ ¼Çÿýs IV   !V s ¬ r¬ ¡ª kª ª !¬ k¬ k¬ !s  9 ms B9 ±V \  ?Ç f  PÇ f  Ps Fkÿáª îVÿýs JVÿýs JÇ ë GÇÿýV ¢s KV ¢s Ks Ç Bs U s ¬ Ç s Ç s 9 cs DÇ ¡ª Ç ¡ª <V \  ?ã 09 $ã 0  #Ç ¡s Ç ¡s ã 
+ã 
+h ¤9 `b U  Ht H bð D
+À +  +  U s Ks  ë  K  ?Ç 9 	Çÿ¢@  s     !k é ¡J   A   -                                      ÿ¬        ÿÎ }  ÿ73 Ò    ÿ9 ¹ iV 21  -Ñ ù  _Ê ¸ ù  (° P´ <Ê Ï Pù Ò < Z<  n_ s± Ô 
+f  ( d$ (ò ò ò ã ZV Z ù F ( (´ÿI´ÿIH - d d d d i i iV 21  -Ñ K  J  ¸ K   (° P´ <Ï PÒ < Z n_ sÔ 
+f  ( d$ (ù V 2° P_ s <  ÿÜ  ÿ%  ÿÜ  þQ «  Ú CM y¨ÿº   F   F   F   F   H   F   F   F5|5.5 ·5 5,5 ¾5 ¯5 5 5 Û5  À5 ³    B 6  5 5 5 Ë             F                ÿº      µ :µ :ôÿºôÿº         65 6=ÿº=ÿºé Jé J v 'ÿºÿº v 'ÿºÿº 2µ $ ÿ÷                                 1   F   F   @   F      ÿÜ  þQ  ÿ  ÿ  ÿ  ÿ  ÿ  ÿ  ÿ  ÿ  ÿ  ÿÜ  ÿ  ÿÜ  ÿ   ÿÜs J                                                             0  î M y¨ Öÿ×¨ VÖ u 2u 2¨ .Ö  2µ $ôÿºôÿº¨ Ö µ :µ :ôÿºôÿºBÿþ ÿ÷µ :µ :ôÿºôÿºµ :µ :ôÿºôÿº 65 6=ÿº=ÿº 65 6=ÿº=ÿº 65 6=ÿº=ÿº³ _³ _³ _³ _é Jé Jé Jé J > >?ÿº?ÿº > >?ÿº?ÿºÉ >É >ÅÿºÅÿºÉ >É >ÅÿºÅÿº§ÿº§ÿº§ÿº§ÿº§ÿº§ÿº§ÿº§ÿºZ * 65ÿº'ÿºZ * 65ÿº'ÿºO 'O '$ÿºÿº§ F§ F$ÿºÿºÏ -Ï -'ÿº'ÿº
+ G
+ G¨ÿº¨ÿº´ #´ #'ÿº'ÿº5 E5 EôÿºôÿºB 6 ÿ÷ÿº'ÿºu 2u 2 2µ $ 2µ $ôÿºôÿºZ 1Î AZ 'Î :Z SÎ JZ SÎ J       F   F         F   F       H   F         F   F   F   F   @   1     F   F                                                                                                             Ê Ç Æ                                                 ÿº ÿº ÿºÜ c? DÕ ¡[   ýÜ  ü/  ü¦  þT  ü×  ýs  þ
+  þ
+ã 
+Vÿýs JV ¢s K9 cs D  þý9 cs D9 cs D9 cs DV   !s Ws Hs s     Ps Fs Fs Ué U« I« 2
+ 2 D9ÿ¹s Bs Bx P ï s s s Ç Ç WÙ D  n Ç  ª ª ª sÿ¦s l s DS D? Wf Dªÿäªÿäªÿäª ª ª ªÿäU U   ?Çÿ¢ÿ¹ÇÿrË  9 9 $s  T`   Ç   (   (T (\ L\ y  $  P  $  P9 c@  Ix Pk .    ; s H  $  P· F@ F F³ $o $À $ J  â 8 c d dFÿÎë dë  ë  ê dÙ     Z× ^Ç Ç lÇ ª ûª ûÊ 2Ê 2¬ p¬ p¬ e¬ eª!ª Þª Yª!ª ª Yª Þ9 ¶9 ¶ª ûª ûª ¦ª ¦ª ¦ª ªÿâªÿû  B d¸ 2   Ê 2     ª bª bª (ª ª GW W W W W CW CW CW CW C CW /W /W /W /W / /W %W %W %W %W % /W W W W W  W BW BW BW BW B BW W W W W BW BW BW BW B BW /W /W /W /W / /W /W /W /W /W / /W &W &W &W &W & &W BW BW BW BW B BW W W W W BW BW BW BW B BW &W &W &W &W & &W #W #W #W #W # #W /W /W /W /W / /W KW KW KW KW K KW W W W W BW BW BW BW B BW W W W W  W $W $W $W $W $ $W /W /W /W /W / /W NW NW NW NW N NW W W W   þÁ  þÆ  ý¬  þØ  ÿ  þé  ÿL  þ   þÄ  ÿÎ  ÿf  þ   þØ  þØ  ÿ  ÿ  ÿ  ÿô  ÿB  ÿB  ÿD  ÿ_  þ  ÿì  ÿ¦  ÿQ  ÿQ  ÿQ  þÉ  ÿ      þé  ÿL  ÿ  ÿ*  ÿV  ÿÎ  þ  þ»  þÄ  þÄ  þØ  þØ  þ³  þÉ  ý­  þÈ  þ³  þÉ  ý­  þ  þæ  ÿ¦  þ  ÿD  þº  ÿ#  ÿ  ý¬  þ      þ°  ÿ  þ  ÿ¦  þ  þ  ÿf  ÿD  þ°  þ°  þ°  ÿ  ÿR  ý  ÿS  ÿS  ÿS  þµ  þµ  ÿÃ  þ®  þÜ  þÇ  þÈ  þÜ  þ  ÿB  ÿQ  þ·  þ°ª Þª Yª ú p`  . ª  . { L? WÏ D9 cs DÇ p  Pã ¨; ÿ  < 2
+ 
+ B  ¤ª e cs d ¤  
+V kV kà Å å _n D¶ G (Ï D [  PÇÿ¢9 ` M PV ¢À ¡s Kx 
+´ mþ 9 ç  ¿µ X   . ¿ ¡ x{ zm ¿ð Õ f« _ 9 H9 `s Dm 	 m 	  c, Dª  æ 	 mÐ P  þ7
+´ mþ Ç f  P   þ¦  þ¼  ÿ  ÿ  ü+  üLÀ ¡x @ + V s ] ¤d Õ N« 2©   ï 
+	 ¤/ 	  ö  >+ #Ç f  Pã 0ª &g 1 &U W+ Eä 
+T 
+ä 
+T 
+9 ¿c ZÿûW ¡h @ « Ç ¤k Ç ¤k U W+ Eª  ª .Vÿýs JVÿýs J   DV ¢s K cs Uc ZÿûÕ N« 2Õ N\ LÀ ¡x À ¡x 9 cs D9 `s DÀ J + 
+  ! 
+  ! 
+  !U W+ E ¨À @ Js F¿ J F¦ f SM f SÃ G F ¤ 9 mx Pù 0S &  ÿC  ÿ
+ã 
+ã 
+s 9 Ç   !s JÇ   H  H  H  H  H  H  H  HVÿýVÿý     V V b b b b b b    l  l  l  l  s s s s s s s s             ÿóÿóÇ Ç ÇÿÇÿÇÿëÇÿëÇÿ¢Çÿ¢            ÿóÿós Ds Ds Ds Ds Ds D    -  -  É  É  ` ` ` ` ` ` ` `   ®    ® ? W? W? W? W? W? W? W? W_  _  ï  ï      ÿÿÿÿ  H  H b bs s ÇÿæÇ hs Ds D` ` ? W? W  H  H  H  H  H  H  H  HVÿýVÿý     V Vs s s s s s s s             ÿóÿó? W? W? W? W? W? W? W? W_  _  ï  ï      ÿÿÿÿ  H  H  H  H  H  H  HVÿýVÿýVÿýVÿýVÿýª åª ýª åª ª s s s s s     ó  ó  Ç ¤ª ª ª Çÿ»Çÿ«ÇÿÊÇÿÊÇÿÇÿ9 9ÿõe  e  ª ª ª ` ` ` `   ` ` V V æ      ªÿêªÿêª Y? W? W? W? W? We    '  _  û aª Þª ås 
+Ç fÇ fª Ç $	P ¡ V ã 0  
+« 2k ?Û ë   U + ´ z«    O  Q 2QÿÑ 2H 2H 2ø 2n 2V i -f 2Ð 2 2q 2o 2 2 2Y 2 2v 1o 2û  ú 2ú 2 2Ì 2 d 2ù 2ù 2 2 2 2B d¶ d d d 2Õ 2 2 2 dÂ 2 dB 2 d      d   2 2¿  B dë d d   d  	 2 2¿  } F
+f F F
+/ FAÿºé <Z   ÿ
+  ÿ5  þÎ  þ·  þÉ  ÿÏ  ÿO  ÿ  þÊ³ _³ _é Jé Jÿº'ÿºÿº'ÿº­ i= -ý Ü Pà <ö ? (P (¬ r            sÿüª SÕÿÎ¨ÿº¨ÿº¨ÿº¨ÿºX 	Å G            «     U  s  9     «      å Ç fª  D  F HVÿýÇ f  s 
+ã 0  O  (¥     ÿB  þ¿  ÿ:  ÿS 
+Ç QÇ fÇ QU ¡ë   ÿC  ÿ¬  ÿ¬Ò     ÿºP   ÿ:  ÿ[  ÿ_  ÿ~  ÿ  ÿJ  þµ :µ :ôÿôÿµ :µ :ôÿºôÿºµ :µ :ôÿºôÿºµ :µ :ôÿºôÿºµ :µ :ôÿºôÿºµ :µ :ôÿºôÿºµ :µ :ôÿºôÿº 65 6=ÿº=ÿº 65 6=ÿº=ÿº³ 2³ 2³ _³ _é Jé J > >?ÿº?ÿºZ * 65ÿº'ÿºZ * 65ÿº'ÿºZ * 65ÿº'ÿºO 'O '$ÿºÿºO 'O '$ÿºÿº v 'ÿºÿº v 'ÿºÿº v 'ÿºÿº´ #´ #'ÿº'ÿº´ #´ #'ÿº'ÿº5 E5 Eôÿºôÿº5 E5 Eôÿºôÿº5 E5 Eôÿºôÿº
+ G
+ G¨ÿº¨ÿºé Jé Jé Jé J > >?ÿº?ÿºsÿs F9ÿ¿ªÿÕsÿ·sÿªÿ¤ªÿ¤ ÿÿ9ÿ¹  (s  dt HI $Ç Ç s `  
+s s F9 ´ B  Çÿüª s s ªÿû  ?ÿ¢      (s Js Hs Fs K« I« 24 UÇ   Çÿ¢s \ L dÕ 2É 3ü 2 2Õ 2Õ   2 dB B dB dB *  B dB 	3 d d dÿÉ d d 2  2¸ 2BÿÊÂ 2  2 dÔ d  Þ 2Þ 2Þ 2ô 2ê 2  þ¼  þ¼  ÿs  þ©9 ¹ú 2ù 2 2   ù 29 mVÿýs Ç fª A  H  H  H  H  H  H  H  HÇÿÇÿ«ÇÿÇÿ«ÇÿÇÿ»ÇÿÇÿ»` ` ` ` ` ` ` ` Çÿ«Çÿ«Çÿ»Çÿ»` ` ` ` Z SÎ J  V Ç 
+  ; ¤g 0 H  ÿS  ÿ¼  þþ  þþ  þ¤  þ¤Ç É ¥Ç É ¥  þÍ  ÿH  þÉ  þÎ  þÅ  þÐ  þÑ  þî  þÖ  þÜ  ýÙ9 Xs H Ç  ¤  þ¹Ü cÆ 	L º 9 ¹ r Z Z    9 °9 °9 °ª    F   ;   1   V   D   V   J   Iã 0s Ps \ ?P HF =s 1P =} b' ?s Vy Ts U ;s <s Vs 2s U~ b/ Ks S{ UÅ jÓ cø ¦	J ¦ø  ;A ¤9 `r FÇ ø 
+ s NP x s \s \ ;
+ Ç q   Ã \ç o  / \ð ê s 
+  | <ç U Æ F¯ Û # ª "ª kª ª !ª ª "ª .ª Iª *ª 3ª .ª 3ª "Å jÅ jÅ jÅ jÅ jÅ jÅ jÅ jÅ jÅ jÅ jÓ cÓ cÓ cÓ cÓ cÓ cÓ cÓ cÓ cÓ cÓ cø ¦ø ¦ø ¦ø ¦ø ø ø ø ø ø ø ø ø  ; ; ; ; 2 ; ; ; ;ÿ¬ ; ; ;
+ 
+ Ni ¥ 
+  ; ; ; ; 2 ; ; ;A ¤r Fr Fr Fr Fr Fr Fr Fr Fr FÇÿ§ø 
+ 
+ Ni ¥ 
+ P P   P x x x x   Wª ª "ª Iª *î í í  Õ ã & & & ,& & c& 0& & & & 
+ F F  ÿºÒ F  ÿ[  ÿ  ÿ·  ÿ 65 6=ÿº=ÿº 65 6=ÿº=ÿº > >?ÿº?ÿºé Jé J 65 6=ÿº=ÿº¨ÿÃÖÿ_¨ÿéÖÿ 2µ $ôÿºôÿº 2µ $ôÿºôÿº 2µ $ôÿºôÿºu 2u 2u 2u 2 E E E E 65 6=ÿº=ÿº > >?ÿº?ÿº > >?ÿº?ÿºÏ -Ï -'ÿº'ÿº´ÿà ÿàÿèäÿè\ 2Ú 2 2 9·    þ,  ÿü   k   s   k 2µ $ôÿºôÿº v 'ÿºÿº v 'ÿºÿº 2µ $ôÿºôÿº 2µ $ôÿºôÿº 2µ $ôÿºôÿº  ÿõ ¤Í 
+ã 0ª &À ¡¬ V s Z
+f Ds ~V ®  N ¾ © 	Ú V    
+ 	 ¤Î Ç ¤U £ ¢o 9 9 t H" ¿/ º \t IY  
+ª VÿýÜ ¥ Kªÿås Dë LFÿÎ  V \ã 
+  ÿ¬  ÿ* «  D <= <D <= <D <= <E <D <= <§ F «' "0 z .  ÿvX ê ¥Ì ¥º F¾ FÌ ¥¬ È ¥Ê ¤t ¤º FE ¥9 ¥e ¥"  í <¦ ¾ F 	 ¥» ªÿì Ì ¥ W <è  ¥Ì ¥ FG \m ¥k i  ¥ P} 8B d F1 ¶Ç l[ÿyÿ¡ Úÿ´ B© h £ H© m g Hï h W £ Hh Â ­ W Hm h / Fm x h Âÿ£mÿÄ¦ h Æ © # _ h h ¦ h q B' ¦ gÿøp Fó <´ 9 ¹ " l lÐ FÕ Õ Ð Õ  s          ÿMµ :µ :ôÿºôÿº^ ³ _³ _É >É >ÅÿºÅÿº v 'ÿºÿºB : :é Jé J  ÿÎ  7ÇÿÀkÿ£
+£    U   @ « £  J LF   K ò ?[ Z * 65ÿº'ÿºÏ -Ï -'ÿº'ÿº  ÿS9 m¬ Z9 [¬ NÇ ¤s £ 0 $k Zk Z! <! <± <± < m J	>ÿýL J	ÿýY J
+H § <§ <V 	 ÿä Ç d <ó 2V s V s  ¿D  P P  } U} U <j FÂ ± q ª   a $Î 
+9 s I= ¿ª ¸ V¸ V Vs IÇ f ¥Ê = ¿ª & f  PÇ ¤ # Ï Çÿú ÿÿ  Ps h z ;  9 Z \3 F· \d FZ \3 F9 s V   Ç s Ç *ª V \  8t Õ NÜ cy V ã 01 ?â LV   b? W( 7  2ª ã ^V Yª 9 ¿	{  ÿï4 DÓ isÿùT 
+9 s Bò 
+Æ ðÿöÏ  s b ib Xã  R T T D De ZÛ ª  ©  Ë 2 2Çÿ¢s s ª ª ç 3 èÿöÀÿöÕ  ÿÕÿ þè  !ª . d0 û R Ä    hY s U1 RV ã 0µ :µ :ôÿºôÿºµ :µ :ôÿºôÿºµ :µ :ÿºÿºé Jé J 2µ $ôÿºôÿºO 'O '$ÿºÿº§ F§ F$ÿºÿº5 E5 Eôÿºôÿº  þ±  ÿ  ÿ>  þ  þ  ÿ2  ÿ3  ÿ  ÿ  ý  ü  ü  ýe  þ1  ý·  þù  þgÞ át 
+t 
+© Âÿ£ò s n1 \Ç Ss ,Vÿýs J3 Z9 ºÕ Zs 9 cs D1 å Ç fV \ã 
+
+'&%$#"! 
+
+	 ,E#F` °&`°&#HH-,E#F#a °&a°&#HH-,E#F`° a °F`°&#HH-,E#F#a° ` °&a° a°&#HH-,E#F`°@a °f`°&#HH-,E#F#a°@` °&a°@a°&#HH-, < <-, E# °ÍD# ¸ZQX# °D#Y °íQX# °MD#Y °QX# °
+D#Y!!-,  EhD °` E°FvhE`D-,±
+C#Ce
+-, ±
+C#C-, °#p±>°#p±E:± 
+-,E°#DE°#D-, E°%Ead°PQXED!!Y-,°Cc#b° #B°+-, E° C`D-,°C°Ce
+-, i°@a°  ±,À¸ b`+d#da\X°aY-,E°+°#D°zä-,E°+°#D-,°CXE°+°#D°zäEi °#D ° QX°+°#D°zä!°zäYY-,-,°%F`F°@aH-,KS \X°YX°Y-, °%E°#DE°#DEe#E °%`j °	#B#hj`a °° Ry!²@¹ÿà E TX#!°?#YaD± Ry³@ E TX#!°?#YaD-,±C#C-,±C#C-,±
+C#C-,±
+C#Ce-,±C#Ce-,±C#Ce-,KRXED!!Y-, °%#I°@`° c ° RX#°%8#°%e8 c8!!!!!Y-,K°dQXEi°	C`:!!!Y-,°%# õ °`#íì-,°%# õ °a#íì-,°%õ íì-, °` < <-, °a < <-,°++°**-, °C°C-,>°**-,5-,v¸##p ¸#E ° PX°aY:/-,!!d#d¸@ b-,!°QXd#d¸  b² @/+Y°`-,!°ÀQXd#d¸Ub² /+Y°`-,d#d¸@ b`#!-,´    °&°&°&°&Eh:°-,´    °&°&°&°&Ehe:°-,KS#KQZX E`D!!Y-,KTX E`D!!Y-,KS#KQZX8!!Y-,KTX8!!Y-,°CXY-,°CXY-,KT°C\ZX8!!Y-,°C\X°%°%d#dad¸QX°%°% F°`H F°`HY
+!!!!Y-,°C\X°%°%d#dad¸QX°%°% F¸ÿð`H F¸ÿð`HY
+!!!!Y-,KS#KQZX°:+!!Y-,KS#KQZX°;+!!Y-,KS#KQZ°C\ZX8!!Y-,KT°&KTZ
+°C\ZX8!!Y-,KRX°%°%I°%°%Ia ° TX! C° UX°%°%¸ÿÀ8¸ÿÀ8Y°@TX C° TX°%¸ÿÀ8Y C° TX°%°%¸ÿÀ8¸ÿÀ8°%¸ÿÀ8YYYY!!!!-,F#F`F# F`a¸ÿb# #¹ÂÂpE` ° PX°a¸ÿº°FY°`h:-,# ° Pd± %TX°@±%TX°7CY°O+Y#°b+#!#XeY-,±: !T`C-,± B±#Q±@SZX¹   TX²C`BY±$QX¹   @TX²C`B±$TX² C`B KKRX²C`BY¹@  TX²C`BY¹@  c¸ TX²C`BY¹@  c¸ TX²C`BY±&QX¹@  c¸ TX²@C`BY¹@  c¸ TX²C`BY±(QX¹@  c¸ TXº   C`BYYYYYYY± CTX@
+7@:@;@>?±CTX²7@:º  ; ³>?±CRX²7@:¸±;@¹  CRX²7@:º ;@¹ CRX²7@:¸ ±;@²7@:º  ; YYY¹@  U¹@  c¸ UZX³> ?³> ?YYYBBBBB-,°CTXKS#KQZX8!!Y!!!!Y-,°W+XKS°&KQZX
+8
+!!Y!!!!Y-, °CT°#°_#x!± C°V#y!°C#°  \X!!!± GY  #¸ cVX¸ cVX!!!±,Y!Y°b \X!!!± Y#°b \X!!!± Y°a¸ÿ³#!-, °CT°#°{#x!± C°r#y!± C°  \X!!!°cY  #¸ cVX¸ cVX°&°[°&°&°&!!!!±6 #Y!Y°&#°b \X\Z#!#!°Y°b \X!!#!°Y°&°a¸ÿ#!-,-,°%c° `f°%¸  b`#b-,#J±N+-,#J±N+-,#J#Ed°%d°%ad°5CRX! dY±N+#° PXeY-,#J#Ed°%d°%ad°5CRX! dY±N+#° PXeY-, °%J±N+;-, °%J±N+;-,°%°%°g+;-,°%°%°h+;-,°%F°%F`°%.°%°%°& ° PX!°j°lY+°%F°%F`a°b  #:# #:-,°%G°%G`°%G°ca°%°%Ic#°%J°c Xb!Y°&F`FF`° ca-,°&°%°%°&°n+  #:# #:-,# °TX!°%±N+°P `Y `` °QX!! °QX! fa°@#a± %P°%°%PZX °%aSX!° Y!Y°TX fae#!!!° YYY±N+-,°%°%J° SX° #°Y°%F fa °&°&I°&°&°p+#ae° ` fa° ae-,°%F  ° PX!±N+E#!Yae°%;-,°& ¸ b ¸ c#a °]`+°% 9Xº ]  &cV`+#!  F ±N+#a#!  I±N+Y;-,º ]  	%cV`+°%°%°&°m+±]%`+°%°%°%°%°o+º ]  &cV`+ ° RX°P+°%°%°%°%°%°q+°8° R°%°RZX°%°%I°%°%I` °@RX!° RX °TX°%°%°%°%I°8°%°%°%°%I°8YYYYY!!!!!-,±%PX¹@  c¸ T\°KR[°Y-±TA,,,"  +* < *²¸(³&Ð¼
+YY v??>9FD>9FD>9FD>9FD>9F`D>9F`D+++++++++++++++++++++++B°KSX²5ªªBY°2KSX²5ÿÿBYK°S \X¹òðED¹ñðEDYX¹>òERX¹ò>DYYK¸VS \X¹  ñED¹ &ñEDYX¹  ERX¹  DYYK¸S \X¹ %òED¹ $òEDYX¹		 %ERX¹ %		DYYK¸S \X±s$ED±$$EDYX¹  sERX¹ s DYYK¸S \X±Ê%ED±%%EDYX¹ ÊERX¹ ÊDYYK°>S \X±ED±EDYX¹ ERX¹ DYYK°VS \X±ED±/EDYX¹ ERX¹ DYYK¸S \X±ED±EDYX¹
+à ERX¹ 
+àDYY+++++++++++++++++++++++++++++++++++++++++eB++³;Yc\Ee#E`#Ee`#E`°vh°b  ±cYEe#E °&`bch °&ae°Y#eD°c#D ±;\Ee#E °&`bch °&ae°\#eD°;#D± \ETX±\@eD²;@;E#aDY³GP47Ee#E`#Ee`#E`°vh°b  ±4PEe#E °&`bch °&ae°P#eD°4#D ±G7Ee#E °&`bch °&ae°7#eD°G#D± 7ETX±7@eD²G@GE#aDY KSBKPX± BYC\X± BY³
+CX`!YBp>°CX¹;!~º ¨ +Y°#B°
+#B°CX¹-A-Aº   +Y°#B°#B°CX¹~;!º¨  +Y°#B°#B +tusu EiDEiDEiDsssstustu++++tu+++++sssssssssssssssssssssssss+++E°@aDst  K°*SK°?QZX±E°@`DY K°:SK°?QZX±E¸ÿÀ`DY K°.SK°:QZX±E°@`DY K°.SK°<QZX±		E¸ÿÀ`DY++++++++++++++++++u+++++++C\X¹ »³@t sY°KT°KTZ°C\ZXº "  sY +ts+s++++++++ssss+++++ ++++++ EiDsEiDsEiDstuEiDsEiDEiDEiDstEiDEiDs+++++s+ +s+tu++++++++++++++stus+stustu+++t+ +++ EiD+\XA6/ A 0/ - -/ 2 2/@&7	7
+DD++++++++Y+ º º § &   ÿç  ÿè  ÿçþiÿèº þiÿèê   ¸   ¸     ¨ ­i ­ ¿ Âð  ¯ ¹ ´ È  D  |    Z È  R R  D ÿ´ / ¡  ¡ Í  W ~ º ÿé  Ó   
+ " A P o Lÿu \ ß 7 L n pÿXÿÿÿ¤ ¥ ¹Èÿý   c c ÍÿîØÿÜ - \   ß	µ @ W  ¹ r ]ÿgÿú  ! w Í  M ÍÀ+ L e ç|CØÿ£ÿ°ÿÄ   ] h  º5G!\ÿMÿÍ  - x   ² ¶ ¶ ¸ ½ Úðÿ¤ÿð  , I  ´ ÎÀþýþ?     
+ "  b J ä m î å HÀ 3þN±ÿFp yß Qÿ§ÿ
+ hÿl O ¼ ¥ a+ í°Ò ¶ { eRÿteþi   \ @  u  qù       ¥ ª ¯ ´ ¹           B´ä¸@ ä 
+ä ä¼1 	. +ö<ý<Nô<Mý< ?<ý<ü<ý<10!!%!!  ü Àü@ û  À   °  º  	 °+X±CTX² ¸¯@<
+	:<:/äýä ?ýæ?±¸¯@&< 
+Ë	:8< 8:< Ë
+
+!¡++Nô]<Míääýääî ??MýæKSX³ <<YY10·  @  ??Í2/01Y353ç7ß4£Ïl	Eþ»ü÷þÍÍ  ^³wº   °+X¹  ÿø³"%4¸ÿø@"&
+5O,.O 0.O 6%8O! 784'2O 32-+O,+/1O 01 <<+<<+<+<<+++++*+*++ +]]@ 81@+  
+]\|%ý
+sbw/   wÿÊÓ    ' 38°+X@
+h¸@1+¼ 	e @%(¼ e .²%¼ +  1³"¬5¼   @	   u4WZ+ö]íôíöíôí ?íýí<<?<<íýí9999.+}Ä10Cy@R3
+2!(,'. 0#.    ++++++++++++++++]±(¸e²%	¸e@.% ?3??33/ä2ä201Y4632#"&"32654&34632#"&"32654&wµ·±9CYZBDYZB"üáåµ·±:DYZBEYZZÜÅ¿ºÉÆÅtstsús	ù÷ÛÅ¿ºÉÇÄttts   XÿÞ'Ó  , 6°+X@Èzrrz.z/¦/Ý £/6!´`a!@j ªÚssuru {©® 
+Ë Æ'ÍÂºÆi6ºie3e/V3F3ZMB09&$  ---.
+
+    º
+-
+
+-&
+À|[FEh?K_^D"K*ý5WIYÀe   Z³'º  <°+X@ î  jq§+ö]í ?í9910µ @  ?Í9901Y53.Í0³õõþî  |þQ`Ó  N°+X@
+' ¸3³ ¸3@^  ¬+ö]ýöíöí ?<?<10]³  ??01Y&47673ßÎMZ¼y'=#++þQ¼øîÚýûÐY»½þþ    |þQ`Ó  v°+X@((	
+ 	¸3³
+¸3´ ^¸ÿð´U¸ÿø´U¸ÿä´
+
+U¸ÿì@
+
+U¬+ö]++++ýöíöí ?<?<10]³	 ??01Y# 4'&'&'3ý++"='z¼ZMÏþQàá¼¹ZÒûýÚîþòþ   r í:¶  Y°+X@ n	ùn	n
+
+ùn?OWZ+Nô]Mô<í<ä<< /ô<ý<ô10·  
+¸3±l /+3223//01Y%!5!3!!þqªþqí¨þq¨þn   ªþÞ Í 
+ d°+Xµ
+ «¸P@&<
+< 
+< 8:O _ o      ¡+ô]ôäí<< ?í<<íýí910µ@  ?Í/Í01Y353'667¶ÍPW296ÍÍq&Ma[  A¸jm  =°+X@ppMM# p  p+Nä]æ /Mí10 q]² @ /Í01Y5!A
+©Ùý·OÀtôÈýÄ¢²O?ñ¬þv\þöÑÇ²à  MÿçÀ  *é°+X±CTX@_(@
+
+
+"
+
+ %¸ÿô@
+
+UUU
+
+U/+++Í/+ÍÔÍÅ ?í?í9/]íÄ]10@-kD@DD ZT kddjd tuÖÔ 
+
+U'¸ÿà´
+
+U#¸ÿà@
+
+U! 
+
+U(@
+P
+
+
+Ó_  ¸h@	"
+¸8² µ%Aÿô  @ V %ÿò  @ V %ÿø 
+ 
+@@V%s@!#40 ¸ÿð·U,
+¸8³¸@´V¸@´V
+
+»@ V 9@
+?_o¸@´V
+¸@@VU
+
+U¸$³+Ç+ö++++]í+++íö+]q+í+++ôí ?í?íý]ä9/]í10°C°@PX¹ ÿà´' # !¸ÿà8888Y++++] ]Yµ
+
+(¸/µl
+
+"¸/´l
+¸/²l ?+?+9/+29/01Y&'&#"6632#" 763232654&#"û³,IkVAUbA¼g´ýwÐáþäè­Ýý7ONr¤¢{zªSj0M0>îÜc`þ÷Òí~K|©Á¨ÂüÝ]ªY¸¯¯  a  § 
+ °+X@Ä
+
+	
+ ¸»@0	
+s@!#4O_os	ë O__?_o¸±+Nô]q<MôíNöq+<Mí ??<ý<99910q]´	 ¸3²l ?+3?01Y5! #67aµþíK6¹óú­þþû¸Û­êÇ  SÿçÀ  # 0Æ°+X±CTX´ .¸ÿÀ@U..!(
+	U	¸ÿô¶
+
+U	+¸ÿð´U¸ÿè´U¸ÿè¶
+
+U¸ÿð´U¸ÿð´U¸ÿô@
+
+U$UU
+
+U/+++Í/+++Í/+++Í/++Í ?í?í9/+í9910±CTX·	U	¸ÿô¶
+
+U	+¸ÿä´U¸ÿä¶
+
+U¸ÿð´U¸ÿü@"
+
+U$U
+
+U ..!(
+ ?í?í9/í99/++Í/++Í/++Í/++Í10@M5
+
+Aÿô  @ V ÿò  @ V ÿø 
+ 
+@¶Vs¿		Ag +ÿô  @ V +ÿò  @ V +ÿø 
+ 
+@@V+s@ #40 ¸´2¸@´V¸@´V
+
+¸@¶Vs°¸g³$¸@´V$¸@´V$
+
+¸@³V$s¸ÿÀ@!#4 @1Ç+ö]+í+++ô]í+++ô]q+í+++ô]í+++ ?í?í9]/í999910°C°@PX¹ "ÿà² ¸ÿà²  /¸ÿà²- &¸ÿà±
+¸/´l
+!¸/²l ?+?+9/+9901Y&&54632 #" 54632654&#"32654&#"jplæ¿ÀêkmþöÙÙþöbkhfg:IS¨­§
+U
+
+UU,+(O P¸ÿÀ@
+U
+" ?í?íÄ+]29/]í299/++/+++ÍÔÍÝÅ10±CTX· %¸ÿê´U¸ÿê@*
+
+UU,+(O P
+" ?í?íÄ]29/]í299/+/++ÍÔÍÝÅ10@G:L@#[W#flmg#z}©¼êæ ö =­:
+O_"ÓP  ¸h´
+A'ÿô  @ V ÿò  @ V ÿø 
+ 
+@ V 9 ÿô  @ V ÿö  @ V ÿø 
+ 
+@ V 8@@!#40 ,¸8µ µ%¸@´V%¸@´V%
+
+¸@³V%s¸ÿÀ@!#4 @+Ç+ö]+í+++ôíö]q+í+++í+++ ?íý]ä?í9/]í10°C°@PX» 'ÿà #ÿà³!  8888Y ]q]YYµ(¸/µl¸/´l
+"¸/²l ?+?+9/+29/01Y732>54'#"54 32#"&4&#"326p­|aS}P66»m¶üÆí{zñ¢¬ÚË¥tx²©|}¡SznLØpVkØßþãþòþçþ³®¿4¶Ä¯¯   ¹  &   N°+X@  	<<
+</ ?    ¡¡+ô]qí ??íí999910µ @ /Í?Í01Y5353¹ÍÍÍYÍÍü§ÍÍ  ªþÞ&   °+X@/s£ð &
+7
+F
+V
+e
+µ
+â
+
+<<«
+¸P@#<
+  <
+8:/? ¡¡+ô]q<ôäý<<í ??ýýí<<íí9 É10q rq·
+ @ /Í?Í/Í01Y5353'667¶ÍÍÍPW296YÍÍü§ÍÍq&Ma[   r¡:   h°+X@'	 %%%%0Ï¿ 	WZ+Näæ /Mí]qí<í<íí999910±¸3´l¸3±l /+3/+01Y!5!!5!:ü8Èü8È^¨ý¨  oþQÕÕ G W5°+X@W! !!%5
+3EID!F$FIGVTz
+* G
+VWVhk{¨¤¨Õ  ¸ÿÞ²(9¸ÿÀ@ (9 	&J & ¸@´V¸@´V
+
+¸@@
+V& 
+¸@@
+VUc\+Nô++]Mí+++Nö]Míôí ?í?í910++]]q ]++r@
+  ¸2´l	¸2²l ?+?+9/39/301Y#"$54$32&&#"326´Â=þÃåíþ×¯CÂÜ,;¿3Â©ã\mæ£â1ïûÁnÒåU±àË- ¢þï»þé¼     Zº  N°+X@ C Aÿþ  @ V ÿò  @ V ÿö  
+@@V& 	@
+
+U	 U	
+U	
+
+U	¸ÿô@U	¸@´V
+
+
+¸@´V¸@@V     U ¸ÿö´U ¸ÿö´
+
+U ¸ÿú´U ¸ÿ÷´U ¸ÿø@
+
+
+U ];\+ö++++++]<ý+++<ö+++++]í+++ ?<ý<?<ý<10Cy@6
+
+
+
+!!!
+! ++++****]± ¸3´l ¸3²l ?+?+01Y3!2#%!2676654&'&#!ù«Z~YtsNzÍþ±9¥1EMlN­þÌºLbþÏÄ§þþ©a2­61Eé¦æ÷*   ¢  èº  í°+X@ 
+	 ¸ÿÀ@4TJ 
+ 
+
+
+	¸@´V	¸@´V	
+
+¸@@V	     U ¸ÿö´U ¸ÿö´
+
+U ¸ÿú´U ¸ÿú´		U ¸ÿú´U ¸ÿð@
+
+
+U ];[+Nô+++++++]<Mý+++<Nö]Môä+ ?<ý<?<ý<9/<ý<10±¸3µl 	¸3´l ¸3²l ?+?+9/+01Y3!!!!!¢$ü+üÕº­þ?¬þ
+­   ¨  º 	 Ó°+X@"    	¸@´V	¸@´V	
+
+¸@@V	     U ¸ÿö´U ¸ÿö´
+
+U ¸ÿú@U U ¸ÿþ´U ¸ÿð@
+
+
+U ]
+;\+Nô+++++++]<Mý+++<Nö]Mä ??<ý<9/]<ý<10±¸3·l ¸3²l ?+?9/+01Y3!!!!¨Ýüå°ýPº­þ:­ýf  mÿç¹Ó %§°+X@`'^$$ !% ¸ÿÀ@U!	&'%$Aÿþ  @ V $ÿò  @ V $ÿö  
+@@
+V$   '`¸ÿä´U¸ÿò´
+
+U¸ÿÚ´U¸ÿô@Ur''¸@´V¸@´V
+
+¸@@
+V& 
+
+
+¸@@
+V
+U
+&c[+Nô++]Mí+++M]ö++++]<Mý+++<9/ ?í?í9/+<ý<999910Cy@D#&%&&%&#%
+! ! ! "%!!!	!! $!!  ++++++<<+++++++++*] ]·@$$! ¸3µl!¸2·l	¸2²l ?+2/3?+9/+9/Í01Y5%#"$54$32.#"3267LmþÐ Øþ´³PÛ&¯!b¶oÂw!8~ð>?¬ýàrs¹^ØÖs´g¸0pMQOÄþøa7  ¤  "º F°+X¹ 
+ÿÀ@4	
+ 
+Ð
+
+Aÿþ  @ V ÿò  @ V ÿö  
+@µV ¸ÿî´U¸ÿò@
+
+UU¸ÿà@UU]
+
+¸@´V¸@´V
+
+¸@·V    ¸ÿÀ@
+4  U ¸ÿö´U ¸ÿö´
+
+U ¸ÿú@U U ¸ÿ÷´U ¸ÿø@
+
+U ] 
+ 
+P
+`
+p
+;Y+]qö++++++++]<ý+++<]ö+++++<ý+++< ?<?<9]/<ý<10+±
+¸3@
+l   ????9/+01Y33!3#!¤ÂúÂÂýºý¦ZúF³ýM  ¿  º P°+X³¸@´V¸@´V¸@´VA
+@ V ÿù  @ V  ÿù  @´V
+¸@´V
+A
+@ V ÿû  
+@ V  ÿû  
+@¶V ¸ÿÀ³8=4¸ÿÀ³344¸ÿÀ³-04¸ÿÀ³(
+ÂYÁÁÍ ¨|Cs~òü¸ÊjÞ     Rº T°+X@"79	:'
+56
+G
+W×v
+ÙÙ
+¸ÿô@
+
+U(ªê
+5Ö	¸ÿà@	!4 !4¸ÿÞ³9	¸ÿà³!4¸ÿà³!4¸ÿà³!4¸ÿÀ³4¸ÿÞ@C9	%%=	=*BU	
+	
+ 
+
+	 
+
+  
+ ¸:@0 °ÀàJ¸:@0 °¸³¸@´V¸@´V
+
+¸@@
+V     U ¸ÿö´U ¸ÿö´
+
+U ¸ÿú´U ¸ÿú´U ¸ÿò@
+
+
+U ];¨+ô++++++]í+++ý]qíô]qí<<<< ?<<<?<<<9/.+}Ä.+}Ä<<K°SK°QZ°C°@PZX¹ ÿØ8Y±CTX¹ ÿð³4¸ÿð@444	4
+
+4 ++++++Y+10+++++++C\X@	"9,9,9"9¸ÿÞ¶9"9¸ÿÞ@9"9@9¸ÿÞµ%9@9+++++++++++Y +++qr]+ q]++@	
+
+   ????9/39301Y33!!ÂØýÿ ýöðºý
+
+UU	 	 	
+U
+
+U¸ÿú¶U ¸ÿæ´U ¸ÿø´U ¸ÿü´
+
+U /+++Í/+++Í ??ÀÀÐÐÀ9++10+++ ±CTX@ U U U U U¸ÿò@#UUUU	U
+U¸ÿø´
+
+U¸ÿø@
+
+U& 
+4 
+4  
+¸ÿî´U
+¸ÿî´U
+»V  V@
+ U U ¸ÿø´
+
+U /+++ô/ô++ ?<?<<9++]10++++++++ +++++@ vÈ	II
+QZ°C°@PZX¹ 
+ÿø±
+88YC\X¹ 
+ÿÔ¶!9,!9
+¸ÿÔ¶79279
+¸ÿÔµ-9,-9++++++Yrq] q]]YY ++@
+  ?3?3?3??01Y3!67!##$[05_»þV¯þXºûòHPüúFËû5àû     º 	°+X³¾@ V ÿè  @²V¸ÿÀ@
+4U¸ÿè´U¸ÿô@#BUBU 		Aÿû  @ V ÿò  @ V ÿû  @µV ¸ÿì´U¸ÿò@
+
+UU¸ÿ÷@U]  P`p	¸@´V	
+¸@´V	  ¸ÿÀ@
+4    U ¸ÿö´U ¸ÿö´
+
+U ¸ÿú@U U ¸ÿ÷´U ¸ÿø@
+
+
+U ]
+;Y+ö+++++++]+<ý++<]qô++++<ý+++< ?<?<9999.+}Ä±CTX¹ ÿà·4 4 ++Y++10+++C\X´@F9¸ÿÀ¶F9@29¸ÿÀ¶29"9¸ÿÞ¶9"29¸ÿÞ¶29"#9¸ÿÞ@#999¸ÿô¶99¸ÿô¶99¸ÿø±9+++++++++++++ ++++Y ++@   ????9901Y333#ÇºÇüþºûúFû  cÿçÝÔ  T°+X@K©¶Æ @OO@XX	WU_Z_VW	Aÿþ  @ V ÿò  @ V ÿö  
+@¶V& ¾ÿô  @ V ÿè´U¸ÿî´
+
+U¸ÿð´U¸ÿê´U¸ÿô´
+
+U¸ÿú@U¸@´V¸@´V
+
+¸@@
+V&   ¸@´V 
+¸@@V U U c\+Nô++++]Mí+++N]ö+++++++]Mí+++ ?í?í10]q ]]]q±¸2´l	¸2²l ?+?+01Y !2#"$7 32 4&#" c6ËF«´þ¶¿Ïþº¨È×ÛyéÎþ×ÊmÂþ¥Üßþ µÈZ¾þ÷þÏ4³þå    ýº 
+ .°+X@ekKK[[  Aÿþ  @ V ÿò  @ V ÿø 
+ 
+@³V&»ÿö 
+ 
+@@V
+
+
+UU¸ÿô@U  
+¸@´V
+¸@´V
+
+
+¸@@V
+     U ¸ÿö´U ¸ÿö´
+
+U ¸ÿú@U U ¸ÿú´U ¸ÿð@
+
+
+U ];\+ö+++++++]<ý+++<Nq]ö++++Mí+++ ??<ý<9/<ý<10] ]±¸3·l ¸3²l ?+?9/+01Y3!2!!!2654&'&#!
+°+X@_&&7##*-+&;<:&LLI&]U#X&o{z ¤ «Õ Õå åå+ *;]&Õ&%*&49&IIEE#K&VXUZZVW W"ifk&{&&ÛÜ&¸ÿÔ²9 ¸ÿÔ@09*:((& !(& $$	Aÿþ  @ V ÿò  @ V ÿö  
+@@
+V&U¸ÿî´
+
+U¸ÿè´U¸ÿð´U¸ÿô´
+
+U¸ÿô@UJ ***!¸@´V!¸@´V!
+
+¸@@
+V!& 
+¸@@VUU
+$@$¸2´l	¸2²l ?+?+3/Í9/Í939301Y%&'#"$54$32%64&#"  327&'õr9£ÅÇþ¼¯°EÉËF«nýæ¨m«yéÙþâÜh\[e]+9{[À\ÚÙdºÁþ¥Úµþß/]9²
+þ×þÙþâþÎ';   ¡  ­º  "°+X@!6Zfm	
+
+U
+
+U
+
+U$¸ÿÀ´U
+¸ÿô´U¸ÿô´U¸ÿô´U¸ÿâ³4¸ÿð³"'4¸ÿâ³'4¸ÿâ³'4¸ÿâ³'4¸ÿØ³&4¸ÿâ³4¸ÿâ³4¸ÿâ@I4%JJ S\mr	xy
+
+©¸èç 	!
+
+		¾ÿÀ  @ V ÿÀ@U !" Aÿþ  @ V ÿò  @ V ÿö  
+@µV&¸ÿè´U¸ÿö´
+
+U¸ÿà@U
+
+U] $p$$$"¸@´V¸@´V
+
+¸@@V     U ¸ÿö´U ¸ÿö´
+
+U ¸ÿú@U U ¸ÿ÷´U ¸ÿø@
+
+
+U ]#;¨+Nô+++++++]<Mý+++<]ö++++äí+++ ?<<<?<ý<9/++ý<<9/99.+}Ä10]+++++++++++++ +++]C\X@
+@9::+++YqC\X¹ ÿÞ@9"9"9@9"9"9"9+++++++Y²	¸2@l  "¸2²l ?+??9/+901Y3!2#.'&##!26654&#!¡ÄÌzÊÓM(ULÿôÂUnW-!Ká¡N£þ0ºOÈyÖ%$Nuþq18ýu37yGh  \ÿçëÓ 0A°+XA 'ÿø 
+ 
+@ V &ÿø 
+ 
+@ V %ÿø 
+ 
+@´V¸@´V¸@´VA@ V 
+ÿè  @ V ÿè  @ V ÿè  @ V ÿè  @ V ÿè  @´V¸@´V¸@´V¸@@(Vccst%'59CILED$F'SY\W(#¸ÿò´U$¸ÿò´U%¸ÿò´U&¸ÿò´U'¸ÿò´U#¸ÿö´
+U$¸ÿö´
+U%¸ÿö´
+U&¸ÿö´
+U'¸ÿö@F
+U(
+&$$'%64#D%E/Z V#U%lj
+kfeyz
+z}u$s%
+$%
+±CTX@-!&&	&
+;µvuÏsté   0  ºº °+X³¸@´V¸@´V¸@´VA
+@ V ÿù  @ V  ÿù  @´V
+¸@´V
+A
+@ V ÿû  
+@ V  ÿû  
+@@V 	¸s³ ¸· /¸µ   ¸ÿè@U U ¸ÿò´U ¸ÿâ´
+
+U ¸ÿü´U ¸ÿþ´
+
+U ¸s³¶+ö++++++]<ô]<ýä]æ<< ??<ý<10++++++++++´ ¸3²l ?+2?01Y!!5!!þþ
+­­úó   ¡ÿç"º ;°+X@
+&XXÉ¸ÿÀ@44;FJv¦è ¸»²	Aÿþ  @ V ÿò  @ V ÿö  
+@³V&¸ÿì´U¸ÿò@
+
+UU¸ÿà@U]  P`p
+¸@´V
+¸@´V
+
+
+¸@¶V
+& 
+
+¸ÿÀ@
+4
+ U
+¸ÿö´U
+¸ÿö´
+
+U
+¸ÿú@U
+U
+¸ÿ÷´U
+¸ÿø@
+
+
+U
+];Y+Nô++++++++]í+++M]]qö++++Mí+++ ?í?<10]+ ]±¸3¶l	  ???+01Y3#"$53326`ÂdþûÔÎþúpÂG­}Ö¶ºü±Ýþü£
+éOü²¿µbÂ   	  Fº 
+C°+X³,¸@´V¸@´VA@ V ÿþ  @ V ÿú  @ V  ÿô  @ V ÿò  @ V ÿò  @´V¸@´VA
+@ V 	ÿê 
+ 
+@ V ÿê 
+ 
+@´V
+
+
+¾@ V  ÿæ 
+ 
+@´V$
+
+¸@´V$
+
+¸@´V
+¾@ V  ÿæ  @´V$¸@´V$¹@ V±CTX@  
+ 	/ÝÍÝÍ33 ???910@$/* (%
+/0`	Àð P±CTX·	  ??99@$
+		   	é 
+ 	ee¸ÿÀ@(9P¸@
+@(9_¸@ P0`Àð¸³`¨+ô]qä]q+ä]q+íí ?<í?<.+}Ä.+}ÄK°SK°QZ°C°@PZX² 
+¸ÿñ²	¸ÿñ²¸ÿî888888YK°(SK°6QZX¹  ÿÀ8YY10]q] ]Y+++++++++++++++++ +++¶  ???301Y!3673AýÈÒ}."-ÆýÂºû×pxx
+*&6:::5HT]\ZTgejkieuzyz
+ww
+¸·ÆÉ×ØÙÖçèèæ,¸ÿê@UUU¸ÿø³U±CTX@ 
+U¸ÿè@
+U 
+ 
+ ?<?<99++99@]		
+
+
+ 	
+
+	
+  	  	
+
+ 
+		
+
+ / @¸_· 
+
+À
+
+¸¸µ_¸¸@
+´@PÏ¸_@
+  Â!`¨++NôMý]åí]í]ý]NEeDæ] ?<<<?<<<M.+}Ä.+}Ä 9999<<Ä<<Ä<<ÄÄÄÄY++ ++10] ]++++++++C\X¹ ÿÞ@9"99¸ÿÞ²9¸ÿÞ²9¸ÿè¶9"9	¸ÿÀ²9
+¸ÿÀ@9@9@9
+<=	<=¸ÿÞ@.9"9!= !<
+!=!<= <
+=<+++++++++++++++++++++++++Yq]q+++++++++++ +·
+ 	 ????01Y33673#&'	7þç
+S#1C'Óýý+ðþ!1þü¾þu?PWýMüù-5Pþ    Fº `°+X³
+
+¸@´V
+
+A
+@ V ÿû 
+ 
+@ V  ÿû 
+ 
+@´V¸@´VA
+@ V ÿú  @ V  ÿú  @´VA@ V ÿü  @ V ÿú  @ V 	ÿò  @´V¸@´V¸@´VA
+@ V ÿù  @ V  ÿù  @·V	:;	¸ÿç³4¸ÿç@444	¸ÿØ³!4¸ÿØ@;!4(!4&
+
+ù
+
+ 
+(4(4¸ÿØ³4¸ÿØ@4
+
+ 
+»µ  µ@ 0@J? Q 
+¶+NôMô<<Nö]<Môq<äü ?<ý<?<ý<<9++++.+]q+}ÄÄÄÄrY10q]+C\X@	"!9!9	¸ÿÞµ9"9++++Y++ +² 
+¸3µl ¸3²l ?+2?+201Y3567!5!!
+ 7"°+X@,	
+	*
+*
+¸ÿè´U'¸ÿè@U¦ª(¶»(ÄÏ(ÒÝ(D¸ÿô@UUU5¸ÿà@OU+,*499,IH,VY+fi+vÉù
+ù+74/$42!_
+(M/H`[O=w   ÿèº  °+X@{$5E?°"3Bp:<<LL]]
+X]^jl
+hnnÀÙÚÚâììãàÿ //0?@LPfÚõú 
+Aÿø 
+ 
+@ V ÿô  @ V ÿò  @@"V$Ð@`@
+
+UU
+
+U¸ÿö´U¸ÿð´U¸ÿô´U¸ÿà´U¸ÿô@
+
+Ut
+
+¸@´V¸@¶V3 ¸@´V 
+
+¸@@V U 
+
+U 3¸@´V
+
+¸@@V%À °ð?O¸ÿþ´U¸ÿü@U
+
+UUUU¸ÿø´U¸ÿü@UU
+
+UG7+Nô++++++++++]qr<Mý++ô++++ä++ý++++++++]qí+++ ?í??í?9910 ]]qr q´
+¸/µl¸/´l  ??+9?+2?01Y!#3632 #"'32654&#"-§´r±b¯q@þò½¼k4Uv¬¥uv¬ºýõOÊsþïþÖ¿UÍËÐÆÍ  Pÿèí> a°+X¼ ÿð  @´V
+¸@´V	¸@´V¸@´V¸@´V¹@ V±CTX@4@ P p  U
+
+UUU/++++ÍÔÆ ?í?íÄ]2Ä]210@G	CCSS``
+¤¤
+
+jijup
+
+¦µ	¶
+µã"_o¸ª@&0 @ P ` p    à ð 	   A
+ÿô  @ V ÿò  @@V$
+
+U"  A
+ÿô  @ V  ÿî  @@V $+ @+¸@´V@
+
+¸@´V@¸@´V6¸@@ V@U@UHU
+
+UI
+
+¸@´V¸@´V¸@@!V$Ï?U
+UU
+
+¸@´V¸@¶V14Ä+ö+++++]qí+++ö++++++++]rKS#KQZX¹ ÿÀ8Yí++rô+í++r ?í?í9/9/]ä]ä10 ]q]qY++++++@
+  ¸/´l¸/²l ?+?+9/39/301Y#" 4632&&#"326<±ï®Úþ÷ré­Ü¯Zª¤j·Ï
+¬¯¡klÃÓÖÂ  Fÿèßº  °+X@|
+
+%
+4
+D
+55WT
+RSgde	c`ÀÔÕÝååïëåàÿ+<<Kp.$
+.:5
+KE
+FIW
+V
+g
+åçúô  
+A
+ÿø 
+ 
+@ V ÿø  @´V3 »ÿò  @´V %Aÿø 
+ 
+@ V ÿô  @ V ÿò  @@$V%Ð@`@U@
+
+UU¸ÿô@UU
+
+U¸ÿò@UU¸ÿî´U¸ÿø´
+
+U»ÿø  @¶Vt
+
+¸@´V¸@´V¸@¶V$¸@´V
+
+¸@@;V¿Ïßÿ?OUU
+
+UU
+
+UU4P+Nô++++++]q++Mí+++ý+++++++++++]q<í+++ý+<ä++ ?í?<?í?<9910 ]q] q±¸/@
+l 
+¸/´l  ??+?39?+01Y!5#"&&54632332654&#"8eÄÕujÔ`/³ý ¬uv¥¨{x¡û£QAúFÌÊÁÆÚÌÄ   Kÿè>  °+X@ U]]	Ueko	e¸ÿä´
+
+U¸ÿä@R
+
+U
+
+U'Ùúö1:1AMAQ\Ramaxxöö 
+P`p 
+ ºª ÿÀ´U¸ÿÀ@UAÿð  @ V ÿò  @ V ÿø 
+ 
+@³V@
+¸ÿÜ´
+
+U
+¸ÿî´
+
+U
+¸ÿê´U
+¸ÿÀ@	'*4°
+
+¸ÿÀ³%&4¸ÿÀ·#40»ÿü 
+ 
+@¶V3¸@´V¸@´V
+
+¸@@V$@$*4?O¸@´V
+
+¸@@+V UU
+
+UUU
+
+U47+Nô++++++++]+Mý+++ä+Nq++öq++++Mí+++ ?íý]++ä?í9/]<ýq<99910] ]+++qr@  P p   0 p   À Ð   ¸/@
+l 0
+¸/´l
+¸/²l
+ ?+?+9_^]/+3/]q01Y#"  32 !326!&'&#"^º,î¹éþïÜÕüè
+²cýÚQ8V|©V£´(þÞþù ¯ºhCh¦     Ó ^°+X@	/0@p
+©
+
+(
+°À¸ÿÀ@4
+
++ 
+ÿ¸@·V@¸@´V
+
+¸@´V¸@@V%  ¸ÿÀ³184 ¸ÿÀ@+4 @U@
+U U (U "U ,
+
+U ¸ÿò@U U ¸ÿê´U ¸ÿæ´U ¸ÿú·U £¼º ! ö
+ ++ö+++++++++++]++<ô<<í+++í+í] ??<<<ý<?í9910Cy@		 ++*+q] rµ 
+¸-´l
+¸2²l
+ ?+?+32?01Y3#535476632&#"3#²vL\82RDÏÏqk4FW
+F`büf   BþQê>  *
+¸ª@  0 ` p  À Ð  ¸}@
+E"
+3%3
+Aÿò  @ V 
+ÿò  @ V 
+ÿø 
+ 
+@@$V
+%Ð@`,@U,@
+
+UU¸ÿô@UU
+
+U¸ÿê@UU¸ÿî´U¸ÿü´
+
+UA
+ÿú  @ V ÿú 
+ 
+@@Vt% "¸@´V
+
+¸@´V¸@@V$¿Ïßÿ?O¸@´V
+
+¸@@.V UU"
+
+UU
+
+UU+,t!4P++Nô++++++++]qMí+++ôíý++++++++++++]q<ý+++äö< ?íä?íý]ä?íä?<10]q ]q@
+    ¸/µl
+"¸/·l
+(¸/²l ?+2??+9?+9/_^]01Y32676'#"5463253#"&32654&#"f¯2Ct}v°ÛðnÑ¼z¦eÛ ¾ê¦}|¨­zx¨XQ%2dZ7°<ÝüjøÏx«*ÑÀ¿ÌÃÆÃ     èº É°+X¹ ÿÀ³4¸ÿà@
+
+U%5Eº
+¸ÿà@4 
+Aÿø 
+ 
+@ V ÿò  @ V ÿô  @@'V%	@364ÿ	À	@U@U	(U	U	¸ÿì@
+
+U	U	U	¸ÿö@U	U	¸ÿø@
+
+U	
+U	¸ÿö¶U	N¸ÿÀ@464°ðp °ÿ
+
+¸@´V¸@´V¸@´V% ¸ÿÀ@364ð     Ð à  ¸ÿú´U ¸ÿú@U U U U ¸ÿú@U U 
+
+U NGP+ö++++++++]q+<ý+++<]q+ô++++++++++++]q+í+++ ?<?í?99910Cy@%
+ +++ +]++¶
+ 
+¸0´l  ??+9??01Y33632#4&#"´~Àv®K´ukP<ºýò]¤ý_¡{S}ý»    <º  
+°+X³
+¸@´V
+¸@´V
+¸@´V
+A@ V ÿü  @ V  ÿü  @ V ÿü  @ V ÿü  @´V¸@´V¸@´V¸@´VA@ V ÿý  @ V  ÿý  @ V ÿý  @ V ÿý  @´V
+
+¸@´V
+
+¸@´V
+
+¸@´V
+
+A@ V ÿü 
+ 
+@ V  ÿü 
+ 
+@ V ÿü 
+ 
+@ V ÿü 
+ 
+@@7V	6UO		 	°	À	ß	ð	 		p			°	À	ß	à	ÿ	
+	 	»ÿÀ 
+ 
+@@*V~ 
+%  °ÀàÀð  Ðà¸ÿø´U¸ÿú@UU
+UU¸ÿê´U¸ÿþ´
+
+U¸ÿü@
+UNGP+ö++++++++]qr<ý< ??<?í+999910]rq+++++++++++++++++++++++++·
+ @  ?Í??01Y533´´´ëÏÏû&ûÚ ÿ¢þQ:º  °+X³¸@´V¸@´V¸@´V
+¸@´V¸@´V¸@´V¸@´V¸@´V
+¸@´V
+
+¸@´V
+
+¸@´V
+
+¸@´V
+
+
+¸@@%V%;3 
+»ÿÀ 
+ 
+@@#V~ 
+%
+
+?O¸ÿú@7U
+
+UUUUUU
+
+U­!GP++Nô++++++++]q<Mý<NEeDæq ?Mí??í+99999933<10Cy@&
+	  +++]+++++++++++++±¸0@	l @  ?Í??+01Y53732653#"´þh"676´3AIéÑÑù{I\û ÄMd    øº °+X³A@ V 	ÿò  @ V ÿò  @ V ÿò  @´V¸@´V¸@´V¸@@V
+
+UVZ	
+óö	U¸ÿô´U
+¸ÿô´U	¸ÿô´U¸ÿè@
+
+UUw
+ !4¸ÿð³'4	¸ÿð´'4¸ÿð³!4	¸ÿð@'47	G%-
+X
+wu
+Úã¦#&%98	?
+O
+YYXY	}y	ÆÒÖäé÷ù
+
+		
+
+	%%
+
+
+	  
+¸@	U"¸@ ?U
+
+¸@´V
+
+¸@´V¸@·V% ¸@´V
+
+¸@´V¸@@V% ? O  ¸ÿþ@1U 
+
+U U 
+U U U 
+
+U 
+á!Gf++Nô+++++++]q<Mí+++í+++Nqö+]Míô+í ?<<<?<?<9.+}Ä.+}Ä<<<<±CTX@
+K			
+4 +]qY10C\X@
+	,9	<¸ÿÞ²9¸ÿÔ² 9¸ÿÔ±!9+++++Y] q]q ++C\X¹ ÿÀ²!9¸ÿÀ²9¸ÿÞ²9¸ÿÞ²9¸ÿÞ²9¸ÿÞ±9++++++Y+++C\X@Ý9	<	<¸ÿö²9¸ÿì±9+++++]Y ]+++++]q++++++ ++@
+	 
+ 
+  ????901Y333#´ªéþj¿Þþ¡ºü¼°þvýdzþ[    7º °+X³
+¸@´V
+A
+@ V ÿü  @ V  ÿü  @´V¸@´VA
+@ V ÿý  @ V  ÿý  @´V
+
+¸@´V
+
+A
+@ V ÿü 
+ 
+@ V  ÿü 
+ 
+@·V6U¸ÿÀ³784¸ÿÀ³454¸ÿÀ³014¸ÿÀ³"%4¸ÿÀ@%4ßOßðpÿ  
+% ¸ÿÀ³784 ¸ÿÀ@354 À ð     Ð à  ¸ÿø´U ¸ÿú@U U 
+U U U ¸ÿþ´
+
+U ¸ÿÿ´U ¸ÿü@
+U NGP+ö+++++++++]qr++<ý< ??10]qr++++++++++++++++++³ 
+  ??01Y33´ºúF     &> #o°+XA ÿò  @ V ÿò  @ V ÿò  @ V ÿò  @ V ÿü 
+ 
+@ V ÿü 
+ 
+@ V ÿü 
+ 
+@ V ÿü 
+ 
+@ V ÿü  @ V ÿü  @ V ÿü  @ V ÿü  @ V ÿþ  @ V 
+ÿþ  @ V ÿþ  @ V ÿþ  @ V ÿò  @ V ÿò  @ V ÿò  @ V ÿò  @ V ÿø 
+ 
+@ V ÿø 
+ 
+@ V ÿø 
+ 
+@ V ÿø 
+ 
+@ V 
+ÿô´
+
+U¸ÿô´
+
+U	¸ÿØ@M
+4%ää	áå Õö  #	 	##
+Ð%% %%%UU¸ÿì@UU¸ÿè@UUUU¸ÿú´U¸ÿø´
+
+U¸]³¸@´V¸@´V
+
+¸@@
+V%U¸ÿì@UU¸ÿî@UU
+U¸ÿþ@
+
+UU¸ÿü´U¸]¶ 3#¸@´V#
+
+¸@´V#¸@@V#%Ð     ? O  ¸ÿþ@U 
+
+U U U U ¸ÿü´U ¸ÿô@U 
+U 
+
+U $%¸x³!GP++Nô+++++++++]qr<Mý+++äô+++++++++]í+++ô++++++++++]ýNEeDæqr ?<<<??<Míí99910Cy@&
+ +++] ]+++++++++++++++++++++++++++@
+
+
+ 
+¸0¶l	¸0²l ?+22?+????01Y336632632#4&&#"#4&#"¡2¦jv~Êª³#\>p´XdL:&N_bXº¯¶ý'l_:¤ý²xxPýÙ     æ> æ°+X@¨¸ãçðö¸ÿð@"
+4yÐàÿ 
+
+
+Aÿø 
+ 
+@ V ÿò  @ V ÿô  @@V$@U@U(UU¸ÿì@
+
+UU"U¸ÿô@UU¸ÿù@
+
+U
+U¸ÿö@U@364ÿÿN¸ÿÀ@464°ðp °À3
+
+¸@´V¸@´V¸@´V% ¸ÿö´U ¸ÿú´U ¸ÿú@U U 
+U U ¸ÿú@U U 
+
+U ¸ÿÀ@364ð     Ð à  Nö]q++++++++++<ý+++<ô<]q+ö]q+++++++++++++í+++<< ?<??í9910Cy@	
+
+
+&
+ +++*]q +]q@	
+
+
+¸0²l ?+2???01Y33632#4&&#"¢uÝ`¡P
+´*kHs§&¯EpM2}ýsnmAÌý¼  Dÿè'> 
+ ÿ°+X¶
+
+U¸ÿè´
+
+U¸ÿè@e
+
+U
+
+U
+GHVYgi4::5EKKE\\	R]]Rmm	dmmdw	
+[TT
+[lee
+l
+Aÿò  @ V ÿô  @ V ÿø 
+ 
+@@V$@
+
+U@U¸ÿê@U
+
+UU¸ÿð´U¸ÿð´
+
+U¸ÿð´U¸ÿð´U¸ÿÀ@$%40  »ÿô 
+ 
+@¶V1ß¸ÿÀ@#40
+
+¸@´V¸@´V¸@@AV$ U 
+
+U U U U 
+
+U U U @$%4 ?  
+
+¸@´V ¸@´V ¸@¶V 147+ö+++]+++++++++í+++q+]ö+]]++++++++++í+++ ?í?í10q] qC\X@	SS	bb	]Y ++++±¸/´l¸/²l ?+?+01Y7632 #" 32654&#"D¤ÅÛ{ëßþí¹²²³²'vþáýÍë
+ÌËÌÑÅËÊ  þi!>  Õ°+X@t-=K? °  
+t#t$$
+(,0¤
+©£'¤(³&Å&(¸ÿô´
+
+U"¸ÿô´
+
+U#¸ÿô´
+
+U$¸ÿô´
+
+U(¸ÿô´U"¸ÿô´U#¸ÿô´U$¸ÿô´U¸ÿÞ@9Z'%
+ &.¸ª@",U?O_¯Ïoß½U   ª ÿÀ@U@Ð ¸ÿÀ³4¸ÿÀ@4.\l¸ÿô´U¸ÿæ´U¸ÿæ@U.$@42¸ÿÀ@2UU
+
+UU U UU
+
+UA	@ V [ ÿò  @³V$*¸ÿÀµ9Ð**¸ÿæ´U*¸ÿè´U*¸ÿè´U*¸ÿê´
+
+U*»ÿô  @³V*2¸ÿÀ@!'*4`2À2?222$ 
+
+U 
+
+U  ¸ÿô´
+
+U ¸ÿô´U ¸ÿô·U ¸@@V $UU 
+
+U¸ÿú@UU
+
+U¸@@V"ß ? O  147+Nô]qMô+++++++í++++++írN]q+ö+++++q+Mí+ô++++++++++ír ?í+++?íq9/++]qr+äý]qr+ä99910Cy@@'-#,&"
+  	(-  !# "#
+
+'	
++  ++<<+<<+++++*+ +++++++++]q]rq] ++++++++++++@
+ &&.¸/·l.¸/²l ?+2/3?+939/301Y732654'&'.54676632&&#"#"&?²{|x5%ÆOA8*S}½Z°si|j/¿ViÆ}ÏÙ=kreD=#%2INGy(+H{gR\R7#
+$3A|\ZW¬  $ÿò* n°+XA  ÿþ  @ V ÿþ  @ V ÿþ  @ V ÿþ  @ V ÿþ  @ V 
+ÿÀ³#&4	¸ÿÀ@$#&4 
+
+ 	+
+" "
+
+
+¸@´V¸@´V
+¸@@"V%ÿE	E`p   °ÀÐ¸ÿî´U¸ÿô´U¸ÿò´U¸ÿø´
+
+U¸ÿø´U¸ÿú´U¸ÿð@UU¸ÿè´
+
+Uºj 6±f+ö+++++++++]qôäí<ý+++<äô< ?í?<ý<9933É10]+++++++±¸2´l ¸2@	l
+
+
+
+	¸-²l
+ ?+322/?+?+01Y%#"&&5#5373#32L<bl,³µµ+(¡>e¢clþýM,   ÿèà& ·°+X¹ ÿÀ@	4 4¸ÿð@4+$ 
+ 3Aÿø 
+ 
+@ V ÿò  @ V ÿô  @@V%@364@U(UU¸ÿì@
+
+UU¸ÿô@UU¸ÿø@
+
+UU¸ÿö@
+UÿÀN¸ÿÀ@464°ðp °ÿ
+
+¸@´V¸@´V¸@³V%	¸ÿÀ@364ð	 	 	Ð	à		¸ÿø´U	¸ÿø@U	U	
+U	¸ÿö@U	U	
+
+U	NGP+ö+++++++]q+í+++]q+ö]q+++++++++++<ý+++ä ?í??<99910Cy@
+
+ 
+  ++** ]+++´ 
+¸0¶l
+ ???+2?01Y!5#"&&'&53326653?|Õ^£O´nQQ;´´HmO5sý³1GQS9ûÚ    è& 
+c°+X¼ ÿò  @´VA
+@ V  ÿê 
+ 
+@ V ÿê 
+ 
+@´V
+
+A
+@ V  ÿô  @ V ÿð  @´V¹@ V±CTX@ 
+
+ 	$U/+ÝÍÝÍ33 ???910·5 "9
+¸ÿÞ@
+9	44¸ÿê³4¸ÿê³4
+¸ÿØ@	!4 (!4
+¸ÿè@	"%4 "%4
+¸ÿÚ@~(.4  (.4
+	&
+9 5
+H G
+VVYX	ffii	x wwyx	w
+	 	
+¬ ¢
+½ ·±
+É Å
+Ú Õ
+ì ã
+û ô
+,
+ 
+ 
+( &
+7
+O @
+	@4@
+4±CTX@	  
+¸ÿô@
+
+U
+ 
+
+U 	¸ÿô@
+
+U
+
+U9/Ý+ÍÝ+ÍÍ+Í+ /??910@7
+%	
+		
+ %  
+
+ 
+	
+	 /"@@@			¸µ@¸@	 @"êÒ+öíý]ý]íä]9999 ?<<<?<9.+}Ä.+}ÄY10 ++q]++++++++++++ ]Y++++++++¶ 
+ ???301Y!3673®þl¾ä%+ì¹þn&ýgoTvûÚ    ·& ì¼  ÿò  @´V¾@ V ÿô  
+@´V
+¸@´V
+
+¸@´V
+
+¸@´V
+
+A
+@ V ÿü 
+ 
+@ V  ÿê 
+ 
+@´V¸@´VA
+@ V 	ÿú  @ V ÿú  @´VA
+@ V ÿú  @ V ÿú  @´V¾@ V ÿò  @´V¸@´V¸@´VA
+@ V 	ÿü  @ V ÿô  @´VA
+@ V ÿô  @ V ÿô  @´VA
+@ V 
+ÿô 
+ 
+@ V ÿô 
+ 
+@´V"A
+@ V 
+ÿè  @ V ÿè  @´V 
+
+¸@´V"A@ V 
+ÿÞ  @ V ÿÞ  @ V±CTX¹ ÿô@
+
+U
+
+U 
+
+U
+¸ÿÔ´
+U¸ÿè@
+U 
+U
+¸ÿÀ´U¸ÿÀ@/U@U
+ 
+ 
+
+U
+
+U¸ÿø´
+
+U/++ÍÍÖÍÔ+Í ?????910 +++++++++@*
+( (
+'('/8 7w§¨¨¦µ ¶ºÈÖÙ	èèçôú	
+
+U
+
+U
+
+U
+
+U
+
+U±CTX@
+ %%%  
+%
+¸ÿÖ@7U
+%*U
+
+&
++TR
+\l|
+
+ 
+ 
+ ?????9]99/+ô/+ô9äää999@	
+
+
+¸ÿK³  ¸ÿI@f
+ Ã +
+%
+
+
++
+
+
+ %   
+
+
+
+ 
+ö
+`
+p
+
+
+¸§@
+ O
+o
+
+
+¸U@	Oo¸U@`p¸§µööf+NôMô]]ý]qý]qý]]æ ?<<<?<<<<<999999999M.+}Ä.+}Ä.+}Ä.+}Ä+++Ä<<ÄÄK°S°C°@PZX´
+  ¼ÿà ÿà ÿÐ´ 0 ¸ÿà88888888YK°4S°C°@PZX¹ ÿÐ±088YK°!SK°3QZ°C°@PZX¹ ÿà± 88YK°SK°QZ°C°@PZX¹ ÿÐ¶ 
+  ¸ÿÐ²0¸ÿà² 8ºÿà ÿà8888888888YK°SK°QZ°C°@PZX¹ ÿà³
+   888YY10C\X¹ ÿÔ¶9 ,9 ¸ÿÔ±9+++Y+++++]qr+++ +++q]]Y ++++++++++++++++++++++++++++++++++++!367373#'Kþ»º©?3©¹5=¶¯þ´»©
+þùG0B3ûþýÎJYþ]   !þQî& Å°+X³
+
+¸@´V
+
+¸@´V
+
+¸@´V
+
+¸@´V
+
+¾@ V ÿô 
+ 
+@´V
+
+¸@´V
+
+
+¸@´V
+
+¸@´V¸@´V¸@´V
+¸@´V¾@ V ÿò  @´V¹@ V±CTX@
+@ @ U/+ÝÍÝÍ ???í910³¸ÿÞ@s9(V¯
+@
+@ (04 (04	
+'''
+66
+5((HYYYiiiyv
+yzz
+
+¨¼»ºê
+çõ
+ýùÿBU±CTX@D ???í9]99@7
+ %
+
+%
+
+ /¿¸?µ@@¸T@?@_¿¸B¶" E
+¸T@ @@ 0OPÿ¸B³/¸?´ |f+ýqô]qííôää]qííä]q ?í?<<<.+}Ä.+}Ä 9<<ÄK°SK°QZ°C°@PZX» ÿè ÿè88YY+10C\X¹ ÿÞ¶79
+"79¸ÿèµ9"9++++Y]q++ q]+]Y++++++++++++++ +±¸3@
+l
+
+ ???3?+01Y'326767673673#";,<H&þmÂÝ+"+ã´þlA$0|V4þg©($k(ýu|vkûÈ¯BYS   (  Ô& î°+X³¾@ V ÿè  @@V¸É24¸ÿÎ@	4>!4¸ÿÂ@J!4
+	/99
+IFFI	O\TTZ	Plccj	{t{		ùô&
+¤sXþOdýÁoyjëwý^{	  ¼þQYÓ  C°+X¹ ~@ ¡¯v   ¡¡+Nô]<Mý]<î ?Mí10³  ??01Y3¼þQø~   W-Vu  °+X@
+ +;  ¸ÿà@4  	Ô Ô ¸X@
+ q+Nô<ö< /Môýäôí+í]í10 ]@  
+		
+
+@ /Í9/Í9/Í3/Í01Y56323267#"&&#"Wj¬<zEE#A6@R<míO@q-Íx#4N;Ô<6j7   mÐhË  0°+X¹ S@	Ì  0  uW§+ö]í /í10²@	 /Í01Y4632#"&mhiihÎiii ÿüÊo[  -°+X@5    ³z+Nä]æ /Mí10±  /301Y5!sÊ   Ê [  
+,`d$LHD@    $<,$$,<X40NJvrrbfFB~z62njRV:>V>V>"^ZZzjZZjzf"
+*..&"f /ÞÍ9/ÍÐÍ9///ÐÍÍ99//ÍÐÍÍÐÍÍÐÍÍÐÍÍ9/ÍÐÍ/Í9/ÍÐÍÎ9///Í99//ÍÐÍÍÐÍÐÍÍÐÍÍÐÍÍ9/ÍÐÍ10#"5432'#"5432#"5432#"5432#"5432#"5432#"5432#"5432#"5432#"5432#"5432#"5432#"5432%#"5432#"5432'#"5432Ô04400440÷3131$0440þ72222­3113R3113ý222204400440ý®0422$0440È2222þ2÷311322222220113þ×331ß222331V113ý{113½2/5ýH113004 331ß222þ331è113þÙ404.113  ÿ¢þQ:&  i°+X¹ ÿè@.4	 
+
+% @ @484 @4  O ÿ    9/]qr++MýÄ_^] ?í?10+±	¸0´l ??+01Y#"'7327653:3BID"6M
+´:ÃNdN#j\              1  þÍ j3k   ¶ 
+(#3/"&?
+k    J@ 
+ ¥@fI%zyeVxIH"'((s;{
+'8''sO"''º+ '»±  ?í?í9/993/]3/íÍ]]]]]]9/9]]]í2/910]]]]]]]]]]!!4>7>54.#"'>32!éü_VzoE9Z>õ¸Eu cej7(UZVuJ&²6y{z72H>>'$A0ôZ_0.TxIHjVJ
+87
+h
+x
+I
+J	Z	j	FEZs s º» *³ ?í?í9///33í2/í2/333/39/í2/10]]]]]]]]]]632  #"$'732654&#"'!!+¶þìà¶þô½nª®¬^ª×ý¸ð\þþÙÙþÎÏËÏ²ò®  bÿç
+  s º» 
+*± ??í2/3/í9/9]]]]10 # !5!ô×þÂ¹ßý3µîýHþ+Ë®   VÿçÁ  " . ¨@rd.U.U*e*k(Z(k$Z$c"ekjtw{z
+
+y
+
+v ss&&&&0 s,s 
+º  ÿÿ Uÿç!¦   ÿÿ bÿç*À   ÿÿ K   §  ê ÿÿ SÿçÀ   ÿÿ UÿçÀ      jÿÝmÓ 2 G {@MEzEiDe@V@f:W
+U(GDJ
+\xey½D9Ø¹×*Qo_b;ÀYÑÕ6	ÿ $iIc~H&Q~X[«Q"]8&N?';maZoO/]h7#KuRoªr:F×þÊhoOB=Ü9LZ09^D%4e^  cÿçoÓ  ' @m&d%%%j"VVG&v
+{ij5'6~k\I  &     
+üuÖ»d¡wIÑw·|@jÉ#¹¤ÁjiÂþë¬GÆF¾·Jëö;xµ   ¦  \Ó  8@!v		:      
+  ?Ä??í3/í29/]í10]]]!4.#"#33>32/_a©c'À¶`zNxÈPJ¹s2W¿güßº×3WA%@õ´üª   ¦  ®Ó 4 j@D1w1(,8,U#F#GFVE	w	(83  & (  
+ .!!(  ?ÄÄ??í33/3í/Üí2Üíí210]]]]]]]]]]]!4.#"#33>323>32#4.#"J+VWuZ#À¶YqHMrY'eyMn¸JÀ+VXuY#J¹s2W¿güßº×3WA%EoPClL(@õ´üªJ¹s2W¿güß  ÿçRº  6@	z	5
+    	  ?Ä??í3/í9/]í310]]]32>53#5##".5^._a©c(Á¶	 `zNxÈPºü·ºr2W¿h úFÕ2W@%@ó´X   ;  Çº  +@	  				
+ ?ýÄ?ýÄ/]ýÝÄÝÄ10!#3!53#;ääýtææº®û¢®®^   ¤  `º 
+ @Pûæ
+·
+×
+
+
+  	
+	
+ö		'	w		·			"2
+ 
+  
+ 
+   	  ?ÄÄ?9/9Ä/ýÄ3/+ Á}Äq3/]]3 Á+}Ä]]10]!!#3!`þôýÂÂß ýôýºýL´ýL  `ÿ`Ó  / ×@/V..-G-W-G
+((Y$$	$H#yj9jhXEGfi
+j & +!&& !! !!!1+& & 	 ?33ÞÄý22ÞÄ?í/]]í9/]í2/í9/}ÄÄí}ÄÄ10]]]]]]]]]]]]]]]]]]]]]]]]]]%#"$&546$32#2736674.#"q½¡þý¸chºf·}X/tgêýðzeøêAHLµjl¹LI¸7PrÈµ Èk1]©Ér´þÝdþÀ-1°KÚÝNJçÒS  Fÿçß=  
+G(7"G"8H8HVXhXh% +%$?O_  
+ ??3í?3í?/]í9/]3/í3/10]]]]]]]!#5##".54>323532>54.#"ß¨1he¥wAAu¥e½d´þB:gM,&ImFGjG#/PiPPQÌ{ÎNyüV0ac_o=<lZfe3   þh=º   #@%     à   ?ÞÍ?/]ÄýÄ103#53´´´þh½úCÌ    øº 
+ X@1
+
+ %	
+	
+	 
+
+%
+%   	  
+ ?ÄÄ??Á99/]/]ý Á+}ÄÄ/+}Ä10!##33øÝþ ´´½×þ9ýåºüuöþ   ÿò
+º  *@	%@  àð 	 ?3í2?/]qýÎ2103267#".53=
+(C_e/´-'8# 1VwG   NþT´= $ 8 c@?77G771G18-H-YifU%$**$$:4$?/
+% ?3í?3í??3í2/]í9/Ä3/ýÌ210]]]]]]%##".54>32353327#".5%2>54.#"3i©b©|H>u§hg3£
+C_e/þö?iK*+Nl@AhJ(.OjoOÑxÈQQPûh&7# 0VwGã3ec[o?7kfde2     ?-  "@
+%+ 
+ ??ÄÍýÄ/ÍÄýÍÄ10!##5333#²ÁÁ²¾¾þø  þRå% + L@-"jzY %
+>jiT"´
+-WKLkD´b§yE%R]¨!K{Y[[CsZuýÓXT
+Ie>CrS/.PoGt_OFA!0CCx§ee°JKÂxeÊÔå^?/UzKOtM%(LoHH|[4  ;  Çº  +@	  				
+ ?ýÄ?ýÄ/]ýÝÄÝÄ10!#3!53#;ääýtææº®û¢®®^   ÿò
+º  *@	%@  àð 	 ?3í2?/]qýÎ2103267#".53=
+(C_e/´-'8# 1VwG ÿÿ   <º L       qq   ®@^
+8%I8f'W	
+
+%    z
+9
+I
+'
+	
+
+
+
+
+¸+´ 
+ ?ÄÄÄ?ÄÍ9///ÄýÄ/]]]]3/+}ÄÄÄÄ3]]3/]]]+}Ä]ÄÄÄ9910!#!#3.'#qÍ}þtÃÃÎNp
+nFþºqýt+%5+*+-5&þÛ     +q  ! . [@0 .$$(  ((((0.%   +p-- ---"!+¸*³"+
+ ?í?í9/]qí9/]ýÄ99//]]íí910#!!2%32>54.##!2>54.#!7=\=@v§hþ2ÈÉÉ/Fýìí4\E''BY3ôMf=BmQÿ `8JV.W}P&q#HB9.$>009üÏ/@&'A.   \ÿî} $ x@GK"77J
+HYJUW$ $$ $°$1$ $$ $$$&$
+
+ $$$!¸+³! ?í?í99//33/]í9/]]]í3/í10]]]]]]]]]#".54>32&#"3267}X~¥eÎGUÏ{drN¶GàZ\/3]O£ oXe6UÜ×M0X{K!Õ:mct§l4    q   :@"8DC$ %  
++
++ ¸* ?í?í/]í9/]í10]]]!   !!732>54.##®"!þçþèþ@ºôj^+2dcíqþêþäþãþÞ3hln^
+@8%	$¸*µ	 ?ýÎ2?/í9/í10]#"&5732>53ã0\S©¯ª©:D#	ºjhZ
+5E7G;KK9D7F5!      &0eW$g$$X && &&&60$$w$$!+HX +iy]K:
+e7cTUf95cUØÙO /D0 !YÐwàRü.8"nÏf¢o;6o©t\o=    Éq    X@- $   $  
+"% 
+ 
+
++	 +¸*²	
+ ?Ä?í9/í33/]ýÄ9/]í2/]í99910!#.###!2!2654&#!ÉäÕ%=?J1¢ºd p<­©{ký^;{þ°76G+þq IwX¡1NVdOS   Jÿî ; »@tv9u8z//y**x%$ e T yxfU
+$';$  l,[,, '''''1=$$ 1 11;    
+
+6" ,",6¸+³" ?í?í99/]399/]3/]í3/í9/]9]]3/íí910]]]]]]]]]]]]]]]&&#"#".'732>54.'.54>32?	8_F'Fz_^ uBBw¦dÁD²8ZvB@hJ(Osf\+<pcd§xFcl
+$0NuXJ|Y28eV?]>0C
+	'	w			%	VH*J#% #%%   (%   gÃ¸gY7(gw6V%
+ ¸*´
+ ?ÄÄÄ?ÄÄÄÄÄ=/]]3]]]]]]]3]3/] Á+ Á}Ä]]]+ Á}Ä3]3]]]]] Á+ Á}Ä]]]]]]3]]]3/]+ Á}Ä]10#&&'##33>733667;þÇªþøþü¶þÐ¹¨ãÙË
+´qûh59I/ü qý3R&;?:ôý`(YRB0vAà     dq  @R 	 			 
+	%			
+  %    	¸*´ 	
+ ?ÄÄÄ?ÄÄÄ/3/3/+}ÄÄÄÄÄÄ3/]+}ÄÄÄÄ10!#&&'#3673dßÝ-9	*þÛÓÕþbØë*
+ÇþX/<T?þ|Tþ¸.
+?Xýå     dq  <@%
+%  °  %  
+¸*±
+ ??Ä9/]ýÝ]í9Ýí10#3667dþ'ºþ7Ûô0
++&úqýpþáþ+L#G8m     áq  Q@$Ô
+%
+
+ +	¸*µ
++ 
+ ?í22?í22/3/3/]3/+}Ä]q3210!!5>7!5!!áü>X&+ýpiý(%ñ¦¤
+ÿÿ   fÙ&
+   Ú¢O @
+ A¹, 
+2
+
+#A[8Q@ï#c- L2((%Q.,,6945,=ýö1877
+:ô¨TûÆ Ý!¼"}#Å%<'''Å(
+aLaaÈbIbobÓcVcÙdd<dDdÄe7e©eîf-f^fÎfýggJg¡gÅh>hhøiBjjdkk7kkðlÍmEmmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmÎmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmåmônnnn-n;nJnXnhnwnnn¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤n¤oroooo­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­o­oµoµoµ   :¾                
+              D~       
+       Â       Ú       d       0ö      	       
+       
+       ¡       á       "Ò       ¡       ô               1¡             	 E      
+L    N    ^    n    z      	  è  	  
+  	    	  D~  	  
+  	  Â  	  Ú  	  b  	  0ö  	 	   	 
+ü  
+  N    +    N    +     +0    +>    N    N    N    +P    +     N    N  $  +^  *  +l  -  +z  
+  N    N  
+  N    N ©   2 0 2 5   T h e   M o n o t y p e   C o r p o r a t i o n .   A l l   R i g h t s   R e s e r v e d .   
+ 
+ H e b r e w   O p e n T y p e   L a y o u t   l o g i c   c o p y r i g h t   ©   2 0 0 3   &   2 0 0 7 ,   R a l p h   H a n c o c k   &   J o h n   H u d s o n .   T h i s   l a y o u t   l o g i c   f o r   B i b l i c a l   H e b r e w   i s   o p e n   s o u r c e   s o f t w a r e   u n d e r   t h e   M I T   L i c e n s e ;   s e e   e m b e d d e d   l i c e n s e   d e s c r i p t i o n   f o r   d e t a i l s . A r i a l     i s   a   t r a d e m a r k   o f   T h e   M o n o t y p e   C o r p o r a t i o n . M o n o t y p e : A r i a l   R e g u l a r   ( M i c r o s o f t 
+ i 
+ i i 
+ h t t p : / / e n . w i k i p e d i a . o r g / w i k i / M I T _ L i c e n s e 
+ t h e    L a y o u t   L o g i c   S o f t w a r e  
+Microsoft
+i
+ii
+http://en.wikipedia.org/wiki/MIT_License
+the ÒLayout Logic SoftwareÓ
+ i 
+ i i 
+ h t t p : / / e n . w i k i p e d i a . o r g / w i k i / M I T _ L i c e n s e 
+ t h e    L a y o u t   L o g i c   S o f t w a r e  
+   dlng   (   slng   >   "Armn, Cyrl, Grek, LatnArab, Armn, Cyrl, Grek, Hebr, Latn        i        ð ñø ù  F GK L~  ô õü ýþ ÿÿ  s tt uy zz {    2 34 57 8; <D EK LM NS TU VW XX Y[ \t uu vw x   ¤ ¥¥ ¦µ ¶A B| }~  î ïô õ	X 	Y	w 	x	 
+
+ ( 
+Adobe
+UCS
+¬ \¬ \¬ (s  9 bã T9 V Js 0Ç as UÇ as Uã Tkÿíª ÈÇ  s IÇ  s IÇ À QÇÿýV s AV s Aã 9 yã  ã Õ Ç ã Ç ã 9 Yã RÇ  Ç  PV Js 0ã ,ª ã ,Õ Ç ã Ç ã ã   "ã   "Ï 9 V Vë NÚ NÌ Ny N 0¹ NkÿíÕ ¸+ OÀ 
+Õ ë k 8Õ «ÿûs Eã  U k Qs 09 @ÿÐ9ÿ¢À @ ã   s Õ å    Aë £  0                                      ÿ¬        ÿÎ }  ÿ7e È    ÿª É© Y A§ 
+f 2ê / N Zí  }/ , (í Kø Aã 
+ 7/  Kè PY 
+À d² dÿ 
+ 
+ , (¸ Zc -^ ^ ^ 6 P	 P / 0, (, (øÿIøÿIy 2¸ Z¸ Z¸ Z¸ Z© Y© Y© Y A¢ 
+f 2ê      }  , (í Kø A
+ 7 Kè PÀ d² d 
+ , (¸ Zc -/  Aí K² dÛ A  ÿÜ  ÿ%  ÿÜ  þQ «  Ú CÀ ~ÿº   F   F   F   F   H   F   F   F~~P~~ ~-~ ê~ Õ~ ~ ¼~ î5  À5 ³    ¾ X  ~ ¥~ ½~ Þ             F                æÿº      2 92 9,ÿº,ÿº         4x 00ÿº0ÿºv 
+v 
+ 
+ o 
+R                                  1   F   F   @   F      ÿÜ  þQ  ÿ  ÿ  ÿ  ÿ  ÿ  ÿ  ÿ  ÿ  ÿ  ÿÜ  ÿ  ÿÜ  ÿ   ÿÜs -                                                             0    .À ~è ÿÏ¼ ^àÿú  ¼ ^à (  ,ÿº,ÿº¼ à 2 92 9,ÿº,ÿº¾ 6R 2 92 9,ÿº,ÿº2 92 9,ÿº,ÿº 4x 00ÿº0ÿº 4x 00ÿº0ÿº 4x 00ÿº0ÿº¾ i¾ i¾ i¾ iv 
+v 
+v 
+v 
+2 @2 @ÞÿºÞÿº2 @2 @ÞÿºÞÿº @ @,ÿº,ÿº @ @,ÿº,ÿº0ÿº0ÿº0ÿº0ÿº0ÿº0ÿº0ÿº0ÿºT 4À FTÿºâÿºT 4À FTÿºâÿº / /pÿºÿºæ 'æ 'pÿºÿºT 
+ o 
+(  ,ÿº,ÿºT Ä ä "T ä "T ä "T        F   F         F   F       H   F         F   F   F   F   @   1     F   F                                                                                                             Ê Ç Æ                                              ¾ i ÿº ÿº ÿ»Ó Y° R£ Ë   ý  ûÁ  ü_  þ1  ü­  ýU  þ&  ýñ  ý  üi  ý  ûà  üp  þÔ  þÍ  þ  x¬ \¬   þE  ýU  ý¦  ü_  þ%  ý  ûà  úú  û6  üp  û  û  üÎ  üT  ûÃ  ü  ûõ  ý°  þY  ý~  ü  ý4  þP  þF  üÑ  ý>  ý  ü:  üé  ü&  ü  ü/  û  ûv9 Ç  s IÇ  s IÇ  s IÇ  s IÇ  s IÇ  s IÇ  s IÇ  s IÇ  s IÇ  s IÇ  s IÇ  s IV s AV s AV s AV s AV s AV s AV s AV s A9 j9 ]9 9 9 Yã R9 Yã R9 Yã R9 Yã R9 Yã R9 Yã R9 Yã RÓ Y° RÓ Y° RÓ Y° RÓ Y° RÓ Y° RÇ ã Ç ã £ Ë £ Ë £ Ë £ Ë £ Ë Vÿýs Vÿýs Vÿýs Ç  s I9ÿÊ9ÿÊ9 Yã RÇ ã Ç ã Ç ã Ç ã Ç ã   þù  þù  þô  þïÿýU ; ¬ÿÿâ  â  Ç Õ s s s s V  s  }¥ r ã Ï Ys L9 Vã R2 9,ÿºpÿºÿºæ ', e, , , , C,ÿÒ  þð     ÿõª ª       ^   ^  ÿË¼ àÿ¿¼ÿõàÿÍ¼ à 	¼ à     ( o 
+2 92 9,ÿº,ÿº2 92 9,ÿº,ÿº2 92 9,ÿº,ÿº2 92 9,ÿº,ÿº2 92 9,ÿº,ÿº2 92 9,ÿº,ÿº2 92 9,ÿº,ÿº 4x 00ÿº0ÿº 4x 00ÿº0ÿº 4x 00ÿº0ÿº 4x 00ÿº0ÿº 4x 00ÿº0ÿº 4x 00ÿº0ÿº¾ O¾ O¾ i¾ i¾ i¾ i¾ O¾ O¾ f¾ f¾ i¾ i¾ i¾ i¾ /¾ /¾ "¾ "v 
+v 
+v 
+v 
+v 
+v 
+v 
+v 
+v 
+v 
+v 
+v 
+v 
+v 
+v 
+v 
+2 @2 @ÞÿºÞÿº2 @2 @ÞÿºÞÿº2 @2 @ÞÿºÞÿº @ @,ÿº,ÿº @ @,ÿº,ÿº0ÿº0ÿºT 4À FTÿºâÿº / / /pÿºÿº / /pÿºÿº / /pÿºÿº / /pÿºÿº / /pÿºÿºæ 'æ 'æ 'æ '	> 2	> 2@ÿº@ÿº 
+ BoÿÙ( o 
+,ÿº,ÿº  ( o 
+,ÿº,ÿº( o 
+ D E D E¨ (  þ
+i ñ \s U9ÿ¢9 VÔ QÔ QV À s Aë 
+= Y: ô  Î ^ V  s h g y V v Ø  Fú Cy V v9 Vã Rÿÿ, ÿÿ, ö YË R # #
+= Y5 U  þ7
+= Y: Ç as U¬   þ¦  þ±  ÿ  ÿ  ü+  üLÀ ë À ë V ã  É  ,ú â  
+ ü (	 ¶ 	 _ Ç ; 4Ç as Uã -ë Ò ,  }¥ rÚ 
+m 
+Ú 
+m 
+9 ; ¬ÿÿ È    Ç Õ Ç Õ  }¥ rª ë ª Ç  s IÇ  s I ÿª XV s AÏ Ys L; ¬ÿÿ ,ú  ,6 "À ë À ë 9 Yã R9 Vã R± Wk 8ú  s ú  s ú  s  }¥ rÕ Õ À ^ã T> ^z T­ FÄ CC FJ C  ¥ C f 9 b° R  -   ÿC  ÿ
+ -¬ U            sÿü  Õÿºàÿºàÿ±àÿºàÿºÐ .	 #            «     U  s  9     «      åÿ÷Ç aª ë ` ¡ T¡ [Ç  Ç as ã ã ,s 9  "
+T | ¹ N  ÿS  ÿ¼  þþ  þþ  þ¤  þ¤9 É Ç É   þà  ÿ0  þÔ  þÕ  þÀ  þÐ  þØ  þØ  þØ  þØ  ýÆ9 Yã [ 9 	¹   þ YÙ [ Þ ª É Uç \ç \    ª ¸ª ¸ª ¸ª    F   6   1   V   D   V   J   Iã ,s +£ \y ? HS > 1_ > \3 @s S \o V ; < V 2 P b; Ks S U£ PÓ YÙ 	* Ù  ; 9 Yã T p w ã TP ã s \s b ;w 9 Ð  î Ç \ñ  
+  J \ S \ö { J 
+  : LJ \    C 
+  J \   Ç \ 
+² » Ë Iá ö 	d ª 5ª [ª ª (ª ª "ª 5ª 3ª ,ª /ª 5ª /ª 5£ P£ P£ P£ P£ P£ P£ P£ P£ P£ P£ PÓ YÓ YÓ YÓ YÓ YÓ YÓ YÓ YÓ YÓ YÓ YÙ Ù Ù Ù Ù Ù Ù Ù Ù Ù Ù Ù Ù  ; ; 9 ; 1 ; ; ; ;Mÿ ; ; ;w w 	 & wÿù ; ; 9 ; 1 ; ; ; ã Tã Tã Tã Tã Tã Tã Tã Tã Tÿ¼p w w 	 & wÿùP P z P ã ã ã ã Ö I{ JÇ \= \ª ª "ª 3ª ,  .í í  *Õ ã 2 £2 2 N2  2 g2 12 92 2 2 B2 2 %2 .2 2 
+e F2 F  ÿºb F  ÿd  ÿ  ÿ´  ÿ 4x 00ÿº0ÿº 4x 00ÿº0ÿº2 @2 @ÞÿºÞÿºv 
+v 
+ 4x 00ÿº0ÿº¼ÿÌàÿh¼ÿæàÿ( o 
+,ÿº,ÿº( o 
+,ÿº,ÿº( o 
+,ÿº,ÿº     D E D E 4x 00ÿº0ÿº2 @2 @ÞÿºÞÿº2 @2 @ÞÿºÞÿºT 
+ o 
+,ÿº,ÿº 
+ o 
+,ÿº,ÿº( o 
+,ÿº,ÿº( o 
+,ÿº,ÿº  ÿõT ³ 
+ã ,® À  Ç ã j
+f Dv V &  é x k ù éÿûÇ v Ü   	 S À Õ  ã ª ª Ú N¹   YÚ S£ (8  ª Ç   Aÿæã R Iÿâé  V Jã 9 G ì=ÿªÒ  G 8b Dÿºÿºÿºà ¨ 2¨ Fÿº¨ Q :¨ 
+  ,ÿº,ÿº(  ,ÿº,ÿº9 9   k /k /  ÿ  ÿH  ÿ  þç  ÿO  þù  ÿµ  ÿR  ÿG  ÿµ  ÿR  ÿG  ÿ   þ¦  ÿ   ÿ#  ÿ$  ÿW  ÿW  ÿ  ÿ  ÿ  ÿ  ÿ/  þ×  ÿ4  ÿ1ä "T   ÿ¬§ 
+f 2ê c -  ÿ¬  ÿ* «  y y y y y y y y y æ ' «' "0 z .  ÿvÐ .æ ¾ ó dæ Z¾ Ö z  ¾ G ó d  ¨    , gª / <À æ Zæ " ù å  ¦ x¾  nË P' " ¾ æ Zp d ù A  ê d 
+U d Z9 u9 uÌÿÿÁe f0ÿª B4 å e Z] ê ò Z·  9 e Zå ; 5 Ú Zê å  Hê ß zå ;ÿ¦êÿ«% 2å  4  nÐ å å / ä ÷ Z / é  û Z£ 2? ª É$ " l lù P	Ï 	Ï 	Ï 	Ï  s          ÿM2 92 9,ÿº,ÿºV ¾ i¾ i @ @,ÿº,ÿº 
+H ( ( (
+t ( A A­ -F T  ~F  <  
+ <9 ã S   ¸ Pä Pä Pã >9  4    d Zq ZÇ X  ü Çÿàs s Uã M 
+~ PM 
+ª ¦ Zº Rà Z· R¦ Zº R9 ãÿúÇ 
+s 
+Ç  ã 
+Ç  V s ´ Õ , Y. Ç ã ,1 : /Ç â  ZÂ Nâ ÿñ! 2 ~ã eV bª 9 	g ëÿç X Os m 
+ª ã Tä (, <û (_ ~ø ã  W Wã g X Y Y R R± < ø w  (o (3 PG PªÿÄã ã  ~ ~
+  ,ÿº,ÿº / /pÿºÿºæ 'æ 'pÿºÿºT >T >,ÿº,ÿº  þÏ  þö  ÿ0  ýê  þm  ÿC  ÿ  ÿ  ÿ  ý]  ü3  üL  ý<  þ  ý  þù  þgü î	 B	 B4 ;ÿ¦Ö s dS \Ç +ã !Ç  s Ie P9 ó Pã 9 Yã Rl 9 	Ç aV Kã Ç ã TV Js %w 2´ ¬    V Zs ?î 2. 2& 2T R d? T ÿÕ/  ª  ª ­   P «s ¢ # +                    ü   8     " $ & 
+ + > A K _ a k ~   ­ ² ¹1Ù@ 	  / D p t"%Ìÿÿÿãÿãÿãÿãÿãÿãÿãÿãÿãÿãÿãÿãÿcÿc > 6ÿ¤þü°ëÎàë¨àwíó  Þ¦å=                                                        ¾¿aÀÁb                                	     !  $%&'(
+ + > A K _ a k ~   ­ ² ¹1Ù@ 	  / D p t"%Ìÿÿÿãÿãÿãÿãÿãÿãÿãÿãÿãÿãÿãÿãÿcÿc > 6ÿ¤þü°ëÎàë¨àwíó  Þ¦å=                                                        ¾¿aÀÁb  @BUT@?>=<;:987543210/.-,+*
+'&%$#"! 
+
+	 ,E#F` °&`°&#HH-,E#F#a °&a°&#HH-,E#F`° a °F`°&#HH-,E#F#a° ` °&a° a°&#HH-,E#F`°@a °f`°&#HH-,E#F#a°@` °&a°@a°&#HH-, < <-, E# °ÍD# ¸ZQX# °D#Y °íQX# °MD#Y °QX# °
+D#Y!!-,  EhD °` E°FvhE`D-,±
+C#Ce
+-, ±
+C#C-, °#p±>°#p±E:± 
+-,E°#DE°#D-, E°%Ead°PQXED!!Y-,°Cc#b° #B°+-, E° C`D-,°C°Ce
+-, i°@a°  ±,À¸ b`+d#da\X°aY-,E°+°#D°zä-,E°+°#D-,°CXE°+°#D°zäEi °#D °ÀQX°+°#D°zä!°zäYY-,-,°%F`F°@aH-,KS \X°YX°Y-, °%E°#DE°#DEe#E °%`j °	#B#hj`a °° Ry!²@¹ÿà E TX#!°?#YaD± Ry³@ E TX#!°?#YaD-,±C#C-,±C#C-,±
+C#C-,±
+C#Ce-,±C#Ce-,±C#Ce-,KRXED!!Y-, °%#I°@`° c ° RX#°%8#°%e8 c8!!!!!Y-,K°dQXEi°	C`:!!!Y-,°%# õ °`#íì-,°%# õ °a#íì-,°%õ íì-, °` < <-, °a < <-,°++°**-, °C°C-,>°**-,5-,v¸6#p ¸6E ° PX°aY:/-,!!d#d¸@ b-,!°QXd#d¸  b² @/+Y°`-,!°ÀQXd#d¸Ub² /+Y°`-,d#d¸@ b`#!-,´    °&°&°&°&Eh:°-,´    °&°&°&°&Ehe:°-,KS#KQZX E`D!!Y-,KTX E`D!!Y-,KS#KQZX8!!Y-,KTX8!!Y-,°CXY-,°CXY-,KT°C\ZX8!!Y-,°C\X°%°%d#dad°QX°%°% F°`H F°`HY
+!!!!Y-,°C\X°%°%d#dad¸QX°%°% F¸ÿð`H F¸ÿð`HY
+!!!!Y-,KS#KQZX°:+!!Y-,KS#KQZX°;+!!Y-,KS#KQZ°C\ZX8!!Y-,KT°&KTZ
+°C\ZX8!!Y-,F#F`F# F`a¸ÿb# #¹§§pE` ° PX°a¸ÿº°FY°`h:-,± B±#Q±@SZX¹   TX²C`BY±$QX¹   @TX²C`B±$TX² C`B KKRX²C`BY¹@  TX²C`BY¹@  c¸ TX²C`BY¹@  c¸ TX²C`BY±&QX¹@  c¸ TX²@C`BY¹@  c¸ TX²C`BY±(QX¹@  c¸ TXº   C`BYYYYYYY-,°CTXKS#KQZX8!!Y!!!!Y-  A T¯¯¯5  ®­ < ­³A
+¬ ¯¬  ¬  ¬  ¬  @¬³
+2@¸¬³2@¸¬²+2¹ÿÀ¬²:3@¸¬³-2¼« _ 3ÿÀ«²U3@¸«³@D2@¸«³3;2@¸«³/12@¸«²3@¸«³2A« /«  « /« O« « « ¿«  « ß« ÿ« ¨¢²F@¸¥²3A¥  @¥ Ï¥ ÿ¥   ¥ ¯¥ ï¥ ÿ¥ ÿÀ£³	2@¸£²3A£  £ £ £ ¯£ Ï£  o£ £ ÿ£  ¢ ¯¢ ¢¡²A
+    ÿÀ³2@¸³2@A P  °M ÀM  o  ÿÀK²-12¹ÿÀK³
+2A          @ ÿÀ³2@¸²2¹ÿÀ{²042¹ÿÀ{³2PAx en # ~n  cn  bd 
+ ÿÀ@³2A? ? 
+*2A
+C 2 
+ 4 ²2 »@  @³	2@¸²2½  ²½
+ /
+ ÿÀT³	
+2AT  T  n  n  @n²	2AE  k  F  §¡ F ³&À»  @³	
+2@¸>²3@¸>³
+2ÀA	>  ° À ÿÀ³&82 A&( 0(    0   0 P o      0  /z pw w z ÿÀ²2¹ÿÀ²$(2¹²2» ÿÀ³	2@¸²2¹ÿÀ³2?½s Os  @t³2o»*  @,³2@¸p²	2½ 2 ÿÀ²2½  ²°A   ÊÐ  ÓÕ 
+ ÏÐ 
+ ËÐ 
+ ÍÐ 
+ ÎÐ 
+ ÿÀÐ³	2@¸Ò³	2àAå  _Ý å »Ã 0 Ú¸ 2 Ù¹ ? Ø¸ d ¹¸ 3 º²!È¸¸³!È@¸²
+2¹ÿÀÃ²+/2¹ÿÀÃ²%2¹ÿÀÃ²2¹ÿÀÃ²2A%ÂÁ  ×Á $ ÁÀ " ¿À  Àt È µ5 ; ´5 ; Ä¼  ·¶ 8 ³²È¸°²È¸¯²È¸®² È¸¯²P/¼®«  ­²&¸¨³&$»5 ¥t²A
+¡Xô   Øô  ¢²7È¸²¼ ¹@7@%@-@¦0%0-0¦ % - 7 ¦ A    7   0 @ ²7°Aýt Àt  t  t  `t pt   t t  t ðt  ? O  ~     z { | }  t u w  p~ p p p  pz p{ p| p}  pt pu pw  `~ ` ` `  `z `{ `| `}  `t `u `w  P~ P P P  Pz P{ P| P}  Pt Pu Pw  @~ @ @ @  @z @{ @| @}  @t @u @w  0~ 0 0 0  0z 0{ 0| 0}  0t 0u 0w   ~         z  {  |  }   t  u  w  ~     z { | }  t u w  à~ à à à  àz à{ à| à}  àt àu àw±ÐAÅ~ Ð Ð Ð  Ðz Ð{ Ð| Ð}  Ðt Ðu Ðw  0t @t  À~ À À À  Àz À{ À| À}  Àt Àu Àw  °~ ° ° °  °z °{ °| °}  °t °u °w   ~         z  {  |  }   t  u  w  ~     z { | }  t u w   ~         z  {  |  }   t  u  w X 
+¸»²'0¸¸²'O¸·²'bA	¶ ' µ  « ¯²ä¸­²ä¸¬²»¸¨²4¸]²'.¸[²'ÍA
+U  T  S  R²V¸Q²
+ ERX¹ (DYY++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++eB+³1u~ÃEe#E`#Ee`#E`°vh°b  ±~uEe#E °&`bch °&ae°u#eD°~#D ±1ÃEe#E °&`bch °&ae°Ã#eD°1#D± ÃETX±Ã@eD²1@1E#aDY³?<XAEe#E`#Ee`#E`°vh°b  ±X<Ee#E °&`bch °&ae°<#eD°X#D ±?AEe#E °&`bch °&ae°A#eD°?#D± AETX±A@eD²?@?E#aDYEiSBKPX± BYC\X± BY³
+CX`!YBp>°CX¹;!~º ¨ +Y°#B°
+#B°CX¹-A-Aº   +Y°#B°#B°CX¹~;!º¨  +Y°#B°#B ++++++++ °CXK°5QK°!SZX±&&E°@aDYY+++++++++++++++++++sssssE°@aD EiDEiDssstssststst++++++++++++ sssssssssssssssssssssstttttttttttttttttttttuuustuuuu+s  K°*SK°6QZX±E°@`DY K°.SK°6QZX±E°@`D±		E¸ÿÀ`DY+EiDt sss+EiD++C\X@
+    ¹ÿÀt³2o½w w ÿÀw²/12¹ÿÀw³"%2@¸t³/52@¸t³(*2@¸t²!2¸ÿÀ³72¸ÿÀ³%2¸ÿÀ@-2%-7 % - 7¸ÿÀ¶¦2¦¸²/¦ t+s++++++++t+stY ++C\X¹ÿÀ¡²2¹ÿÀ ²2++Y+s++++ +++++++++++++++++++++++++st++++++++ss++++++s+s+++t+++sssss+ss+++s++ ++++sts+s++++u++++++++u+++++s++++stu++sss+++s+sstu++stu++stu++++++++++++tu +++EiD+   º º § &   ÿä  ÿä  ÿäþiÿäº þiÿäê             ² ¬ ×(  ³ú  ø1 I  ÷  ¯ ý   T  $  U I+ ÿvÿé =  ¢ÿ·ÿª   Æ ø  Þ 7 N U U e éå Yÿ    ; R a Ö Ö õ     ¾|ÿø     < A AÿÁÿü * Ø	µ  »ÿcÿi  " +ÿÖÿß & Y £ ¬+ÀH ! k  Æ k  ¤ þ]C¿   I V n w  ª ÊPØðÿ{ÿç   ( a i é5M¥ÿ>ÿÚ [ ¹ ÈÀ[§[þ?ÿÿÂ  ·
+¼Á2ýÿ¡ÿ®  & 1 = N V b  Á É ñ òÿ H S w Å &(Ö~~Ó . A ] k u  ° ² º » ½ Ö Û à åJbòdÏ´Ô©  # % * t ¥ ¶ Ì Í Ï 0Pjoà°ì÷ûý&þàþûÿNÿõ   L z   £ ³ ´ Î Õ ò ó ö8h¡°àì	"Op¥­NÁ5BkÍÚaþü¦þþ­þÑÿ·ÿÑ    & F i   ¥ ¿ Ó Õ Ù Ý â+8;Z^hs­ÅÑêò   ";DOor~¥ÏÏÐÚÝëõ"6q¡°¸Ðæ&.1OZÿ22GS¨«Âð<dpèÌý*ýÞþ þhþ°þ³ÿª  Y z   ¢ ¯ ´ » Ê Ì Î Ù à ô!'+9FKMW\e¢®ÅÅÑ"+ASae´´ºÉÖØíõ#+1IZ[nqt~ªÏÓçèíuz§´ÑLmm¢¿ÀÑüü/j¨â6PÔóp*               ªí      +Só ?þhín    @°  t» 5Å   à ²ÜàÃ= Õ`§nÊ! «& ¼»B ´<V å¨ å k x ks «í:}7 ÔS <ÿ¢	Ið n d ^                              9 Ü éþ
+|+ ¸  Y ¬ ß© úÿì   U a   £  (  ] Ö &lÏ ´  7>z ð ù éº&B  ÿçþiãÿ7ÿ-   ¨ t h G ò å Ù ½ ¨ h G \ H 
+ ( 2 A P Z d }  ÿ°ÿÿÿyÿo Ë  ú,ú  Õ ¸ \ < È È  Ù ³ G                                                      þd À ê%2°ívª´¾Í1 x   Ì â ô
+ c Ñ ê ÷B  , 4 A 8 H X lY½ C p Ó ( 7 B P Z d s x    ¥ ½ Î ð\ ¾ Ø,c ê A K U _ s ¦	³ A d  * ë ú8t , @   ¶ À Ì Ü æ ð ÿ
+ ,;DVc ÷ W d6 P±  ÿ¶ 9 N DÌ å $ B"¤ ð ` à   9ã ,þNÿ8i½ ÿ    T  =q A  P ý O 5þR , Ó°Ò ¶ À eÿwþl Ë © \ @vDrû         B´þ¸?@ þ 
+þ þ¼& 	° +ö<ý<Nô<Mý< ?<ý<ü<ý<10!!%!!  ü Àü@ û  À   ¸  èº  	 {º3 2@+
+@4Z8 	
+	&&&&º @ 0
+¸³!æ«++Nô]<MääííííNEeDæ] ?<?<Mýæ]+10FDFD!!I0HÜzèXþ¨ýþþç  p±eº   k@4ööeevv 
+ ô  
+/
+?
+
+¸{@
+  0¸³¥C+ö]íý]ý ?<í9999910rq5!35!¥52.ô52.±øøþïøøþï   Fÿ30   ' .@XgU[fg wuv u- -&&&75-FG-Uvtv-
+.!'.-'& (!
+" 
+
+¸ÿÀ³4(¸ÿÀµ4(¦º I·	
+w¸!@(@4@4/?Oì
+!@4!@4/!?!O!!ì¸Z·
+	Ï¸"@-¿Ï_o?+@
+4Ïß/¸@
+
+w+/++@
+4+¸¶P0$¸ÿÀ@	
+4$ $$¸@
+ïÿw¸ÿÀ@	
+4 ¸@/@
+4/¸M±Â+Nô+q]Míq+ô]qíq+NöqMí+qôíqq+9qrrr/<ý]< ?<ìí]++ý]++ô]ä?äìí++ý++ô]ä99 99999999<<<<<<<<<<10 q]]]%&&546753&'#5&&'%6654&'éÄ·Ï¬¼ýað®ÛÃ­ØX6;F@AK^OZÙ£8ã¢¤ßcc³!v*þyAÏ¢µø»¶ØÅPt `:5[ý2oKCa   ZÿÚ¦Ó " . 8@x
+//770$¦©¥ ©$¦.	##%*&!80#íæ
+## //088
+
+2/#,8&   8/# 
+	5
+§	 	 ½" 	 "  @
+	ó 0¸³¥k+ö]íýôíí ??<<10]#&5673eÁ cVÀg=5#þQçòé!à½þÑþWî¤þ¨f   CþQ@Ó  I@''
+gg
+§¨	  ½"   	"  ´ó¸³jC+öíýäíí ??<<10]>543ESD:f¿§BK¬þQ²¾øßuî©/×þøÑïþôþû   U ÓVÔ  H@	b0@7b? O  b
+¸¢@bO MC+Nô]Mô<ý<ä /]ôý]ä<<10%!!!!!Õþ þÓ}}þþùþ   uþ¹¥  ?µ	
+¸@8
+
+r&$    0  gv+Nô]Mäýí ?Míôý9 9910!'667#*uZ7UHÉzp tbU   s   2@!0@7   0D   0  ¥l+Nä]Mæ] /í]10!s(þç     ¬  $@8 
+&    0  gv+Nô]Mý ?Mí103!þç  ÿýÿç;Ó  8@ I  
+ëë l+NôMíNöMí ?<?<.+}Ä103kÓþìú   VÿçÀ    @Kx
+
+§ªª	§·	È	VYYVghhg996	6
+IIE	F
+§	ËÉÄ	Ä
+ÙÛÔ	Ô
+ ¸ÿÀ@%4¦
+/@4¦ ØO"Ø!ÓÂ+NôMíNöqMí ?í+q?í+q10] ]]2#" 76"32676&&2ÕxwÕÖþúwÕ3P4O33P4OÀ´þ_þ`¶I¦¶éATmþþþþÁ@ATlÁA  ¢  &À 	 V@	k{¸
+7HCCC$$$&Vªª  1vÖ¸ÿÀ@4     0 @  ¸ÿÀ³4 ¸¡³¸V@#/@4¦	ØO  ØwÓÂ+NôMôíNöq<<Mí ?ý+qä?<ý+]q<93+]C\X¹ ÿÀ²9¸ÿÀ²9¸ÿÀ@9999++++++Y±CTX@	  99]Y10]KQX½ ÿà ÿà ÿà888Yq]]]!6767654&#"%6$32ü' ì¾+:eYXhþèÆÙøGM3þöGþû	Û±?WU^ej{èÊê®c³bAôP&   MÿçÀ 
+
+H
+[
+§
+·
+Æ
+	 
+
+
+ 
+
+¸®@
+
+
+ @
+À
+Ð
+
+»(  ´¶   ¸X´
+
+¸@¿?ºLH +Näqö]Mô]<ý< ??ô<ý]<999 99.+}Ä±CTX@-=MÍÝ ]Y10]] ]+!!533#~ý¨|ì¶¶þðþ¯'ö£ü^÷þÙõþ  [ÿç5¦ @
+¸ÿÀ@	40(@((¸@
+
+?"O""@4"¸@Ø	w+ØO2Øw%Ø1ÓÂ+NôMíôíNöqMíôí ?í+]?ý]+9/]q+í]+9]9] 9]9]10q] q]++&&54632#"'&54632654&#"32654&#"HmcåÓÑçj`zþý×Èv¹_OP`_NQ`wYWrtYge.¡`¤ÖÖ¤f*1¼{Ëþi|ØwÇQT^_TO_`ý=t}vg}   AÿæÀ  # Ð@X;Kez©©¦¦µ ¹µ¸´Å ÊÀ4VY
+_R`wÝßh /@4¦! !!¸ÿÀ@4!¦0	O	ß	ð		¸O³ ¸!µ ¸ÿÀ@4¦
+ØO%Ø wØ$ÓÂ+NôMíôíNöqMí ?ý+qô]ö]qí+q?í+q9 910q] q]%3267#"54 32  #"&4&#"326]
+TEWzj­û	ÍßþÖï¬Ô^}RNgpTQoSSP ü{Ößþ§þuþnþ·{  É  â&   .@88
+	¯& 0¯Í«+ö]<ý<<ö ?í?í10!!Éþç
+þçüóþç   _ ¦Mÿ  f@	P 4¸ÿà@
+47F×7¸@
+7@  ¸@ O  MC+Nô]<<<Mý<í ?íýí10 ]++]q7_¾ýBî¦þMð     ¿º  
+A¹ ÿØ@	794(794¸ÿÀ@	(54@(54¸ÿØ@P!'4(!'4
+
+/8 7?j jefhg
+èJ	
+			    	 
+@>
+¸ÿÀ@4
+%	¸¼@  ¸a@ 0¸$@		0			º$ a@	 ^c+Nô]Mýö]qô]qýNEeDæ ?<<<?<Mí9/<ý++<.+}Ä.+}Ä<<ÄÄ±CTX´	4	
+4 +Y10K°SK°QZX¹ ÿþ²
+ºÿþ ÿü±88888Yq]++++++!!!!!¿þ¾ý¶yþÆ;9*ÊÆMþ³ºü ýà     bº    , Ø@?w*hx*æö	!	(,!%O0¯#"% % 'pK('¯¸ÿÀ³	4¸@!0.@.P.`.p... . .0.."   0¸³-1S+Nô]<Mý<M]qö+qMíô]í ?<ý<?<ý<9/]qC\X¹ ÿ²9¸ÿÀ²9¸ÿ±9+++Y<ý<9 910K°SK°QZX±
+ 8Y] ]!2!3276654&'&#!276654&&#J®«Zo_]¡vJþåþ
+(Â­*LWKJ,Ñª +BS@yÊº\_g¬+'¼d½q
+Æþ­	WGDU	ý¹þx	]NB\*   aÿç^Ó  Ö@N	 Ç	ÔÔõ	%	((
+
+	ÉÅ?OR à ð  ¸ÿÀ³4 ¸ÿÀ³
+
+4 ¸Z@-@4K_O@4¸(@"-
+ïV ï O0' 0¸³~S+Nô]qMíN]ö]Míôí ?ýô+]qä+?ýô++]qä]10 ]]]]#   ! &&#"326?BþÍìþÜþz4
+¨d2þÛ¥v£ËÈ vª[ðéZn^°Frêþúþêì     aº   @3((
+Gee*9HYh96% %'¯¸ÿÀ³	4¸@! !0!!   0¸³ 1S+Nô]<Mý<M]qö+qMí ?<ý<?<ý<10 ]q]!2#!327>54&&'&#·`¸`-7fMb¤ýÓ(Ý|7H_<<lS>µº&ÂþçÎµ cK*Âü5VÅªª¶f     ðº  @=%0¯	%
+	% KH
+  
+0
+@
+
+	   0  ¸³1S+Nô]<Mý<N]ö]<Mô<ô< ?<ý<?<ý<9/]qC\X¹ ÿÀ²9¸ÿ²9¸ÿ±9+++Y<ý<<<103!!!!!?üéàý 3ºøþ»÷þq÷    º 	 r@?% 0¿ß/ %	 ?OR  0	   0  ¸³
+1S+Nô]<Mý<N]ö]<Mô]< ?<?<ý<9/]q<ý<<<103!!!!íý;dýºøþ¥øý   bÿç½Ó   Ø@F8KVvv	((((H[T	Zj{zt¶¶Ç
+Æ×ç  ¸ÿÀ@9  %-	@4KO@4¸(@*-  _'V   "0""' 
+
+
+0
+
+¸³!~+Nô]qMíN]ö<Mý<ôíq9/< ?ýô+]ä+?í9/<ýq+<910 ]]]5!#"$54763 &&#"32675?~]þµæþª¬À¹Ò3,þÚ«Âåè¼]»C÷ý¸ZÁgÓåd_IåÊ7l}öòþûþûI4º    *º  £@%	
+	
+%¯   Ï¸@"@
+P
+`
+p
+
+ 
+0
+ 
+À
+
+   0 À  ¸³1u+Nô]<Mý<M]qrö]<Mý< ?<<<?<<<9/]C\X¹ ÿÀ²9¸ÿÀ²9¸ÿÀ±9+++Y<ý<<<<<103!!!!!(D(þØý¼ºý¿AúFý    ´º  o¹ ÿÀ³244¸ÿÀ³#%4¸ÿÀ@?4 @Pà`pð Ù  ° à À ð   0 Ð à  n1+Nô]qr<Mý< ?<?<10]qr+++3!(ºúF    Ãº @
+
+	
+	
+		
+¸·@+ 
+
+
+	
+	 ¸d²H¸d@ 
+0
+
+   0  ¸³1c+Nô]<Mý<N]öMíôí ?<<<?<<<9/9 9.+}Ä.+}Ä<Ä<<±CTXµ	 
+4¸ÿÊ²'4 ++Y10 CX@&'	 °À¨èö	¸ÿà³7R4	¸ÿÀ@$7R4%=
+t	
+ªºÉ
+ÁÐü
+=
+Brq]++q]YC\X¹ ÿè³?¸ÿè@?0
+?0? ?¸ÿÐ³?¸ÿÐ³?¸ÿÐ³
+?¸ÿÐ³?¸ÿÐ³?¸ÿÐ²? +++++++++++Y]3!!!(VýØFþþmðºýuýÅü°õþE    ¥®  =@P%    0  ¸³1¹+Nô]<Mý<Nþ< ?<Mý<?<10]3!!(à®ûI÷     º @&&¸ÿ@	:4
+ :;4	¸ÿà³:;4	¸ÿà@¤.4
+ .4	
+ã	ì
+	
+
+	
+#, 	/
+ghe	j
+wx¤	ª
+µ	º
+ö	ú
+	
+Æ	É
+×ØÖ	Ù
+çèå	ê
+
+w	x
+	
+Xejg	h
+vyDKD	K
+WW	X
+
+/4:4	;
+?		
+	±CTX@
+	22  P
+4P
+4¸ÿ@
+4@'4@'4¸ÿ@'4 
+  ?<<?<9++++++]/íÔí9¸ÿ;@-
+	 		2
+
+2
+
+		¸
+³º8 ÿÀ³[]4¸ÿÀ@ST42@½½ ¸8@  @[]4 @ST4 2¸
+³
+1u+ôqí++<î<ýqýq<ý++î<äq ?<<<?<9.+}Ä.+}Ä+Y10K°SX¹ ÿà± 88Y]]]]]]qr++++ +q]3!!!!»
+¼þíþÝþãþÞºüèúFû~û~    #º 	Î@	¸ÿ ³?¸ÿÀ³[]4¸ÿÀ@*ST42		@[]4@ST42Ï¸@@P`p À 0	¸ÿÀ³[]4	¸ÿÀ@SS4	2  0 À  ¸³
+1u+Nô]<Mý++<M]]qrö]<Mý++< ?<?<99 99.++++}Ä±CTX¹ ÿà@	'4 '4¸ÿÀ·	
+4@	
+4 ++++Y10CX¹ ÿ¶55¸ÿÀ@=.4S.42@F ²äÄÏÚ /4;O ¯°¿¸ÿÀ@	354@354¸ÿà@
+/24 /245¸ÿ@	!.4T!.4¸ÿÀ@F 4T 4,';3N@\V	ME«ËÙèçù'(Jx¬]qrr+++++++++ ]]qr++++Y ]3!!! Xþ×ý±ºü-ÓúF¼üD   YÿççÓ   ¢@U'x	wwx-
+	-'¯
+ 
+
+ 
+
+¸@ 0@`p  ð'    0  ¸³~Ã+Nô]qMíM]qö]qMí ?í?í10]]q ]4766763   !  32654&#"YC2­g³Dþ~þ½þ¹þ~1æ±±ãÝ··àÔàp²+:þnþþþohùþÿÿÿüøû     øº   w@%¹¹GgÖ%
+ % '¯¸ÿÀ³	4¸@0`p   0  ¸³1S+Nô]<Mý<Mqö+qMí ?<?<ý<9/<ý<10 ]q]3! ##326654&'&#ÛR~ªbNjÉÁ¢¯vC^H5 º!Ý¯¸iý×Âþ`.bAPh
+
+  YÿmÓ  (@}! x}w 
+	%!%kz t Yhxyyy  ©¶ÆÖ7Xii
+z yL \ l $"''$ &-'¸Lµ&O"-	¸ÿÀ³4¸S@Ô		&&'K¯*¸ÿÀ³	4¸@ 0*@*`*p** * *ð**' 0¸³
+þº99àµµáá¬@9Z]SºN.Ñ#{?hgþqþ¾n@C¾{þûüýþÿÿ;!©2     ¼º  ! ø@9IWjjª	§ #¶Ø	
+
+
+6FF	66GuyÓ
+x	xv			Su£ 
+
+
+
+%`   !%
+ ¸¼@' 
+
+
+Ô' °ÀÐp# #0##!   0  ¸³"1c+Nô]<Mý<]qö]íô]í ?<<<?<ý<9/]q<ý<99.+]}Ä9 910 ]q]]3!2!.##326654&'&##oëÕÂÁ`}j³þÖrT^f<ÛÕj<OH$´çºOÊ¥×8«þâ?«Y!ýN$XBJ[   JÿæòÓ ,Ð@=¹¸¶(Æ,+ee(tx
+t(ÙÖ#Y
+UU"Y#hfg!i(g,w!#¸ÿà³4#¸ÿà@e4Q"Q#Á"Á#q"q#"#á"á#+
+*
+$"$#9
+4#K
+K
+D"C#j
+e#y
+z"
+"¦
+§
+¨"	
+	
+"#
+
+""#
+
+V@ 4ooºe ÿÀ@9- H¸ÿÀ@I 40@P` °Àî@9-*	ïÿ@4K'&.' °Kï  0  -ÒS+Nô]KSX± @8YMíô]íNöMíô+rí ?ýq+ô]+ä?ýq+ô]r+ä9]]qr++C\X¹ "ÿà³>#¸ÿÐ³>#¸ÿã²9"¸ÿà²9#¸ÿÉ²9"¸ÿÐ@9
+ 9
+ 9
+ 9"¸ÿè@9
+ 
+9
+
+9
+9+++++++++++++Y±CTX@:
+:
+5"5#K
+I
+C"F#¦
+©"
+ ]Y10 ]q]%32654&'&'&'&54663 &&#"#  J =L4¹î`ï©þØ}}I/,8°Ïuÿ ¿þêþÖÝyQ4I.;Vy®pÃfòÊ
+qc5"94%/fm½~Ük   ,  ¹º  r@#/	00P	p			% 	¸-@
+ 0   ¸-@Ppý¬+Nô]KQX±@8Y<Mô]<ý<ô]<EeDä ?<?<ý<<<10]!!5!!ßþMþNÂøøû>  ÿç$º  @8		GG	W	V§·×åö
+ %	 
+Ï¸@"@P`p 0 À   0À¸³1u+Nô]<Mý<M]qrö]<Mý< ?í?<<<10]q!32665!#"&&'&5(|~(0Ø®ÒÙ~ºüæ½8Zmg®+üþþøÚYaU~ö  ÿÿ  Tº ³ ¸ÿ²9¸ÿ@T:4ÀÖÖÙÙvyx /gh`w 
+&YV		4;
+ /
+DL
+[
+
+
+ ÔÞ
+
+78
+
+ÇÉ
+Ð
+	 	 	 		    		 ¸¼·@4K	¸¼³
+º¼ ÿÀµ4K¸¼@  0  ^c+Nô]Míô+íNöMíô+í /<<<?<<<.+}Ä.+}Ä±CTXµ
+ '4¸ÿà³'4¸ÿÊ·	4
+6	4 ++++Y10 ]q]qqq r1!!!õþ:Z& Wþ8õþþ»þºý½þ
+4@ 4¸ÿ¦²5¸ÿÀ@54N]cir}µ»	- ?0N@\P
+øðq]++++ ]+++Y]+3!5!!ýU1üÝB·øæü#÷ ÿíþk}ÿ!  @»  =4+Näæ /Mí105!þk¶¶   Iÿè.> # 2q@hJHI%Ûß	6FW&fg&&¦¹ÇÈ
+'
+4$@4o$ü$$F¸ÿÀ@04= °ù,3 @4   U!@?!@?!@4!¸tµ
+
+,¸ÿÀ³?,¸ÿÀ³?,¸ÿÀ³4,¸t@@1&
+
+Yÿ@4O44`  03
+?@?@?@?++++Y?ýC\X¹ ÿÀ³(?¸ÿÀ³?¸ÿÀ³?¸ÿÀ²?++++Yô]q+++++C\X¹  ÿÀ²9 ¸ÿÀ²9 ¸ÿ°³	
+> ¸ÿÀ²A!?+ +++Yä+9]C\X@@?@?@?@? ++++Y/<ý++r++<310]q ]+# '&5 32 !326&&#"ú6é¯þëiÓíý@aBZ'xV\<<R/¡µÝ+þÇþ½}HlzCCs     æÓ  ¸@26*  Y¿  	_ÿ¸t@
+ÿ¸t@  ð  
+	3?OP(/_¸@
+&_  À¸ÿÀ¶	4x¹i +Nô+q<Mü<ý<ü]<ô]ä ?<?]q<ý]q<?ý]q9210q] ]3546632&#"3#!#9uxs&C>=5ÒÒþç&PS$Ä9QKÝü·I   TþQ`> # /N@bw
+p1
+1 ##033@CC[YY%V
+3,K
+DK(D,ðý
+
+*
+'-
+$¸ÿÀµ43 ¸ÿÀ³> ¸ÿÀ³> ¸ÿÀ³(*4 ¸ÿÀ³#%4 ¸ÿÀ³144 ¸ÿÀ@	4`  _¸t²'¸t²
+-¸t@*
+Vn7%
+~ÀÖ}b¿Å>p»þòâü`gheF'8!1#^¬µÕ­üG¼ºj<¹©¡¥     Yº  ²@+933BBÞù	$Xh¸t@	
+
+
+  
+&	@ $4¯	ÿ		¸ÿÀ@"$4 pðï &¸ÿÀ@ $4 ð?<+Nôqr+<Mý<N]qr+öqr+<Mý< ?<?<<<?í999<<10] ]632!4&&#"!«½aOþç Q=Fn3þçºýåHpý1§Z5Dýìº     ¬º   w¹ 	ÿÀ@?
+?@	P		°	À	Ð	ï		`		 	°	  @ Ð à  ] 
+&¸ÿÀ@	!$4?<+Nô+<Mý< ?<?<?<ý]q<<<<<10q]r+!!þç¶þüûJ&ûÚ    _º  ó¹ ÿÝ³
+?¸ÿÀ@}-4'	f¯
+¿
+È	Ë
+Ú
+
+S`
+	FWv¶	ßíüõNNf}
+++***/
+KK
+	
+	
+
+	  
+
+
+¸m@/9e
+&   ?{+Nô]q<Mý<öqíôí<< ?<<<?<?<9}Ä<±CTX¹ ÿÈ²	!4 +Y10]]]q r]++3!!!IZþþÑþõºüövþ|ý^Ýþ¬    ¬º  S¹ ÿÀ@
+ã<+Nô]qr+++++++<Míý<ö]q+<ý<öq]+<ý< ?<?<<<<<?í?í9 910r+q] ]+!6326632!4'&#"!4&&#"!~Àf0F¢\u¢(þç'Q;h.þç?6Ah-þç&©TUUT_\DýY_.<HþFZ,Fýü    Y>  @Zh¸44DDé¸t@
+ 
+& @ $4¯ ÿ  ¸ÿÀ@"$4 pðï
+&¸
+	Sfu/Xhp
+	ÿ?O¸w@
+ 		0	p		_¯Ð &¸
+
+(_F(PF?ý]?ý]999]q¹ "ÿË³(*4!¸ÿË³(*4"¸ÿà³$4!¸ÿà³$4"¸ÿà³4!¸ÿà@4k
+6"F"
+"Ä"Ô"!"
+ ¸ÿÀµ4 3¸ÿÀ³-?¸ÿ°³	
+>¸ÿÀ³"%4¸ÿÀ@4 0@P`ð P`¸ÿÀ³4¸@M _ðF(@43@-?@	
+>@574@+.4@%
+?!¸ÿì¶
+99!¸ÿì²9"¸ÿê±9 ++++++Y q]%327654'&'$'&54632&&#"#"&0ncm7%Iþ¬[~ÚåÚÔ(þ÷_Xo0 &ÁYXôïÙý/+RU(/ K>V¼1>B#fJKÒ°  ÿè  Í@
+&U?¯`Ðð  0x +Nô]qrK°7SK°;QZX¹ ÿÀ8Y<Mü<ý<ô]<ôä ?í?<ý<ô]qä9310]#327#"&&'&5#535%zÀ''Jb|Lz9	&àþT+Ú*3QE1ÏàÓ¤þ  ÿèS&  @Wg	<<KKç¸t@ 
+
+	& ¸
+/4(/4(/4(/4¸ÿØ³/4¸ÿÀ@ :4
+	
+" -Ç ¸ÿð@ 4
+  % *4 : 	±CTX´
+
+¸ÿÀ@	4 	 
+ ??<9+99@ 
+
+		 
+	9
+¸ÿÀ@(4
+
+0
+@
+
+
+?
+O
+
+¸0@9?Oº0 ÿ@5  @Ä +Nô]+Mí]íý]NEeDæ]+Mí ?<?<<<999Y10q+] ]++++++!!6767!·þT'È:Ê!þZ&ýâµE--ûÚ   	  8& Ý@1 
+ 
+	 	
+++#99HH	¸ÿÀ@w,G4
+ 	
+ 	
+# ('-	(
+'1 7>	F GGHI	w xwx	x
+w 	
+Ù ÙÕÕ	Ù
+Õê êää	ê
+äù ùöøö	ù
+ö-±CTX´
+¸ÿÀ³	!4¸ÿÀ@	!4@	!4 	 
+ ?<?<<9+++99´Â ¸ÿM³
+	 ¸ÿL@2   
+	
+
+		 
+/?A	   m m @ ´ 
+Ä¹ +NôMýýýýNEeDæ] ?<<<?<<<<<99999999 9+++Y10]q+ ]C\X´@
+9¸ÿø²
+9¸ÿø¶
+9@9¸ÿð²9¸ÿð²9¸ÿà²9¸ÿà±9 ++++++++Y] ]!!!!!Yþ°Ç·±Ëþ«þò·´&ýH¸ýH¸ûÚ«ýU    `& @(È¹ÜÕð
+(7 8HY|u
+&+6:FJøø	%&*
+4:
+CN
+ÃL
+TY
+dm
+x}
+º
+ÕÜ
+ü
+
+	
+ *
+3?
+F	
+:
+N
+k
+§·É
+ö	¸ÿð³4¸ÿØ³4¸ÿà@4
+ 
+ 	¸ÿà¶
+¸ÿà@4
+4
+4
+44¸ÿÀ@:4
+  `¸¯@
+/(  0`ð¸ÿÀ³"&4¸ÿÀ@49@4¸'@	@4¸'@9 @64  0  Ä +Nô]+Mýô]+ô]+ýNEeDæ++qrMôä ?í]/?<<<99 9999<10 ++++++]K°SK°:QZX² ºÿð ÿð±8888YC\X¹ ÿè@
+???¸ÿð³?¸ÿð²?+++++Y!!#"''3267+þø#þC%CWPQNB5b^&ýòü¹]b="Ü
+sY   Ci  @:		
+ËÌ + ²@(#GWf## oä
+¸:/1<9.=4;*
+,`d$LHD@    $<,$$,<X40NJvrrbfFB~z62njRV:>V>V>"^ZZzjZZjzf"
+*..&"f /ÞÍ9/ÍÐÍ9///ÐÍÍ99//ÍÐÍÍÐÍÍÐÍÍÐÍÍ9/ÍÐÍ/Í9/ÍÐÍÎ9///Í99//ÍÐÍÍÐÍÐÍÍÐÍÍÐÍÍ9/ÍÐÍ10#"5432'#"5432#"5432#"5432#"5432#"5432#"5432#"5432#"5432#"5432#"5432#"5432#"5432%#"5432#"5432'#"5432Ô04400440÷3131$0440þ72222­3113R3113ý222204400440ý®0422$0440È2222þ2÷311322222220113þ×331ß222331V113ý{113½2/5ýH113004 331ß222þ331è113þÙ404.113              1  þà j k   @Õ Õ
+ää /íÜí/íÞí10! ! 4#"32 þàþà  Ã]]]]ëþþñòñ þÀ vEk 
+ 
+ D@&d
+'
+7
+
+&6
+	Õi	ä /ÝÄý2ÄÍ9]/ÄýÄÍ9]Í9]]10##5!533!5Ek²þ~kþã·Öþ.áá þÐ j0^  \@4&6ÕÕ	
+ Õ
+			¿ä@P°ää /íÜí9/]3í]99//33/í2/Þí2/3í2910]#"'&'73254#"'!!6320]X}xOX¾
+douF6[ÌþÅ0.uNQy{LH5<qgx6WDH þØ j"k   T@2ÕÕ Õä¿Ïß  àðää /Üíí99//]q]3í3/í3/íÜí310# !2&#"6324#"32"UNwþÐ>e´
+Hh
+6Zùµec5^ixFA{eWTÔ@ø8*1 þØ x'`  @	 Õ  	ä /Üí9/ÌÎí910#77!5!'yTV¸Î þOæeª®1ô& þØ j
+ a@<È
+Ø
+¹
+V'7G
+ÕÕ$ Õ Õ 
+ä"°"À"Ð"""'ää /Üíí9/]qí99/í3/íÞí3/í99]]]]10#"'&547&547632'4#"324#"32
+ ÿãþ 	± ¸­ ?5 ÿÿ \ÿç/À   	³ 
+ ?55 ÿÿ @þ& ÿéþ 	± ¸­ ?5 ÿÿ SÿæÀ   ÿÿ \þd/>  þ~ ² ¸® ?55 ÿÿ VÿçÀ    ÿÿ ;  ¿À   ÿÿ <  À  	 ÿÿ Vÿç$À  	 ÿÿ 2  PÀ   ÿÿ Pÿç*¦  õ ÿÿ bÿç5À   ÿÿ K  ¦  ô ÿÿ SÿæÀ   ÿÿ Uÿæ(À     PÿÝcÓ 0 C O@+ &CCE0'  9' 0&#-144+>-	+- ?í??3í9/3ý2Î2/]í3/í9/3í23310>32!&&'#".54>7667.#"32>5XÔÎM þÇ$Xraeª|E9Øy°?;lZDeK5QMÀgQb6#=T2MlAk£n85t¸þry³q7.L&'F6 :mabvS QtJ#6\Eþá.0>H&.H1"M~]  YÿçÓ  & ^@=%%  ' 7  '' ('0 %"--	 ?í?í9/íÎ2/]]í29/]í3/í]10]]]# '&%632!327!&'&#"V1¦âþ¸·©9Îp¹kF#ü	3+`éLýe²\]GuZ=ÒoißÎQÎÄh±ËmGW3ráÄ]],]     MÓ  5@&	   0-
+ ?Ä??í3/]í2/9/í10 ]!!4.#"!!>32MþØ-Mi<\}M"þØRkR7tobK+~eN <kXü¼ºÒ6W=!1R{«p    Ó 4 C@$&	4 ' 
+	   0-	
+ ?Ä??í3/]í9/í3/10 ]!32>5!!5#".5(-Mi<\}M"(þîRkR7tobK+»üeN <kXDúEÓ6W=!1R{«p   ;  Ûº  %@
+ 
+
+%% ?ýÄ?ýÄ/ýÝÄÝÄ105!#3!53; ¼¼ý`¼Âøøü5÷÷Ë     º 
+ q@Al
+
+  	
+		
+i
+ 
+  
+ 
+  1				  0	  ?ÄÄ?ÄÄ99/]ýÄ3/]3/+ Á}Ä]+}Ä]]10!!!!!þýþÙ'R~ýtÍý3ºýgýL  Yÿ_*Ó  % @L!g $%%% 
+'0@'0    %%$"-	- ?í?333/3/í222/3//]]í/]í2/í9/}ÄÄí]}ÄÄ10]]]]4766763  !'#  %654&#"327YC2­g³DÁ	þyþ¹þ~p^Ý··àæ±-*þÿÔàp²+:þnþþÉþÀ²*ª¥èüøûýùþÿ4   Tÿèa>  ' J@E& 0@
+Ow     hº 
+ o@Au
+
+X
+
+ &	
+		
+
+ 
+& 
+ 
+7   		&  0	  
+ ?ÄÄ??Ä99/]ýÄ3/3/]+ Á}Ä+}Ä]]10!!!!!hþ£þþåLWþcÐþ0ºüÀ¬þ  ÿæwº  +@
+ &1  
+¸t´
+   ??3í2/]]ýÎ2103267#"'.5&-('hLtM'1ºüBW
+ó/;]g   TþH7> & : T@"#&'' 0@<1!0"¸tµ#%,¸t²6¸t²	 ?3í?í??3í2/]í9/]3/3/ýÌ210.55#".54>325!3267#"4.#"32>Â'17£`c¡r>Fz¥^j<&-('hLtÄ$?U12X@%$=T00WD(þwEcZjHRUÐ{ÊIZ[üBW
+óØQyP('RYX}P%+W     @.  -@& 0°¸tµ
+
+ ??ÍÄýÄ/]ÍÄýÍÄ10#!#53!@þæ&àüºFàþø  þQS& 4 N@5 E &&$		$$64 !11& 0¸t·,% 4¸t²	
+ ?3íÎ2?Ä?í/]í3/í39/3/í10]32>55#".'&5!32>765!#".5447©	WZ?Y9N\e45aS?&S?$B6(/q¾µs6gA3>cF*D0.B+Wþ5à33:%2:å£üGÎ82WxF
+  \ÿçº  2 M@. ØØ$( $0$$$4.Ø 0
+. .0. . .4$Ø 0
+FþÏÞKO··rþÎ+-5&Ñ×%5+*     r   3 T@ '"!*! 0@35& 3033'¸t³¸t²3
+ºt ­ ?í?í9/í9/]ýÄ9/]í3/í91032676654&'&&#3276654'&#!2!¸|?T,;/-bNi»x!&8O,þAp56E*;$io*LjAoþ?Ê6''3þOò<,R#$vI'KA4c>oW7  \ÿî ! Z@,! !°!A!Q!!¡! !0!!!#! 0 !!!¼t 
+® t± ?í?í99//33/]í9/]]]í3/í10#".54>32&&#"32679þÿÄzÊQQÐ»1þÞoO8_E&&D]6Nu uÇÀQÖÞQ±·.\L#P`eS$dm     r  $ 7@	! 0@&& 0¸t²
+ºt  ­ ?í?í/]í9/]í10!2#!32>7654.'&&#ÄHt'RV-[LH_wJþ/ I]9 -A*[Er
+b¹mÜH*ý`#6$CXuJ&	    :r  N@
+ 
+
+ 
+
+
+ 
+&    0  ¸t³ ¼t ­ 	t± 
+ ?í?í9/í/]ýÄ9/]3/3/103!!!!!ýAý¿réÀé÷é    är 	 H@!1  &1       ¸t´	
+ºt ­ ?í?9/í/]]ýÄ9/]]3/103!!!!LýÔßþ!réÐêþ1  \ÿîÆ 
+ #t² ?3í2?í9/ýÎ2/]í9/]]]í9/3/í105!#".54>32&&#"32>75,
+SW]Y,
+ g    zr  @@&		 
+
+&  0     ¸t·		
+¸­ ?Ä?Ä9/í/]]]ýÄ9/Äí103!!!!! ¢ þàþ^rþT¬ûÝþ#     ¸r  @	&  0  ¸­± 
+ ??/]í103! rû     ðr  @G	&				&		!1 
+	&1  	
+
+¸­ ?ÄÄ?ÄÄ99/]]í3/]]+Á}Ä3/9}ÄÄ+}Ä10!!!! Å[þ4äþ¦þ¸þàrþ5Ëþ6ýXëþ«    ùr  5@`AQ 0&  0  º­ t± 
+ ?í?/]í9/]]]103!! Arüwé     r  @O69 
+&yj<L-
+
+ve3C"& 0¸­´
+	
+ ?ÄÄÄ?Ä9/]í22]]]]]9/3]]]]]í39]]]10>7!!###!!
+¸þúÿ ãþÿþúº
+
+_-07%?û5üË5üËrý½$7/-     tr  V@5zK& @	vD
+&1       	
+¸­ ?Ä?Ä99/]]í2]]2/]]3í3]]]103!3!!#¹þêþMrýI·û¬ýT   \ÿîî  ' S@-8%H%7!G!8HI:
+!Q 0@
+V     @r  " C@
+!  $&1       ¸t´
+ºt ­ ?í?9/í/]]ýÄ9/]í103!2##3276654&'&&#i91R: 3Pc0,{O|c
+V    ír   / m@/&
+!'''' 1/&  0    !¸t·. 
+.ºt ­ ?í?ÄÄ9/í3399/]]ýÄ9/]í2/99+}Ä103!2!'&&'.##2676654&'&&##aaB=oZ7i3ºþª£3R 'GV,
+(^3-`WIdMþåøNY	þ9§>(,8â  Jÿí' 7 @Ir''"-!!jY  @9 !77"! 07  !   4.''¸t²4ºt ® ?í?í99/]399/]3/]í3/í9/]9]]]3/íí9]1032>54&'&&'&&'&54>32&&#"#"&'dmX(H6 *0ZH[&t:r§lÔîþßTOPW4WBV*Vg:U6ißõ!^_1"!0; bDxY3¦¯A@0*
+[@rý¬d_D"0"-Ka40X  
+  r  m@3
+
+	
+	&
+	
+	
+
+H		&   	
+¸­²	
+ ?Ä?ÄÄÄ9/]33/]3+ Á}Ä3]3/+ Á}Ä10>7!!!Q	
+È1þDþûþF7Ï
+n+-5&5ûrýÅ%5+*     <r % @cVfYig		GH¨  h G5&%!  $! #0##H:
+&&&0 ¸­± 
+ ??ÄÄÄ99/]Ý+ Á}ÄýÝ+}Ä10!!!ÀþHFCþFÞþY§ýjþ$     ür 	 U@&v9&1  ¸t³	
+ºt ­ ?í2?í2/3/9/]]3/+}Ä]]1035!5!!<þýªnè¡éËýBéÿÿ   ¸&
+   ÚÒ1 @
+ @¹¯ 
+ÿðñ ñ  ý% ² 
+(?J?&'[I9   f,,W,,IY8'_'5''5LB!1"?E8¸t@
+,	'#J&&º® Etµ	 	 ?3/3í?9/99399í9/í9///]3]]]3]]3/]3]]Í9]]]ÍÍ9]]10%&&'#".54>7&&54>3266776654&#"32>7³§3a.'JRc@bj7$GhD<-6_MGwU0Ý¥×,56ý­--4762=C7TE 2+'§Ã9**/UvG=eTH Ey7<^A!$C_;{Â=(/0C4*G7 *2.".þË!a9?G ÿÿ Åº
+<RO 	³  ?55 ÿÿ "Æº
+=R\ ²  ?5 ÿÿ 3Òº
+?[Z ²  ?5 ÿÿ ,Ë}Ì
+@Ta ´  ?555 ÿÿ ¢  &À        6 6 6 6  Ý Ý11
+
+OÒ
+1P{ý>½Jû	Ê
+m
+
+
+
+
+á
+á
+áRï
+d
+Ã´bbGu"W	9ô²pë´´´´´ÎÎÕSñioïÝ ] ® ®!D!z"T"É#A#¿$@$²&U&å'Y(
+?z?Õ@e@¹@üA<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<ASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASASAbApA~AAA©A¸AÆAÖAåAôBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBÚBÚBÚBÚBéB÷CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC   Sê                
+              >~              ¼       Ô       d       0ú      	 
+      
+       
+       ¥       å       Ö       
+ß       õ              1¥             	 E
+      
+R    `    T    
+z    n            ¢        ¶    ª  	  ì  	  
+  	    	  >~  	    	  ¼  	  Ô  	  bÂ  	  0ú  	 	 
+  	 
+$  
+  +D  
+  +8    +^    +R    +|    +p    +    +    +|    +p    +¶    +ª    +È    +¼    +â     +Ö    ,    +ö    ,     ,    
+,<    ,0    ¢        
+,R    ,F  $  ,h  $  ,\  *  ,  *  ,t  -  
+,  -  ,  
+  +D  
+  +8    ,    +ö  
+  +D  
+  +8    +|    +p ©   2 0 2 5   T h e   M o n o t y p e   C o r p o r a t i o n .   A l l   R i g h t s   R e s e r v e d .   
+ 
+ H e b r e w   O p e n T y p e   L a y o u t   l o g i c   c o p y r i g h t   ©   2 0 0 3   &   2 0 0 7 ,   R a l p h   H a n c o c k   &   J o h n   H u d s o n .   T h i s   l a y o u t   l o g i c   f o r   B i b l i c a l   H e b r e w   i s   o p e n   s o u r c e   s o f t w a r e   u n d e r   t h e   M I T   L i c e n s e ;   s e e   e m b e d d e d   l i c e n s e   d e s c r i p t i o n   f o r   d e t a i l s . A r i a l     i s   a   t r a d e m a r k   o f   T h e   M o n o t y p e   C o r p o r a t i o n . M o n o t y p e : A r i a l   B o l d   ( M i c r o s o f t 
+ i 
+ i i 
+ h t t p : / / e n . w i k i p e d i a . o r g / w i k i / M I T _ L i c e n s e 
+ t h e    L a y o u t   L o g i c   S o f t w a r e  
+Microsoft
+i
+ii
+http://en.wikipedia.org/wiki/MIT_License
+the ÒLayout Logic SoftwareÓ
+ i 
+ i i 
+ h t t p : / / e n . w i k i p e d i a . o r g / w i k i / M I T _ L i c e n s e 
+ t h e    L a y o u t   L o g i c   S o f t w a r e  
+   dlng   (   slng   >   "Armn, Cyrl, Grek, LatnArab, Armn, Cyrl, Grek, Hebr, Latn        i        ð ñø ù  F GK L~  ô õü ýþ ÿÿ  s tt uy zz {    2 34 57 8; <D EK LM NS TU VW XX Y[ \t uu vw x   ¤ ¥¥ ¦µ ¶A B| }~  î ïô õ	X 	Y	w 	x	 
+
+ ( 
+   3 #   3 "   3 %   3 $   3 '   3 &   3 /   3 *   3 
+   3
+  5Ù  5 -  5 .  5 /  5 0  5 1  5 M  5 7  5 6  5 3  5 2  5 5  5 4  5 L  5 <  5 9  5 8  5 ;  5 :  5 A  5 >  5 =  5 @  5 ?  5 F  5 C  5 B  5 E  5 D  5 K  5 H  5 G  5 J  5 I  5 N  5 O  5 P  5   5 \  5 [  5 R  5 Q  5 T  5 S  5 V  5 U  5 X  5 W  5 Z  5 Y  5   5 g  5 ^  5 ]  5 `  5 _  5 b  5 a  5 d  5 c  5 f  5 e  5 r  5 i  5 h  5 k  5 j  5 m  5 l  5 o  5 n  5 q  5 p  5 }  5 t  5 s  5 v  5 u  5 x  5 w  5 z  5 y  5 |  5 {  5   5   5 ~  5Ú  5   5   5   5   5   5   5   5   5   5   5   5   5 ù  5   5   5   5   5   5   5   5   5   5   5   5   5   5   5 ø  5 ©  5   5   5    5   5 ¢  5 ¡  5 ¤  5 £  5 ¦  5 ¥  5 ¨  5 §  5 ¶  5 «  5 ª  5 ­  5 ¬  5 ¯  5 ®  5 ±  5 °  5 ³  5 ²  5 µ  5 ´  5 Ã  5 ¸  5 ·  5 º  5 ¹  5 ¼  5 »  5 ¾  5 ½  5 À  5 ¿  5 Â  5 Á  5 Ð  5 Å  5 Ä  5 Ç  5 Æ  5 É  5 È  5 Ë  5 Ê  5 Í  5 Ì  5 Ï  5 Î  5 Ý  5 Ò  5 Ñ  5 Ô  5 Ó  5 Ö  5 Õ  5 Ø  5 ×  5 Ú  5 Ù  5 Ü  5 Û  5 ê  5 ß  5 Þ  5 á  5 à  5 ã  5 â  5 å  5 ä  5 ç  5 æ  5 é  5 è  5 ÷  5 ì  5 ë  5 î  5 í  5 ð  5 ï  5 ò  5 ñ  5 ô  5 ó  5 ö  5 õ  5 ú  5  5   5 ÿ  5 ü  5 û  5 þ  5 ý  5  5  5  5  5  5H  5  5  5  5  5
+  5	  5  5  5  5
+  5G  5  5  5  5  5  5  5  5  5  5"  5  5  5  5  5  5  5!  5   5+  5$  5#  5&  5%  5(  5'  5*  5

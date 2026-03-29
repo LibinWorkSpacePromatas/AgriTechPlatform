@@ -47,6 +47,8 @@ export interface GrowingOpportunitiesResponse {
   warning: string | null;
   trend_summary: string | null;
   recommendations: GrowingOpportunityRecommendation[];
+  news_items: GrowingOpportunityNewsItem[];
+  news_warning: string | null;
   feedback_enabled: boolean;
 }
 
@@ -59,6 +61,18 @@ export interface GrowingOpportunityFeedbackRequest {
 export interface GrowingOpportunityFeedbackResponse {
   saved: boolean;
   feedback_id: string;
+}
+
+export interface GrowingOpportunityNewsItem {
+  id: string;
+  title: string;
+  summary: string;
+  source: string;
+  source_url: string;
+  published_at: string | null;
+  region: string;
+  category: 'funding' | 'tools' | 'help' | 'general' | string;
+  tags: string[];
 }
 
 @Injectable({

@@ -1,0 +1,6 @@
+tariff_type,customer_type,rate_cents_kwh,daily_supply_charge_cents,annual_kwh_threshold,peak_window,notes,source
+standard_flat_rate,small_farm_business,40.0,110,160000,all_times,DMO 2025-26 reference price SA. AER-regulated maximum.,AER_DMO7_FinalDetermination_2025-26
+time_of_use_peak,small_farm_business,52.0,110,160000,16:00-21:00 weekdays,Peak period rate SA TOU tariff,AER_DMO7_FinalDetermination_2025-26
+time_of_use_offpeak,small_farm_business,30.0,110,160000,all_other_times,Off-peak rate SA TOU tariff,AER_DMO7_FinalDetermination_2025-26
+controlled_load_irrigation_pump,irrigation_pump,20.0,0,999999,23:00-07:00,Separately metered irrigation pump circuit. Off-peak only. Approx 50% of standard rate. Eligible for all farms with separate pump meter.,EnergyAustralia_ControlledLoad_SA_SAPowerNetworks_Tariff
+large_business_demand,large_farm_above_160MWh,42.0,200,999999,negotiated,Large business unbundled tariff. Includes demand charge component. Negotiated directly with retailer.,SAP_AnnualPricingProposal_2025-26

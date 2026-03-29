@@ -1,0 +1,8 @@
+trust,trust_full,district,pressure_zone,delivery_fee_offpeak_ml,delivery_fee_peak_ml,service_charge_per_ha,service_charge_min,landscape_levy_ml,drainage_fee_ha,peak_window,valid_from,valid_to,source
+RIT,Renmark Irrigation Trust,Renmark-Paringa,low_pressure,58.7,58.7,441.2,441.2,8.29,108,n/a,1/07/2025,31/12/2025,RIT_ScheduleOfCharges_Jul2025_verified_PDF
+RIT,Renmark Irrigation Trust,Renmark-Paringa,high_pressure,147.1,147.1,441.2,441.2,8.29,108,n/a,1/07/2025,31/12/2025,RIT_ScheduleOfCharges_Jul2025_verified_PDF
+CIT,Central Irrigation Trust,Berri-Cobdogla-Kingston-Moorook-Waikerie,low_pressure,28,41.8,33.4,725,8.29,96,07:00-21:00 Mon-Fri,1/10/2025,30/09/2026,CIT_ScheduleOfCharges_Oct2025_verified_PDF
+CIT,Central Irrigation Trust,Cadell-Mypolonga,medium_pressure,40.8,61.3,33.4,725,8.29,96,07:00-21:00 Mon-Fri,1/10/2025,30/09/2026,CIT_ScheduleOfCharges_Oct2025_verified_PDF
+CIT,Central Irrigation Trust,Loxton-section-below-35m-head,medium_high_pressure,53.3,77.6,33.4,725,8.29,96,07:00-21:00 Mon-Fri,1/10/2025,30/09/2026,CIT_ScheduleOfCharges_Oct2025_verified_PDF
+CIT,Central Irrigation Trust,Chaffey-Cooltong-Loxton-high,high_pressure,55.8,81,33.4,725,8.29,96,07:00-21:00 Mon-Fri,1/10/2025,30/09/2026,CIT_ScheduleOfCharges_Oct2025_verified_PDF
+CIT,Central Irrigation Trust,Golden-Heights-Sunlands,high_lift_high_pressure,85,123.5,50.9,725,7.86,96,07:00-21:00 Mon-Fri,1/10/2025,30/09/2026,CIT_ScheduleOfCharges_Oct2025_verified_PDF
