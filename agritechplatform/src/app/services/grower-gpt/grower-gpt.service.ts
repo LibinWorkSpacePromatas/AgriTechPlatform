@@ -37,9 +37,10 @@ export class GrowerGptService {
     const blockArea = block.area ?? block.size ?? 'N/A';
     const blockLatitude = block.latitude ?? block.lat ?? 'N/A';
     const blockLongitude = block.longitude ?? block.lon ?? 'N/A';
+    const weatherForecast = satellite?.weather?.forecast_7_days?.slice(0, 14) ?? [];
 
     const systemPrompt = `
-You are Grower GPT, an AI agronomist specialized ONLY in Australian viticulture and the AgriTech Crop Prediction platform.
+You are Grower GPT, an agricultural advisor specialized ONLY in Australian viticulture and the AgriTech Crop Prediction platform.
 
 Rules:
 - Only answer agriculture-related questions or questions about this AgriTech platform.
@@ -47,14 +48,21 @@ Rules:
 - Refuse non-agriculture topics (e.g., politics, crypto).
 - If block data is provided in the context, you MUST use that data. You are NOT allowed to ask the user to re-provide soil, crop, or weather data.
 - If the user asks about this AgriTech Crop Prediction website, you must explain how the irrigation engine, soil model, or block system works. Do not refuse website-related questions.
-- Use the platform-computed satellite values exactly.
-- Do not derive new scores, financial conclusions, or custom thresholds.
-- Use backend interpretations, alerts, and limitations as the only interpretation layer.
-- Only explain and summarize.
+- Use ONLY the provided data:
+  - Satellite indices and backend interpretations
+  - Irrigation decision from the backend decision engine
+  - Weather data and forecast
+  - IoT sensor readings if available
+- Do NOT invent values.
+- Do NOT override the backend irrigation decision.
+- Do NOT derive new scores, financial conclusions, or custom thresholds.
+- Explain reasoning clearly and provide actionable advice.
+- If data is missing, say it is missing.
+- Use sensor readings when answering sensor-related questions.
 `;
 
     const context = `
-PLATFORM DATA (DO NOT RECALCULATE):
+PLATFORM DATA (DO NOT RECALCULATE OR OVERRIDE):
 
 BLOCK INFORMATION:
 Block Name: ${blockName}
@@ -79,6 +87,27 @@ Backend Interpretations:
 ${satellite?.insights?.map((insight: any) => `- ${insight.type.toUpperCase()} (${insight.severity}): ${insight.message} [${insight.action_window}]`).join('\n') || 'None'}
 Backend Alerts:
 ${satellite?.alerts?.map((alert: any) => `- ${alert.metric.toUpperCase()}: ${alert.message} (${alert.threshold})`).join('\n') || 'None'}
+
+IRRIGATION DECISION ENGINE:
+Irrigation: ${satellite?.decision?.irrigation ?? 'N/A'}
+Urgency: ${satellite?.decision?.urgency ?? 'N/A'}
+Water Needed (mm): ${satellite?.decision?.water_needed_mm ?? 'N/A'}
+Water Needed (liters): ${satellite?.decision?.water_needed_liters ?? 'N/A'}
+Decision Confidence: ${satellite?.decision?.confidence ?? 'N/A'}
+Decision Reason: ${satellite?.decision?.reason ?? 'N/A'}
+
+WEATHER DATA:
+Average Temperature (last 24h): ${satellite?.weather?.temp_avg ?? 'N/A'}
+Rain Last 24h: ${satellite?.weather?.rain_24h ?? 'N/A'}
+Rain Next 48h: ${satellite?.weather?.rain_next_48h ?? 'N/A'}
+7-Day Forecast:
+${weatherForecast.map(point => `- ${point.observed_at_local || point.observed_at || 'Unknown time'}: temp=${point.temperature ?? 'N/A'}C, humidity=${point.humidity ?? 'N/A'}%, rain=${point.precipitation ?? 'N/A'}mm`).join('\n') || 'None'}
+
+SENSOR DATA:
+Soil Moisture: ${satellite?.sensor_data?.soil_moisture ?? 'N/A'}
+Temperature: ${satellite?.sensor_data?.temperature ?? 'N/A'}
+Humidity: ${satellite?.sensor_data?.humidity ?? 'N/A'}
+Last Sensor Update: ${satellite?.sensor_data?.last_updated ?? 'N/A'}
 
 You must use these values exactly.
 Do not override or assume new values.

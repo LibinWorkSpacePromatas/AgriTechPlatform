@@ -1,17 +1,30 @@
 from __future__ import annotations
 
 import json
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from app.services.utils import build_satellite_contract_payload, calculate_data_age, calculate_confidence
 from app.services.llm_service import llm_service
 from app.services.satellite_access import satellite_access_service
 from app.services.satellite_insights import SatelliteInsightsUnavailableError
+from app.services.weather_ingest import build_weather_summary, query_weather_ranges
 
 from pydantic import BaseModel
 from typing import Optional
-from app.schemas.insights import GrowerGPTInsight, GrowerGPTResponse, MetricInsight, UserGPTInsight, UserGPTResponse
+from app.schemas.insights import (
+    GrowerGPTDecision,
+    GrowerGPTInsight,
+    GrowerGPTResponse,
+    GrowerGPTSensorData,
+    GrowerGPTWeather,
+    MetricInsight,
+    UserGPTInsight,
+    UserGPTResponse,
+)
+from app.db.session import SessionLocal
 
 router = APIRouter()
 
@@ -41,6 +54,14 @@ class ChatResponse(BaseModel):
     response: str
 
 
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
 @router.post("/gpt/chat", response_model=ChatResponse)
 async def chat_with_grower_gpt(request: ChatRequest):
     """
@@ -56,7 +77,7 @@ async def chat_with_grower_gpt(request: ChatRequest):
 
 
 @router.get("/gpt/{block_id}", response_model=GrowerGPTResponse)
-async def get_gpt(block_id: str):
+async def get_gpt(block_id: str, db: Session = Depends(get_db)):
     """
     Main GPT endpoint for a single block.
     Matches PDF requirements for insights, data age, and confidence.
@@ -68,6 +89,9 @@ async def get_gpt(block_id: str):
         is_fresh = satellite_response.freshness_status == "fresh"
         insights = _build_action_insights(satellite_response)
         confidence = calculate_confidence(satellite_response)
+        decision = _get_latest_block_decision(db, snapshot.block_id)
+        weather = _get_block_weather_context(db, snapshot.block_id)
+        sensor_data = _get_block_sensor_context(db, snapshot.block_id)
 
         reason = insights[0].reason if insights else None
         if not is_fresh:
@@ -108,6 +132,9 @@ async def get_gpt(block_id: str):
             insights=insights,
             message=ai_message,
             reason=reason,
+            decision=decision,
+            weather=weather,
+            sensor_data=sensor_data,
         )
     except SatelliteInsightsUnavailableError as exc:
         raise HTTPException(status_code=503, detail=f"Satellite insights are temporarily unavailable: {exc}") from exc
@@ -251,3 +278,115 @@ def _action_window_for_alert(metric: str, severity: str) -> str:
 
 def _build_alert_summaries(satellite_response) -> list[str]:
     return [f"{alert.metric.upper()}: {alert.message}" for alert in satellite_response.alerts]
+
+
+def _get_latest_block_decision(db: Session, block_id: str) -> GrowerGPTDecision | None:
+    row = db.execute(
+        text(
+            """
+            SELECT decision_payload
+            FROM block_decisions
+            WHERE block_id = :block_id
+            """
+        ),
+        {"block_id": str(block_id)},
+    ).first()
+
+    if not row or not row[0]:
+        return None
+
+    payload = row[0]
+    return GrowerGPTDecision(
+        irrigation=payload.get("irrigation"),
+        urgency=payload.get("urgency"),
+        water_needed_mm=payload.get("water_needed_mm"),
+        water_needed_liters=payload.get("water_needed_liters"),
+        reason=payload.get("reason"),
+        confidence=payload.get("confidence"),
+    )
+
+
+def _get_block_weather_context(db: Session, block_id: str) -> GrowerGPTWeather | None:
+    weather_ranges = query_weather_ranges(db, block_id)
+    summary = build_weather_summary(weather_ranges)
+    forecast_7_days = weather_ranges.get("next_7d") or []
+
+    rain_next_48h = 0.0
+    for index, point in enumerate(forecast_7_days):
+        observed_at = point.get("observed_at")
+        if not observed_at:
+            continue
+        try:
+            # The rows are already sorted ascending, so the first 48 hours can be
+            # approximated by taking the first 48 hourly points when available.
+            if len(forecast_7_days) <= 48 or index < 48:
+                rain_next_48h += float(point.get("precipitation") or 0.0)
+        except (TypeError, ValueError):
+            continue
+
+    return GrowerGPTWeather(
+        temp_avg=summary.get("avg_temp_last_24h"),
+        rain_24h=summary.get("rain_last_24h"),
+        rain_next_48h=rain_next_48h,
+        forecast_7_days=forecast_7_days,
+    )
+
+
+def _get_block_sensor_context(db: Session, block_id: str) -> GrowerGPTSensorData | None:
+    row = db.execute(
+        text(
+            """
+            SELECT
+                ufs.soil_moisture,
+                ufs.soil_temperature,
+                ufs.air_temperature,
+                ufs.humidity
+            FROM unified_farm_state ufs
+            WHERE ufs.block_id = :block_id
+            """
+        ),
+        {"block_id": str(block_id)},
+    ).mappings().first()
+
+    if not row:
+        return None
+
+    latest_updated = db.execute(
+        text(
+            """
+            SELECT MAX(sl.observed_at) AS last_updated
+            FROM sensor_definitions sd
+            LEFT JOIN sensor_latest sl ON sl.sensor_id = sd.id
+            WHERE sd.block_id = :block_id
+            """
+        ),
+        {"block_id": str(block_id)},
+    ).scalar()
+
+    air_temperature = row.get("air_temperature")
+    soil_temperature = row.get("soil_temperature")
+    chosen_temperature = air_temperature if air_temperature is not None else soil_temperature
+
+    if (
+        row.get("soil_moisture") is None
+        and chosen_temperature is None
+        and row.get("humidity") is None
+        and latest_updated is None
+    ):
+        return None
+
+    return GrowerGPTSensorData(
+        soil_moisture=_to_float(row.get("soil_moisture")),
+        temperature=_to_float(chosen_temperature),
+        humidity=_to_float(row.get("humidity")),
+        last_updated=latest_updated.isoformat() if latest_updated is not None else None,
+    )
+
+
+def _to_float(value: object) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None

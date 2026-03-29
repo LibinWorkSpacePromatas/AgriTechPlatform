@@ -14,6 +14,7 @@ import {
   Legend,
   LinearScale,
   Plugin,
+  ScriptableScaleContext,
   Tooltip
 } from 'chart.js';
 import { distinctUntilChanged, filter } from 'rxjs';
@@ -184,7 +185,7 @@ export class ProfitRiskComponent implements OnInit {
       },
       tooltip: {
         callbacks: {
-          label: context => `${context.dataset.label}: ${this.formatCurrency(Number(context.raw))}/ha`
+          label: (context: any) => `${context.dataset.label}: ${this.formatCurrency(Number(context.raw))}/ha`
         }
       }
     },
@@ -203,7 +204,7 @@ export class ProfitRiskComponent implements OnInit {
         ticks: {
           stepSize: 2500,
           color: '#4b5563',
-          callback: value => this.formatCurrency(Number(value))
+          callback: (value: string | number) => this.formatCurrency(Number(value))
         },
         title: {
           display: true,
@@ -212,8 +213,8 @@ export class ProfitRiskComponent implements OnInit {
           font: { size: 12 }
         },
         grid: {
-          color: context => Number(context.tick.value) === 0 ? '#374151' : '#e5e7eb',
-          lineWidth: context => Number(context.tick.value) === 0 ? 1.4 : 1
+          color: (context: ScriptableScaleContext) => Number(context.tick.value) === 0 ? '#374151' : '#e5e7eb',
+          lineWidth: (context: ScriptableScaleContext) => Number(context.tick.value) === 0 ? 1.4 : 1
         },
         border: { color: '#aeb6c2' }
       }
@@ -262,7 +263,7 @@ export class ProfitRiskComponent implements OnInit {
   }));
   readonly priceStatusPlugin: Plugin<'bar'> = {
     id: 'priceStatusLabels',
-    afterDatasetsDraw: chart => {
+    afterDatasetsDraw: (chart: any) => {
       const rows = this.priceChartRows();
       const currentMeta = chart.getDatasetMeta(0);
       const breakEvenMeta = chart.getDatasetMeta(1);
@@ -311,7 +312,7 @@ export class ProfitRiskComponent implements OnInit {
       },
       tooltip: {
         callbacks: {
-          label: context => `${context.dataset.label}: ${this.formatCurrency(Number(context.raw))}`
+          label: (context: any) => `${context.dataset.label}: ${this.formatCurrency(Number(context.raw))}`
         }
       }
     },
@@ -322,7 +323,7 @@ export class ProfitRiskComponent implements OnInit {
         ticks: {
           stepSize: 1000,
           color: '#111827',
-          callback: value => this.formatCurrency(Number(value))
+          callback: (value: string | number) => this.formatCurrency(Number(value))
         },
         title: {
           display: true,
@@ -472,4 +473,4 @@ export class ProfitRiskComponent implements OnInit {
         }
       });
   }
-}
+}  

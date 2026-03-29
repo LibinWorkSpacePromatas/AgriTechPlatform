@@ -151,7 +151,34 @@ export const growerGptBlockSummarySchema = satelliteContractSchema.extend({
     })
   ).default([]),
   message: z.string().nullable().default(null),
-  reason: z.string().nullable().default(null)
+  reason: z.string().nullable().default(null),
+  decision: z.object({
+    irrigation: z.string().nullable().default(null),
+    urgency: z.string().nullable().default(null),
+    water_needed_mm: z.number().nullable().default(null),
+    water_needed_liters: z.number().nullable().default(null),
+    reason: z.string().nullable().default(null),
+    confidence: z.number().nullable().default(null)
+  }).nullable().default(null),
+  weather: z.object({
+    temp_avg: z.number().nullable().default(null),
+    rain_24h: z.number().nullable().default(null),
+    rain_next_48h: z.number().nullable().default(null),
+    forecast_7_days: z.array(z.object({
+      observed_at: z.string().nullable().default(null),
+      observed_at_local: z.string().nullable().default(null),
+      timezone: z.string().nullable().default(null),
+      temperature: z.number().nullable().default(null),
+      humidity: z.number().nullable().default(null),
+      precipitation: z.number().nullable().default(null)
+    })).default([])
+  }).nullable().default(null),
+  sensor_data: z.object({
+    soil_moisture: z.number().nullable().default(null),
+    temperature: z.number().nullable().default(null),
+    humidity: z.number().nullable().default(null),
+    last_updated: z.string().nullable().default(null)
+  }).nullable().default(null)
 });
 
 export type SatelliteContract = z.infer<typeof satelliteContractSchema>;

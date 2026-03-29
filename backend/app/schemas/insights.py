@@ -53,6 +53,9 @@ class GrowerGPTResponse(SatelliteContractResponse):
     insights: List["GrowerGPTInsight"] = Field(default_factory=list)
     message: Optional[str] = None
     reason: Optional[str] = None
+    decision: Optional["GrowerGPTDecision"] = None
+    weather: Optional["GrowerGPTWeather"] = None
+    sensor_data: Optional["GrowerGPTSensorData"] = None
 
 
 class GrowerGPTInsight(BaseModel):
@@ -61,6 +64,38 @@ class GrowerGPTInsight(BaseModel):
     message: str
     action_window: str
     reason: str
+
+
+class GrowerGPTDecision(BaseModel):
+    irrigation: str | None = None
+    urgency: str | None = None
+    water_needed_mm: float | int | None = None
+    water_needed_liters: float | int | None = None
+    reason: str | None = None
+    confidence: float | None = None
+
+
+class GrowerGPTForecastPoint(BaseModel):
+    observed_at: str | None = None
+    observed_at_local: str | None = None
+    timezone: str | None = None
+    temperature: float | None = None
+    humidity: float | None = None
+    precipitation: float | None = None
+
+
+class GrowerGPTWeather(BaseModel):
+    temp_avg: float | None = None
+    rain_24h: float | None = None
+    rain_next_48h: float | None = None
+    forecast_7_days: List[GrowerGPTForecastPoint] = Field(default_factory=list)
+
+
+class GrowerGPTSensorData(BaseModel):
+    soil_moisture: float | None = None
+    temperature: float | None = None
+    humidity: float | None = None
+    last_updated: str | None = None
 
 
 class UserGPTInsight(BaseModel):

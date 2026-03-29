@@ -8,7 +8,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-from app.db.models import BlockDecision
+
 from app.services.weather_ingest import is_weather_fresh, fetch_weather, store_weather, get_block_info
 
 
@@ -416,10 +416,8 @@ def _compute_irrigation_decision(data: dict[str, Any], db: Session) -> dict[str,
         drainage_factor = 1.0
         if drainage_class == "VERY_SLOW":
             drainage_factor = 0.70
-            reason += " (reduced for very slow drainage)"
         elif drainage_class == "SLOW":
             drainage_factor = 0.85
-            reason += " (reduced for slow drainage)"
         water_needed_mm *= drainage_factor
 
         # 🌦 Evapotranspiration (ET) Adjustment
@@ -445,6 +443,8 @@ def _compute_irrigation_decision(data: dict[str, Any], db: Session) -> dict[str,
         else:
             max_irrigation = min(40, root_depth_mm * 0.04)
             water_needed_mm = min(max_irrigation, max(5, water_needed_mm))
+            if drainage_factor < 1.0:
+                reason += f" (reduced for {drainage_class.lower().replace('_', ' ')} drainage)"
         
         water_needed_mm = round(water_needed_mm, 1)
         water_needed_liters = round(water_needed_mm * area_ha * 10_000, 0) if area_ha > 0 else 0.0
@@ -518,7 +518,10 @@ def _save_decision(db: Session, block_id: UUID, decision: dict[str, Any]) -> Non
             "payload": json.dumps(decision),
             "sat": decision["metadata"]["ndvi"] is not None,
             "weath": bool(decision["metadata"].get("weather_available", False)),
-            "sens": decision["metadata"]["soil_moisture"] is not None
+            "sens": (
+                decision["metadata"]["soil_moisture"] is not None
+                and decision["metadata"]["soil_moisture"] > 0
+            )
         }
     )
     db.commit()
