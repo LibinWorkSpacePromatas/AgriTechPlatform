@@ -23,7 +23,11 @@
                         "assets": [
                             "src/favicon.ico",
                             "src/assets",
-                            "public"
+                            {
+                                "glob": "_redirects",
+                                "input": "src",
+                                "output": "/"
+                            }
                         ],
                         "styles": [
                             "node_modules/leaflet/dist/leaflet.css",
