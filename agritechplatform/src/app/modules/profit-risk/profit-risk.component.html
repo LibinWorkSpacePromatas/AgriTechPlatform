@@ -92,21 +92,70 @@
 
     <div class="scenario-container" *ngIf="profitData() as data">
         <div class="reference-strip">
-            <div class="reference-card">
-                <span class="reference-label">Current crop price</span>
-                <strong>{{ formatCurrency(data.current_crop.current_price) }}/t</strong>
+            <div class="reference-card reference-card-highlight" [class.reference-card-positive]="currentCropPriceGapTone() === 'positive'" [class.reference-card-negative]="currentCropPriceGapTone() === 'negative'">
+                <div class="reference-label-row">
+                    <span class="reference-label">Current price vs break-even</span>
+                    <span class="reference-info" tabindex="0">
+                        <button type="button" class="reference-info-trigger" aria-label="What current price vs break-even means">
+                            <i-lucide [img]="InfoIcon"></i-lucide>
+                        </button>
+                        <span class="reference-tooltip" role="tooltip">
+                            <span class="reference-tooltip-title">What this means</span>
+                            <span class="reference-tooltip-line" *ngFor="let item of getReferenceTooltipLines('price-gap')">{{ item }}</span>
+                        </span>
+                    </span>
+                </div>
+                <strong class="reference-value">{{ currentCropPriceGapLabel() }}</strong>
+                <div class="reference-subvalue">
+                    Market {{ formatCurrency(data.current_crop.current_price) }}/t
+                    <span class="reference-divider">•</span>
+                    Break-even {{ formatCurrency(data.current_crop.break_even_price) }}/t
+                </div>
+            </div>
+            <div class="reference-card" [class.reference-card-critical]="getPriceTrendTone(data.current_crop.price_trend) === 'critical'" [class.reference-card-warning]="getPriceTrendTone(data.current_crop.price_trend) === 'warning'" [class.reference-card-positive]="getPriceTrendTone(data.current_crop.price_trend) === 'positive'">
+                <div class="reference-label-row">
+                    <span class="reference-label">Market trend signal</span>
+                    <span class="reference-info" tabindex="0">
+                        <button type="button" class="reference-info-trigger" aria-label="What market trend signal means">
+                            <i-lucide [img]="InfoIcon"></i-lucide>
+                        </button>
+                        <span class="reference-tooltip" role="tooltip">
+                            <span class="reference-tooltip-title">What this means</span>
+                            <span class="reference-tooltip-line" *ngFor="let item of getReferenceTooltipLines('trend')">{{ item }}</span>
+                        </span>
+                    </span>
+                </div>
+                <strong class="reference-value reference-value-wrap">{{ getMarketTrendDisplay(data.current_crop.price_trend) }}</strong>
+            </div>
+            <div class="reference-card" [class.reference-card-water-high]="getWaterNeedTone(data.current_crop.water_req_ml_ha) === 'high'" [class.reference-card-water-moderate]="getWaterNeedTone(data.current_crop.water_req_ml_ha) === 'moderate'" [class.reference-card-water-low]="getWaterNeedTone(data.current_crop.water_req_ml_ha) === 'low'">
+                <div class="reference-label-row">
+                    <span class="reference-label">Water intensity</span>
+                    <span class="reference-info" tabindex="0">
+                        <button type="button" class="reference-info-trigger" aria-label="What water intensity means">
+                            <i-lucide [img]="InfoIcon"></i-lucide>
+                        </button>
+                        <span class="reference-tooltip" role="tooltip">
+                            <span class="reference-tooltip-title">What this means</span>
+                            <span class="reference-tooltip-line" *ngFor="let item of getReferenceTooltipLines('water')">{{ item }}</span>
+                        </span>
+                    </span>
+                </div>
+                <strong class="reference-value">{{ data.current_crop.water_req_ml_ha | number:'1.1-1' }} ML/ha</strong>
             </div>
             <div class="reference-card">
-                <span class="reference-label">Break-even price</span>
-                <strong>{{ formatCurrency(data.current_crop.break_even_price) }}/t</strong>
-            </div>
-            <div class="reference-card">
-                <span class="reference-label">Price trend</span>
-                <strong>{{ data.current_crop.price_trend }}</strong>
-            </div>
-            <div class="reference-card">
-                <span class="reference-label">Water need</span>
-                <strong>{{ data.current_crop.water_req_ml_ha | number:'1.1-1' }} ML/ha</strong>
+                <div class="reference-label-row">
+                    <span class="reference-label">Yield benchmark</span>
+                    <span class="reference-info" tabindex="0">
+                        <button type="button" class="reference-info-trigger" aria-label="What yield benchmark means">
+                            <i-lucide [img]="InfoIcon"></i-lucide>
+                        </button>
+                        <span class="reference-tooltip" role="tooltip">
+                            <span class="reference-tooltip-title">What this means</span>
+                            <span class="reference-tooltip-line" *ngFor="let item of getReferenceTooltipLines('yield')">{{ item }}</span>
+                        </span>
+                    </span>
+                </div>
+                <strong class="reference-value">{{ data.current_crop.yield_t_ha | number:'1.1-1' }} t/ha</strong>
             </div>
         </div>
 

@@ -24,6 +24,7 @@ import {
   BarChart3,
   DollarSign,
   Droplets,
+  Info,
   LucideAngularModule,
   ShieldCheck,
   Sprout,
@@ -99,6 +100,7 @@ export class ProfitRiskComponent implements OnInit {
   readonly ShieldCheck = ShieldCheck;
   readonly Droplets = Droplets;
   readonly CropIcon = Sprout;
+  readonly InfoIcon = Info;
 
   private readonly http = inject(HttpClient);
   private readonly blockService = inject(BlockService);
@@ -503,6 +505,38 @@ export class ProfitRiskComponent implements OnInit {
 
     return `${this.getChartLabel(current.matched_crop)} is currently running ${profitabilityText} at ${this.formatCurrency(data.water_price)}/ML water cost.`;
   });
+  readonly currentCropPriceGap = computed(() => {
+    const current = this.currentCrop();
+    if (!current) {
+      return null;
+    }
+
+    return current.current_price - current.break_even_price;
+  });
+  readonly currentCropPriceGapLabel = computed(() => {
+    const gap = this.currentCropPriceGap();
+    if (gap === null) {
+      return '--';
+    }
+
+    return `${gap >= 0 ? '+' : '-'}${this.formatCurrency(Math.abs(gap))}/t`;
+  });
+  readonly currentCropPriceGapTone = computed<'positive' | 'negative'>(() => {
+    const gap = this.currentCropPriceGap();
+    return gap !== null && gap >= 0 ? 'positive' : 'negative';
+  });
+  readonly currentCropPriceGapSummary = computed(() => {
+    const gap = this.currentCropPriceGap();
+    if (gap === null) {
+      return 'Waiting for crop pricing data.';
+    }
+
+    if (gap >= 0) {
+      return `${this.formatCurrency(Math.abs(gap))}/t above break-even.`;
+    }
+
+    return `${this.formatCurrency(Math.abs(gap))}/t below break-even.`;
+  });
 
   ngOnInit(): void {
     this.blockService.block$
@@ -568,6 +602,100 @@ export class ProfitRiskComponent implements OnInit {
     };
 
     return labels[crop] ?? crop;
+  }
+
+  getPriceTrendTone(trend: string | null | undefined): 'critical' | 'warning' | 'positive' | 'neutral' {
+    const normalized = (trend || '').toLowerCase();
+
+    if (normalized.includes('crisis') || normalized.includes('below cost') || normalized.includes('loss')) {
+      return 'critical';
+    }
+
+    if (normalized.includes('soft') || normalized.includes('weak') || normalized.includes('volatile')) {
+      return 'warning';
+    }
+
+    if (normalized.includes('strong') || normalized.includes('above') || normalized.includes('profitable') || normalized.includes('improving')) {
+      return 'positive';
+    }
+
+    return 'neutral';
+  }
+
+  getWaterNeedTone(value: number | null | undefined): 'high' | 'moderate' | 'low' {
+    const waterNeed = Number(value);
+
+    if (!Number.isFinite(waterNeed)) {
+      return 'moderate';
+    }
+
+    if (waterNeed >= 8) {
+      return 'high';
+    }
+
+    if (waterNeed >= 5) {
+      return 'moderate';
+    }
+
+    return 'low';
+  }
+
+  getMarketTrendDisplay(trend: string | null | undefined): string {
+    const normalized = (trend || '').toLowerCase().trim();
+
+    if (!normalized) {
+      return '--';
+    }
+
+    if (normalized.includes('crisis') || normalized.includes('below cost')) {
+      return 'Pricing remains below cost of production';
+    }
+
+    if (normalized.includes('soft') || normalized.includes('weak')) {
+      return 'Market pricing remains soft';
+    }
+
+    if (normalized.includes('volatile')) {
+      return 'Market pricing is volatile';
+    }
+
+    if (normalized.includes('strong') || normalized.includes('improving')) {
+      return 'Market pricing is improving';
+    }
+
+    return trend || '--';
+  }
+
+  getReferenceTooltipLines(type: 'price-gap' | 'trend' | 'water' | 'yield'): string[] {
+    if (type === 'price-gap') {
+      return [
+        'Break-even price is the minimum selling price needed to cover production and water costs.',
+        'If market price is above break-even, the crop is more likely to stay profitable.',
+        'If market price is below break-even, margins are under pressure or negative.'
+      ];
+    }
+
+    if (type === 'trend') {
+      return [
+        'This shows the market direction behind the current crop price.',
+        'A weak or crisis trend means price pressure is building.',
+        'A stronger trend supports healthier margins if costs stay stable.'
+      ];
+    }
+
+    if (type === 'water') {
+      return [
+        'Water intensity shows how much irrigation this crop usually needs per hectare.',
+        'Higher water need means profit changes more when water price rises.',
+        'Lower water need usually gives more protection in expensive water seasons.'
+      ];
+    }
+
+    return [
+      'Yield benchmark is the expected tonnes per hectare used in this model.',
+      'It helps estimate revenue together with crop price.',
+      'Actual paddock performance can be higher or lower than this benchmark.'
+    ];
   }
 
   getPriceChartStatus(row: ProfitRiskCropRow): 'PROFIT' | 'LOSS' {
