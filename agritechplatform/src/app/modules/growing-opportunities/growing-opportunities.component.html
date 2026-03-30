@@ -196,6 +196,10 @@
             {{ newsWarning }}
         </div>
 
+        <div class="inline-warning" *ngIf="isNewsLoading && !filteredNewsItems.length">
+            Loading the latest South Australia grower headlines...
+        </div>
+
         <div class="opportunities-grid">
             <div class="opportunity-card hover-lift" *ngFor="let opportunity of filteredNewsItems; trackBy: trackByOpportunity" (click)="openOpportunity(opportunity)">
                 <div class="card-content">
@@ -212,7 +216,7 @@
                 <i-lucide [img]="ChevronRightIcon" class="card-arrow"></i-lucide>
             </div>
         </div>
-        <div class="empty-news-state" *ngIf="!filteredNewsItems.length && !newsWarning">
+        <div class="empty-news-state" *ngIf="!isNewsLoading && !filteredNewsItems.length && !newsWarning">
             No matching current-year South Australia agriculture headlines were found for this filter.
         </div>
     </section>

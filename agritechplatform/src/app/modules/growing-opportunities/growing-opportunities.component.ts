@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subject, Subscription, takeUntil, distinctUntilChanged, filter } from 'rxjs';
 import { LucideAngularModule, Sprout, ChevronRight, X, ExternalLink, AlertTriangle, Droplets, Leaf, Layers, CheckCircle2, RefreshCw, ThumbsUp, ThumbsDown, Info } from 'lucide-angular';
@@ -43,7 +43,8 @@ type NewsFilter = 'all' | 'funding' | 'tools' | 'help' | 'general';
     standalone: true,
     imports: [CommonModule, LucideAngularModule],
     templateUrl: './growing-opportunities.component.html',
-    styleUrls: ['./growing-opportunities.component.css']
+    styleUrls: ['./growing-opportunities.component.css'],
+    changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
     SproutIcon = Sprout;
@@ -62,6 +63,7 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
 
     private readonly destroy$ = new Subject<void>();
     private insightsRequest?: Subscription;
+    private newsRequest?: Subscription;
     private feedbackRequest?: Subscription;
 
     selectedOpportunity: OpportunityArticle | null = null;
@@ -74,6 +76,17 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
     feedbackState: Record<string, 'helpful' | 'not_helpful' | 'saving'> = {};
     activeTab: GrowingOpportunitiesTab = 'recommendations';
     activeNewsFilter: NewsFilter = 'all';
+    isNewsLoading = false;
+    hasLoadedNews = false;
+    newsItems: OpportunityArticle[] = [];
+    filteredNewsItems: OpportunityArticle[] = [];
+    newsCounts: Record<NewsFilter, number> = {
+        all: 0,
+        funding: 0,
+        tools: 0,
+        help: 0,
+        general: 0
+    };
 
     constructor(
         private userDataService: UserDataService,
@@ -99,6 +112,7 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
 
     ngOnDestroy(): void {
         this.insightsRequest?.unsubscribe();
+        this.newsRequest?.unsubscribe();
         this.feedbackRequest?.unsubscribe();
         document.body.classList.remove('scroll-lock');
         this.destroy$.next();
@@ -117,10 +131,15 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
 
     setActiveTab(tab: GrowingOpportunitiesTab): void {
         this.activeTab = tab;
+
+        if (tab === 'updates') {
+            this.ensureNewsLoaded();
+        }
     }
 
     setActiveNewsFilter(filter: NewsFilter): void {
         this.activeNewsFilter = filter;
+        this.updateFilteredNewsItems();
     }
 
     isNewsFilterActive(filter: NewsFilter): boolean {
@@ -128,11 +147,7 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
     }
 
     getNewsFilterCount(filter: NewsFilter): number {
-        if (filter === 'all') {
-            return this.newsItems.length;
-        }
-
-        return this.newsItems.filter(item => item.category === filter).length;
+        return this.newsCounts[filter];
     }
 
     get liveMetricCards(): LiveMetricCard[] {
@@ -187,18 +202,6 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
 
     get liveRecommendations(): GrowingOpportunityRecommendation[] {
         return this.pageData?.recommendations || [];
-    }
-
-    get newsItems(): OpportunityArticle[] {
-        return (this.pageData?.news_items || []).map(item => this.toOpportunityArticle(item));
-    }
-
-    get filteredNewsItems(): OpportunityArticle[] {
-        if (this.activeNewsFilter === 'all') {
-            return this.newsItems;
-        }
-
-        return this.newsItems.filter(item => item.category === this.activeNewsFilter);
     }
 
     get newsWarning(): string | null {
@@ -481,19 +484,35 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
 
     private loadBlockInsights(block: Block): void {
         this.isInsightsLoading = true;
+        this.isNewsLoading = false;
+        this.hasLoadedNews = false;
         this.pageWarning = null;
         this.feedbackMessage = null;
         this.pageData = null;
         this.feedbackState = {};
+        this.newsItems = [];
+        this.filteredNewsItems = [];
+        this.newsCounts = {
+            all: 0,
+            funding: 0,
+            tools: 0,
+            help: 0,
+            general: 0
+        };
         this.insightsRequest?.unsubscribe();
+        this.newsRequest?.unsubscribe();
 
-        this.insightsRequest = this.growingOpportunitiesService.getPageData(block.lan || block.id)
+        this.insightsRequest = this.growingOpportunitiesService.getPageData(block.lan || block.id, false)
             .pipe(takeUntil(this.destroy$))
             .subscribe({
                 next: pageData => {
                     this.pageData = pageData;
                     this.pageWarning = pageData.warning;
                     this.isInsightsLoading = false;
+
+                    if (this.activeTab === 'updates') {
+                        this.ensureNewsLoaded();
+                    }
                 },
                 error: error => {
                     console.error('Growing Opportunities insights request failed.', error);
@@ -502,6 +521,61 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
                     this.isInsightsLoading = false;
                 }
             });
+    }
+
+    private ensureNewsLoaded(): void {
+        if (!this.currentBlock || this.isNewsLoading || this.hasLoadedNews) {
+            return;
+        }
+
+        this.isNewsLoading = true;
+
+        this.newsRequest?.unsubscribe();
+        this.newsRequest = this.growingOpportunitiesService.getPageData(this.currentBlock.lan || this.currentBlock.id, true)
+            .pipe(takeUntil(this.destroy$))
+            .subscribe({
+                next: pageData => {
+                    this.pageData = {
+                        ...(this.pageData ?? pageData),
+                        news_items: pageData.news_items,
+                        news_warning: pageData.news_warning
+                    };
+                    this.hasLoadedNews = true;
+                    this.isNewsLoading = false;
+                    this.updateNewsState(pageData.news_items);
+                },
+                error: error => {
+                    console.error('Growing Opportunities news request failed.', error);
+                    this.isNewsLoading = false;
+                    this.hasLoadedNews = true;
+                    this.pageData = this.pageData
+                        ? {
+                            ...this.pageData,
+                            news_items: [],
+                            news_warning: 'Live South Australia agriculture news is temporarily unavailable.'
+                        }
+                        : null;
+                    this.updateNewsState([]);
+                }
+            });
+    }
+
+    private updateNewsState(newsItems: GrowingOpportunityNewsItem[]): void {
+        this.newsItems = newsItems.map(item => this.toOpportunityArticle(item));
+        this.newsCounts = {
+            all: this.newsItems.length,
+            funding: this.newsItems.filter(item => item.category === 'funding').length,
+            tools: this.newsItems.filter(item => item.category === 'tools').length,
+            help: this.newsItems.filter(item => item.category === 'help').length,
+            general: this.newsItems.filter(item => item.category === 'general').length
+        };
+        this.updateFilteredNewsItems();
+    }
+
+    private updateFilteredNewsItems(): void {
+        this.filteredNewsItems = this.activeNewsFilter === 'all'
+            ? this.newsItems
+            : this.newsItems.filter(item => item.category === this.activeNewsFilter);
     }
 
     private toOpportunityArticle(item: GrowingOpportunityNewsItem): OpportunityArticle {

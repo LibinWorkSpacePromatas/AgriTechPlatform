@@ -180,7 +180,12 @@ class GrowingOpportunitiesService:
     def __init__(self) -> None:
         self._news_cache: dict[str, tuple[datetime, list[GrowingOpportunityNewsItem], str | None]] = {}
 
-    def build_page_payload(self, db: Session, block: Block) -> GrowingOpportunitiesResponse:
+    def build_page_payload(
+        self,
+        db: Session,
+        block: Block,
+        include_news: bool = True,
+    ) -> GrowingOpportunitiesResponse:
         insights = satellite_insights_service.get_block_insights(db, block)
         observed_series = (
             db.query(SatelliteTimeseries)
@@ -198,7 +203,11 @@ class GrowingOpportunitiesService:
         }
         recommendations = self._build_recommendations(block, insights, payload, observed_series)
         trend_summary = self._build_trend_summary(observed_series)
-        news_items, news_warning = self._load_news_items(block)
+        news_items: list[GrowingOpportunityNewsItem] = []
+        news_warning: str | None = None
+
+        if include_news:
+            news_items, news_warning = self._load_news_items(block)
 
         return GrowingOpportunitiesResponse(
             block_id=str(block.id),

@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, throwError } from 'rxjs';
+import { Observable, catchError, finalize, of, shareReplay, tap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export type GrowingOpportunitySeverity = 'critical' | 'warning' | 'info' | 'positive';
@@ -80,13 +80,91 @@ export interface GrowingOpportunityNewsItem {
 })
 export class GrowingOpportunitiesService {
   private readonly baseUrl = environment.apiBaseUrl.replace(/\/$/, '');
+  private readonly cacheTtlMs = 5 * 60 * 1000;
+  private readonly responseCache = new Map<string, { expiresAt: number; value: GrowingOpportunitiesResponse }>();
+  private readonly inflightRequests = new Map<string, Observable<GrowingOpportunitiesResponse>>();
 
   constructor(private http: HttpClient) {}
 
-  getPageData(blockId: string): Observable<GrowingOpportunitiesResponse> {
-    return this.http
-      .get<GrowingOpportunitiesResponse>(`${this.baseUrl}/api/blocks/${blockId}/growing-opportunities`)
-      .pipe(catchError(error => this.handleError('load Growing Opportunities', error)));
+  getPageData(blockId: string, includeNews = true): Observable<GrowingOpportunitiesResponse> {
+    const cacheKey = this.buildCacheKey(blockId, includeNews);
+    const cached = this.getCachedResponse(blockId, includeNews);
+
+    if (cached) {
+      return of(cached);
+    }
+
+    const inflight = this.inflightRequests.get(cacheKey);
+    if (inflight) {
+      return inflight;
+    }
+
+    const request$ = this.http
+      .get<GrowingOpportunitiesResponse>(`${this.baseUrl}/api/blocks/${blockId}/growing-opportunities`, {
+        params: {
+          include_news: String(includeNews)
+        }
+      })
+      .pipe(
+        tap(response => this.storeCachedResponse(blockId, includeNews, response)),
+        finalize(() => this.inflightRequests.delete(cacheKey)),
+        shareReplay(1),
+        catchError(error => this.handleError('load Growing Opportunities', error))
+      );
+
+    this.inflightRequests.set(cacheKey, request$);
+
+    return request$;
+  }
+
+  private buildCacheKey(blockId: string, includeNews: boolean): string {
+    return `${blockId}::${includeNews ? 'with-news' : 'base'}`;
+  }
+
+  private getCachedResponse(blockId: string, includeNews: boolean): GrowingOpportunitiesResponse | null {
+    const now = Date.now();
+    const exactEntry = this.responseCache.get(this.buildCacheKey(blockId, includeNews));
+
+    if (exactEntry && exactEntry.expiresAt > now) {
+      return exactEntry.value;
+    }
+
+    if (exactEntry) {
+      this.responseCache.delete(this.buildCacheKey(blockId, includeNews));
+    }
+
+    if (!includeNews) {
+      const fullEntry = this.responseCache.get(this.buildCacheKey(blockId, true));
+      if (fullEntry && fullEntry.expiresAt > now) {
+        return fullEntry.value;
+      }
+
+      if (fullEntry) {
+        this.responseCache.delete(this.buildCacheKey(blockId, true));
+      }
+    }
+
+    return null;
+  }
+
+  private storeCachedResponse(blockId: string, includeNews: boolean, response: GrowingOpportunitiesResponse): void {
+    const expiresAt = Date.now() + this.cacheTtlMs;
+
+    this.responseCache.set(this.buildCacheKey(blockId, includeNews), {
+      expiresAt,
+      value: response
+    });
+
+    if (includeNews) {
+      this.responseCache.set(this.buildCacheKey(blockId, false), {
+        expiresAt,
+        value: {
+          ...response,
+          news_items: [],
+          news_warning: null
+        }
+      });
+    }
   }
 
   sendFeedback(blockId: string, payload: GrowingOpportunityFeedbackRequest): Observable<GrowingOpportunityFeedbackResponse> {
