@@ -1112,6 +1112,51 @@
   padding-top: 0.1rem;
 }
 
+.irrigation-demo-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.45rem;
+}
+
+.irrigate-now-btn {
+  border: none;
+  border-radius: 0.7rem;
+  background: linear-gradient(135deg, #0891b2 0%, #0284c7 100%);
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.55rem 0.8rem;
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+  box-shadow: 0 8px 16px rgba(2, 132, 199, 0.22);
+}
+
+.irrigate-now-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(2, 132, 199, 0.26);
+}
+
+.irrigate-now-btn.running {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  box-shadow: 0 10px 20px rgba(234, 88, 12, 0.3);
+}
+
+.irrigate-now-btn:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.irrigation-demo-note {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  color: #0f172a;
+}
+
 .ndwi-value-label {
   font-size: 0.72rem;
   font-weight: 800;

@@ -67,6 +67,9 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
   showCalculationDetails = false;
   isBlockMenuOpen = false;
   isBaseMapMenuOpen = false;
+  isPumpRunning = false;
+  pumpDemoMessage = '';
+  private pumpStopTimer?: ReturnType<typeof setTimeout>;
   private decisionPollSub?: Subscription;
 
   private destroy$ = new Subject<void>();
@@ -128,6 +131,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
   }
 
   private applyBlockSelection(block: Block): void {
+    this.resetPumpDemoState();
     this.selectedBlock = block;
     this.latitude = block.lat;
     this.longitude = block.lon;
@@ -647,9 +651,55 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     this.destroy$.next();
     this.destroy$.complete();
     this.decisionPollSub?.unsubscribe();
+    this.resetPumpDemoState();
     if (this.map) {
       this.map.remove();
     }
+  }
+
+  canStartDemoIrrigation(): boolean {
+    return !!this.irrigationStatus && this.needsIrrigationNow() && !this.isPumpRunning;
+  }
+
+  triggerIrrigationDemo(): void {
+    if (!this.irrigationStatus) {
+      return;
+    }
+    if (this.isPumpRunning) {
+      return;
+    }
+    if (!this.needsIrrigationNow()) {
+      this.pumpDemoMessage = 'Irrigation is not needed right now based on current NDWI and urgency.';
+      return;
+    }
+
+    this.isPumpRunning = true;
+    this.pumpDemoMessage = 'IoT sensor ON · Pump ON · Water flow started (demo).';
+    if (this.pumpStopTimer) {
+      clearTimeout(this.pumpStopTimer);
+    }
+    this.pumpStopTimer = setTimeout(() => {
+      this.isPumpRunning = false;
+      this.pumpDemoMessage = 'Demo complete: Pump OFF · Field moisture is being monitored.';
+    }, 8000);
+  }
+
+  private needsIrrigationNow(): boolean {
+    if (!this.irrigationStatus) {
+      return false;
+    }
+    const statusNeedsWater = this.irrigationStatus.status === 'Severe stress' || this.irrigationStatus.status === 'Moderate stress';
+    const urgencyNeedsWater = this.irrigationStatus.urgency === 'HIGH' || this.irrigationStatus.urgency === 'MEDIUM';
+    return statusNeedsWater || urgencyNeedsWater;
+  }
+
+  private resetPumpDemoState(): void {
+    if (this.pumpStopTimer) {
+      clearTimeout(this.pumpStopTimer);
+      this.pumpStopTimer = undefined;
+    }
+    this.isPumpRunning = false;
+    this.pumpDemoMessage = '';
   }
 
   refreshData(updateMapView: boolean = true): void {
