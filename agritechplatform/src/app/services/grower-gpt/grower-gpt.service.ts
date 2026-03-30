@@ -107,6 +107,7 @@ SENSOR DATA:
 Soil Moisture: ${satellite?.sensor_data?.soil_moisture ?? 'N/A'}
 Temperature: ${satellite?.sensor_data?.temperature ?? 'N/A'}
 Humidity: ${satellite?.sensor_data?.humidity ?? 'N/A'}
+pH Level: ${satellite?.sensor_data?.ph_level ?? 'N/A'}
 Last Sensor Update: ${satellite?.sensor_data?.last_updated ?? 'N/A'}
 
 You must use these values exactly.

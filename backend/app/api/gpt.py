@@ -340,7 +340,8 @@ def _get_block_sensor_context(db: Session, block_id: str) -> GrowerGPTSensorData
                 ufs.soil_moisture,
                 ufs.soil_temperature,
                 ufs.air_temperature,
-                ufs.humidity
+                ufs.humidity,
+                ufs.ph_level
             FROM unified_farm_state ufs
             WHERE ufs.block_id = :block_id
             """
@@ -371,6 +372,7 @@ def _get_block_sensor_context(db: Session, block_id: str) -> GrowerGPTSensorData
         row.get("soil_moisture") is None
         and chosen_temperature is None
         and row.get("humidity") is None
+        and row.get("ph_level") is None
         and latest_updated is None
     ):
         return None
@@ -379,6 +381,7 @@ def _get_block_sensor_context(db: Session, block_id: str) -> GrowerGPTSensorData
         soil_moisture=_to_float(row.get("soil_moisture")),
         temperature=_to_float(chosen_temperature),
         humidity=_to_float(row.get("humidity")),
+        ph_level=_to_float(row.get("ph_level")),
         last_updated=latest_updated.isoformat() if latest_updated is not None else None,
     )
 

@@ -177,6 +177,7 @@ export const growerGptBlockSummarySchema = satelliteContractSchema.extend({
     soil_moisture: z.number().nullable().default(null),
     temperature: z.number().nullable().default(null),
     humidity: z.number().nullable().default(null),
+    ph_level: z.number().nullable().default(null),
     last_updated: z.string().nullable().default(null)
   }).nullable().default(null)
 });

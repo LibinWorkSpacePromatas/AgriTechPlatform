@@ -7,6 +7,7 @@ import { BaseChartDirective } from 'ng2-charts';
 import {
   BarController,
   BarElement,
+  BubbleController,
   CategoryScale,
   Chart,
   ChartConfiguration,
@@ -14,6 +15,7 @@ import {
   Legend,
   LinearScale,
   Plugin,
+  PointElement,
   ScriptableScaleContext,
   Tooltip
 } from 'chart.js';
@@ -23,6 +25,7 @@ import {
   BarChart3,
   DollarSign,
   Droplets,
+  Info,
   LucideAngularModule,
   ShieldCheck,
   Sprout,
@@ -34,7 +37,7 @@ import { BlockService } from '../../shared/services/block.service';
 import { Block } from '../../shared/models';
 import { AdelaideTimePipe } from '../../shared/pipes/adelaide-time.pipe';
 
-Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip, Legend);
+Chart.register(BarController, BubbleController, BarElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend);
 
 interface ProfitRiskScenarioMargins {
   low: number;
@@ -98,6 +101,7 @@ export class ProfitRiskComponent implements OnInit {
   readonly ShieldCheck = ShieldCheck;
   readonly Droplets = Droplets;
   readonly CropIcon = Sprout;
+  readonly InfoIcon = Info;
 
   private readonly http = inject(HttpClient);
   private readonly blockService = inject(BlockService);
@@ -344,6 +348,94 @@ export class ProfitRiskComponent implements OnInit {
       }
     }
   };
+  readonly revenueWaterChartData = computed<ChartData<'bubble'>>(() => ({
+    datasets: [
+      {
+        label: 'Revenue per ML',
+        data: this.chartRows().map(row => ({
+          x: row.water_req_ml_ha,
+          y: row.current_price * row.yield_t_ha,
+          r: Math.max(8, Math.min(18, Math.abs(row.margins.selected) / 900))
+        })),
+        backgroundColor: this.chartRows().map(row => this.getPriceBarColor(row.crop)),
+        borderColor: '#ffffff',
+        borderWidth: 1.5
+      }
+    ]
+  }));
+  readonly revenueWaterChartOptions: ChartConfiguration<'bubble'>['options'] = {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: false,
+    plugins: {
+      legend: {
+        display: false
+      },
+      tooltip: {
+        callbacks: {
+          title: (items: any[]) => {
+            const index = items?.[0]?.dataIndex ?? 0;
+            const row = this.chartRows()[index];
+            return row ? this.getChartLabel(row.crop) : 'Crop';
+          },
+          label: (context: any) => {
+            const point = context.raw as { x: number; y: number; r: number };
+            return [
+              `Water use: ${point.x.toFixed(1)} ML/ha`,
+              `Revenue: ${this.formatCurrency(point.y)}/ha`
+            ];
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        title: {
+          display: true,
+          text: 'Water requirement (ML / ha)',
+          color: '#4b5563',
+          font: { size: 12 }
+        },
+        ticks: {
+          color: '#111827'
+        },
+        grid: { color: '#e6e9ef' },
+        border: { color: '#c7cfd8' }
+      },
+      y: {
+        title: {
+          display: true,
+          text: 'Revenue (AUD / ha)',
+          color: '#4b5563',
+          font: { size: 12 }
+        },
+        ticks: {
+          color: '#111827',
+          callback: (value: string | number) => this.formatCompactCurrency(Number(value))
+        },
+        grid: { color: '#e6e9ef' },
+        border: { color: '#c7cfd8' }
+      }
+    }
+  };
+  readonly revenueWaterGuidePlugin: Plugin<'bubble'> = {
+    id: 'revenueWaterGuide',
+    afterDraw: (chart: any) => {
+      const { ctx, chartArea } = chart;
+      if (!chartArea) {
+        return;
+      }
+
+      ctx.save();
+      ctx.strokeStyle = 'rgba(107, 114, 128, 0.35)';
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(chartArea.left, chartArea.top + 28);
+      ctx.lineTo(chartArea.right, chartArea.top + 28);
+      ctx.stroke();
+      ctx.restore();
+    }
+  };
   readonly topSummary = computed(() => {
     const data = this.profitData();
     const current = this.currentCrop();
@@ -442,6 +534,93 @@ export class ProfitRiskComponent implements OnInit {
     };
 
     return colors[this.getChartLabel(crop)] ?? '#ff7a6b';
+  }
+
+  currentCropPriceGapTone(): 'positive' | 'negative' | 'neutral' {
+    const current = this.currentCrop();
+    if (!current) {
+      return 'neutral';
+    }
+    const gap = current.current_price - current.break_even_price;
+    if (gap > 0) {
+      return 'positive';
+    }
+    if (gap < 0) {
+      return 'negative';
+    }
+    return 'neutral';
+  }
+
+  currentCropPriceGapLabel(): string {
+    const current = this.currentCrop();
+    if (!current) {
+      return 'Unavailable';
+    }
+    const gap = current.current_price - current.break_even_price;
+    const magnitude = this.formatCurrency(Math.abs(gap));
+    if (gap > 0) {
+      return `${magnitude}/t above break-even`;
+    }
+    if (gap < 0) {
+      return `${magnitude}/t below break-even`;
+    }
+    return 'At break-even';
+  }
+
+  getPriceTrendTone(trend: string | null | undefined): 'critical' | 'warning' | 'positive' {
+    const normalized = (trend || '').toLowerCase();
+    if (normalized.includes('fall') || normalized.includes('down') || normalized.includes('weak')) {
+      return 'critical';
+    }
+    if (normalized.includes('volatile') || normalized.includes('mixed') || normalized.includes('flat') || normalized.includes('steady')) {
+      return 'warning';
+    }
+    return 'positive';
+  }
+
+  getMarketTrendDisplay(trend: string | null | undefined): string {
+    const normalized = (trend || '').trim();
+    if (!normalized) {
+      return 'No trend available';
+    }
+    return normalized
+      .split(/[_-]/g)
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+  }
+
+  getWaterNeedTone(value: number | null | undefined): 'high' | 'moderate' | 'low' {
+    const waterNeed = Number(value ?? 0);
+    if (waterNeed >= 8) {
+      return 'high';
+    }
+    if (waterNeed >= 4) {
+      return 'moderate';
+    }
+    return 'low';
+  }
+
+  getReferenceTooltipLines(key: 'price-gap' | 'trend' | 'water' | 'yield'): string[] {
+    const tips: Record<'price-gap' | 'trend' | 'water' | 'yield', string[]> = {
+      'price-gap': [
+        'Shows how far the current farmgate price sits above or below the break-even price.',
+        'Positive means the crop is currently priced above its cost-recovery point.'
+      ],
+      'trend': [
+        'Summarises the current market direction from the backend workbook dataset.',
+        'Use it as context, not a guarantee of future sale price.'
+      ],
+      'water': [
+        'Higher ML/ha means the crop is more water intensive.',
+        'In high water-price seasons, water-heavy crops lose margin faster.'
+      ],
+      'yield': [
+        'This is the benchmark yield used by the current crop economics model.',
+        'Actual farm yield can move margins materially above or below this result.'
+      ]
+    };
+
+    return tips[key];
   }
 
   private reloadCurrentBlock(): void {

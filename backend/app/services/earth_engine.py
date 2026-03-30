@@ -73,6 +73,13 @@ class AcquisitionMetadataComputation:
     execution_ms: int
 
 
+@dataclass(slots=True)
+class TileUrlComputation:
+    ndvi_tile_url: str | None
+    ndwi_tile_url: str | None
+    map_tile_url: str | None
+
+
 class EarthEngineClient:
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings or get_settings()
@@ -193,6 +200,33 @@ class EarthEngineClient:
 
     def shutdown(self) -> None:
         self._executor.shutdown(wait=False, cancel_futures=True)
+
+    def build_block_tile_urls(
+        self,
+        geometry_geojson: dict[str, Any],
+        *,
+        date_from: date,
+        date_to: date,
+    ) -> TileUrlComputation:
+        self.initialize()
+        ee = self._ee
+        assert ee is not None
+
+        try:
+            geometry = ee.Geometry(geometry_geojson)
+            collection = self._build_collection(geometry, date_from=date_from, date_to=date_to)
+            prepared_collection = collection.map(self._prepare_image)
+            composite = prepared_collection.select(SPECTRAL_BANDS).median().clip(geometry)
+            indices = self._build_indices(composite).clip(geometry)
+            ndvi_tile_url = self._build_tile_url(indices.select("ndvi").clip(geometry))
+            ndwi_tile_url = self._build_ndwi_tile_url(indices.select("ndwi").clip(geometry))
+            return TileUrlComputation(
+                ndvi_tile_url=ndvi_tile_url,
+                ndwi_tile_url=ndwi_tile_url,
+                map_tile_url=ndwi_tile_url,
+            )
+        except Exception as exc:
+            raise EarthEngineExecutionError(f"Earth Engine tile generation failed: {exc}") from exc
 
     def _compute_block_insights_impl(
         self,

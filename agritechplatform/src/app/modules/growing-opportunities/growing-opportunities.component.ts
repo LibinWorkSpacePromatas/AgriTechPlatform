@@ -10,6 +10,7 @@ import { Block } from '../../shared/models';
 import {
     GrowingOpportunitiesService,
     GrowingOpportunityNewsItem,
+    GrowingOpportunityNewsResponse,
     GrowingOpportunitiesResponse,
     GrowingOpportunityRecommendation
 } from '../../core/services/growing-opportunities.service';
@@ -46,6 +47,8 @@ type NewsFilter = 'all' | 'funding' | 'tools' | 'help' | 'general';
     styleUrls: ['./growing-opportunities.component.css']
 })
 export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
+    private readonly newsCountStorageKey = 'growing_opportunities_news_count';
+    private readonly minimumNewsRefreshAnimationMs = 700;
     SproutIcon = Sprout;
     ChevronRightIcon = ChevronRight;
     XIcon = X;
@@ -62,6 +65,7 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
 
     private readonly destroy$ = new Subject<void>();
     private insightsRequest?: Subscription;
+    private newsRequest?: Subscription;
     private feedbackRequest?: Subscription;
 
     selectedOpportunity: OpportunityArticle | null = null;
@@ -74,6 +78,18 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
     feedbackState: Record<string, 'helpful' | 'not_helpful' | 'saving'> = {};
     activeTab: GrowingOpportunitiesTab = 'recommendations';
     activeNewsFilter: NewsFilter = 'all';
+    isNewsLoading = false;
+    isNewsRefreshAnimating = false;
+    hasLoadedNews = false;
+    newsItems: OpportunityArticle[] = [];
+    filteredNewsItems: OpportunityArticle[] = [];
+    newsCounts: Record<NewsFilter, number> = {
+        all: 0,
+        funding: 0,
+        tools: 0,
+        help: 0,
+        general: 0
+    };
 
     constructor(
         private userDataService: UserDataService,
@@ -93,12 +109,14 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
             )
             .subscribe(block => {
                 this.currentBlock = block;
+                this.loadStoredNewsCount(block);
                 this.loadBlockInsights(block);
             });
     }
 
     ngOnDestroy(): void {
         this.insightsRequest?.unsubscribe();
+        this.newsRequest?.unsubscribe();
         this.feedbackRequest?.unsubscribe();
         document.body.classList.remove('scroll-lock');
         this.destroy$.next();
@@ -117,10 +135,19 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
 
     setActiveTab(tab: GrowingOpportunitiesTab): void {
         this.activeTab = tab;
+
+        if (tab === 'updates') {
+            this.ensureNewsLoaded(false);
+        }
+    }
+
+    refreshNews(): void {
+        this.ensureNewsLoaded(true);
     }
 
     setActiveNewsFilter(filter: NewsFilter): void {
         this.activeNewsFilter = filter;
+        this.updateFilteredNewsItems();
     }
 
     isNewsFilterActive(filter: NewsFilter): boolean {
@@ -128,11 +155,11 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
     }
 
     getNewsFilterCount(filter: NewsFilter): number {
-        if (filter === 'all') {
-            return this.newsItems.length;
+        if (filter === 'all' && !this.hasLoadedNews && this.newsCounts.all > 0) {
+            return this.newsCounts.all;
         }
 
-        return this.newsItems.filter(item => item.category === filter).length;
+        return this.newsCounts[filter];
     }
 
     get liveMetricCards(): LiveMetricCard[] {
@@ -187,18 +214,6 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
 
     get liveRecommendations(): GrowingOpportunityRecommendation[] {
         return this.pageData?.recommendations || [];
-    }
-
-    get newsItems(): OpportunityArticle[] {
-        return (this.pageData?.news_items || []).map(item => this.toOpportunityArticle(item));
-    }
-
-    get filteredNewsItems(): OpportunityArticle[] {
-        if (this.activeNewsFilter === 'all') {
-            return this.newsItems;
-        }
-
-        return this.newsItems.filter(item => item.category === this.activeNewsFilter);
     }
 
     get newsWarning(): string | null {
@@ -481,11 +496,16 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
 
     private loadBlockInsights(block: Block): void {
         this.isInsightsLoading = true;
+        this.isNewsLoading = false;
+        this.hasLoadedNews = false;
         this.pageWarning = null;
         this.feedbackMessage = null;
         this.pageData = null;
         this.feedbackState = {};
+        this.newsItems = [];
+        this.filteredNewsItems = [];
         this.insightsRequest?.unsubscribe();
+        this.newsRequest?.unsubscribe();
 
         this.insightsRequest = this.growingOpportunitiesService.getPageData(block.lan || block.id)
             .pipe(takeUntil(this.destroy$))
@@ -494,6 +514,10 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
                     this.pageData = pageData;
                     this.pageWarning = pageData.warning;
                     this.isInsightsLoading = false;
+
+                    if (this.activeTab === 'updates') {
+                        this.ensureNewsLoaded(false);
+                    }
                 },
                 error: error => {
                     console.error('Growing Opportunities insights request failed.', error);
@@ -502,6 +526,100 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
                     this.isInsightsLoading = false;
                 }
             });
+    }
+
+    private ensureNewsLoaded(forceRefresh = false): void {
+        if (!this.currentBlock || this.isNewsLoading || (!forceRefresh && this.hasLoadedNews)) {
+            return;
+        }
+
+        this.isNewsLoading = true;
+        this.isNewsRefreshAnimating = true;
+        this.feedbackMessage = null;
+        const refreshStartedAt = Date.now();
+
+        this.newsRequest?.unsubscribe();
+        this.newsRequest = this.growingOpportunitiesService.getNewsData(
+            this.currentBlock.lan || this.currentBlock.id,
+            forceRefresh
+        )
+            .pipe(takeUntil(this.destroy$))
+            .subscribe({
+                next: (newsData: GrowingOpportunityNewsResponse) => {
+                    this.pageData = {
+                        ...(this.pageData ?? this.buildEmptyPageData()),
+                        news_items: newsData.news_items,
+                        news_warning: newsData.news_warning
+                    };
+                    this.hasLoadedNews = true;
+                    this.updateNewsState(newsData.news_items);
+                    this.finishNewsLoading(refreshStartedAt);
+                },
+                error: error => {
+                    console.error('Growing Opportunities news request failed.', error);
+                    this.hasLoadedNews = true;
+                    this.pageData = this.pageData
+                        ? {
+                            ...this.pageData,
+                            news_items: [],
+                            news_warning: 'Live South Australia agriculture news is temporarily unavailable.'
+                        }
+                        : null;
+                    this.updateNewsState([]);
+                    this.finishNewsLoading(refreshStartedAt);
+                }
+            });
+    }
+
+    private buildEmptyPageData(): GrowingOpportunitiesResponse {
+        return {
+            block_id: this.currentBlock?.id || '',
+            crop: this.currentBlock?.crop || null,
+            status: 'updating',
+            freshness_status: 'updating',
+            source: 'cache',
+            search_window_from: null,
+            search_window_to: null,
+            data_quality: 'no_data',
+            composite_date_from: null,
+            composite_date_to: null,
+            last_satellite_update: null,
+            data_age_days: null,
+            ndvi: null,
+            ndwi: null,
+            evi: null,
+            ndre: null,
+            lai: null,
+            cloud_cover_pct: null,
+            pixel_count: 0,
+            map_tile_url: null,
+            confidence: 'high',
+            warning: null,
+            trend_summary: null,
+            recommendations: [],
+            news_items: [],
+            news_warning: null,
+            feedback_enabled: true
+        };
+    }
+
+    private updateNewsState(newsItems: GrowingOpportunityNewsItem[]): void {
+        this.newsItems = newsItems.map(item => this.toOpportunityArticle(item));
+        this.newsCounts = {
+            all: this.newsItems.length,
+            funding: this.newsItems.filter(item => item.category === 'funding').length,
+            tools: this.newsItems.filter(item => item.category === 'tools').length,
+            help: this.newsItems.filter(item => item.category === 'help').length,
+            general: this.newsItems.filter(item => item.category === 'general').length
+        };
+        this.storeNewsCount();
+        this.updateFilteredNewsItems();
+    }
+
+    private updateFilteredNewsItems(): void {
+        this.filteredNewsItems = this.activeNewsFilter === 'all'
+            ? this.newsItems
+            : this.newsItems.filter(item => item.category === this.activeNewsFilter);
     }
 
     private toOpportunityArticle(item: GrowingOpportunityNewsItem): OpportunityArticle {
@@ -525,6 +643,40 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
         }
 
         return 'general';
+    }
+
+    private loadStoredNewsCount(block: Block): void {
+        const stored = localStorage.getItem(`${this.newsCountStorageKey}:${block.lan || block.id}`);
+        const parsed = stored ? Number(stored) : 0;
+
+        this.newsCounts = {
+            all: Number.isFinite(parsed) && parsed > 0 ? parsed : 0,
+            funding: 0,
+            tools: 0,
+            help: 0,
+            general: 0
+        };
+    }
+
+    private storeNewsCount(): void {
+        if (!this.currentBlock) {
+            return;
+        }
+
+        localStorage.setItem(
+            `${this.newsCountStorageKey}:${this.currentBlock.lan || this.currentBlock.id}`,
+            String(this.newsCounts.all)
+        );
+    }
+
+    private finishNewsLoading(startedAt: number): void {
+        const elapsed = Date.now() - startedAt;
+        const remaining = Math.max(0, this.minimumNewsRefreshAnimationMs - elapsed);
+
+        window.setTimeout(() => {
+            this.isNewsLoading = false;
+            this.isNewsRefreshAnimating = false;
+        }, remaining);
     }
 
 }

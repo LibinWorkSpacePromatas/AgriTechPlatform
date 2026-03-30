@@ -26,7 +26,6 @@
             [attr.aria-selected]="activeTab === 'updates'"
             (click)="setActiveTab('updates')">
             News & More
-            <span class="page-tab-count">{{ newsItems.length }}</span>
         </button>
     </div>
 
@@ -147,6 +146,16 @@
                 <p class="section-kicker">South Australia News</p>
                 <h2>Latest South Australia grower news from this year</h2>
             </div>
+            <button
+                type="button"
+                class="news-refresh-button"
+                [disabled]="isNewsLoading || !currentBlock"
+                (click)="refreshNews()">
+                <span class="news-refresh-icon-wrap" [class.spinning]="isNewsRefreshAnimating" aria-hidden="true">
+                    <i-lucide [img]="RefreshCwIcon" class="news-refresh-icon"></i-lucide>
+                </span>
+                <span class="news-refresh-label">Refresh News</span>
+            </button>
         </div>
 
         <div class="news-filter-row" aria-label="News filters">
@@ -196,6 +205,10 @@
             {{ newsWarning }}
         </div>
 
+        <div class="inline-warning" *ngIf="isNewsLoading && !filteredNewsItems.length">
+            Loading the latest South Australia grower headlines...
+        </div>
+
         <div class="opportunities-grid">
             <div class="opportunity-card hover-lift" *ngFor="let opportunity of filteredNewsItems; trackBy: trackByOpportunity" (click)="openOpportunity(opportunity)">
                 <div class="card-content">
@@ -212,7 +225,7 @@
                 <i-lucide [img]="ChevronRightIcon" class="card-arrow"></i-lucide>
             </div>
         </div>
-        <div class="empty-news-state" *ngIf="!filteredNewsItems.length && !newsWarning">
+        <div class="empty-news-state" *ngIf="!isNewsLoading && !filteredNewsItems.length && !newsWarning">
             No matching current-year South Australia agriculture headlines were found for this filter.
         </div>
     </section>

@@ -95,6 +95,7 @@ class GrowerGPTSensorData(BaseModel):
     soil_moisture: float | None = None
     temperature: float | None = None
     humidity: float | None = None
+    ph_level: float | None = None
     last_updated: str | None = None
 
 

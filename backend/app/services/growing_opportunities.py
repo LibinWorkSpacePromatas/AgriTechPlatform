@@ -1,20 +1,23 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
-from datetime import datetime, timezone
+import time
+import xml.etree.ElementTree as ET
+from datetime import datetime, timedelta, timezone
 from html import unescape
 from pathlib import Path
 from urllib.parse import quote
 from uuid import uuid4
-from xml.etree import ElementTree
 from email.utils import parsedate_to_datetime
 
 import httpx
 from sqlalchemy.orm import Session
 
-from app.db.models import Block, SatelliteTimeseries
+from app.db.models import Block, GrowingOpportunityNewsCache, SatelliteTimeseries
 from app.schemas.growing_opportunities import (
+    GrowingOpportunityNewsResponse,
     GrowingOpportunitiesResponse,
     GrowingOpportunityFeedbackRequest,
     GrowingOpportunityFeedbackResponse,
@@ -25,10 +28,27 @@ from app.schemas.satellite import BlockInsightsResponse
 from app.services.satellite_insights import satellite_insights_service
 from app.services.utils import calculate_confidence
 
+logger = logging.getLogger(__name__)
+
 
 class GrowingOpportunitiesService:
     NEWS_CACHE_TTL_SECONDS = 15 * 60
     NEWS_LIMIT = 8
+    NEWS_REQUEST_TIMEOUT_SECONDS = 12.0
+    NEWS_MAX_RETRIES = 3
+    NEWS_RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+    GOOGLE_NEWS_RSS_URL = "https://news.google.com/rss/search"
+    NEWS_REQUEST_HEADERS = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36 AgriTechNewsBot/1.0"
+        ),
+        "Accept": "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
+        "Accept-Language": "en-AU,en;q=0.9",
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
+    }
     SOUTH_AUSTRALIA_TERMS = (
         "south australia",
         "south australian",
@@ -169,18 +189,14 @@ class GrowingOpportunitiesService:
         "article",
         "articles",
     )
-    NEWS_QUERY_TERMS = (
-        "South Australia agriculture",
-        "South Australia farming irrigation",
-        "Riverland growers vineyard horticulture",
-        "South Australia wine grapes viticulture vineyard",
-        "Riverland wine grapes citrus almonds olives",
-    )
-
     def __init__(self) -> None:
         self._news_cache: dict[str, tuple[datetime, list[GrowingOpportunityNewsItem], str | None]] = {}
 
-    def build_page_payload(self, db: Session, block: Block) -> GrowingOpportunitiesResponse:
+    def build_page_payload(
+        self,
+        db: Session,
+        block: Block,
+    ) -> GrowingOpportunitiesResponse:
         insights = satellite_insights_service.get_block_insights(db, block)
         observed_series = (
             db.query(SatelliteTimeseries)
@@ -198,7 +214,6 @@ class GrowingOpportunitiesService:
         }
         recommendations = self._build_recommendations(block, insights, payload, observed_series)
         trend_summary = self._build_trend_summary(observed_series)
-        news_items, news_warning = self._load_news_items(block)
 
         return GrowingOpportunitiesResponse(
             block_id=str(block.id),
@@ -225,6 +240,12 @@ class GrowingOpportunitiesService:
             warning=self._build_warning(block, insights),
             trend_summary=trend_summary,
             recommendations=recommendations,
+        )
+
+    def build_news_payload(self, db: Session, block: Block) -> GrowingOpportunityNewsResponse:
+        news_items, news_warning = self._load_news_items(db, block)
+        return GrowingOpportunityNewsResponse(
+            block_id=str(block.id),
             news_items=news_items,
             news_warning=news_warning,
         )
@@ -410,80 +431,124 @@ class GrowingOpportunitiesService:
             return insights.error
         return None
 
-    def _load_news_items(self, block: Block) -> tuple[list[GrowingOpportunityNewsItem], str | None]:
+    def _load_news_items(self, db: Session, block: Block) -> tuple[list[GrowingOpportunityNewsItem], str | None]:
         cache_key = (block.crop or "default").strip().lower() or "default"
         cached_entry = self._news_cache.get(cache_key)
         current_time = datetime.now(timezone.utc)
+        db_entry = self._get_db_cached_news(db, cache_key)
 
         if cached_entry and (current_time - cached_entry[0]).total_seconds() < self.NEWS_CACHE_TTL_SECONDS:
             return cached_entry[1], cached_entry[2]
+        if db_entry and db_entry.expires_at >= current_time:
+            news_items = self._deserialize_news_items(db_entry.payload)
+            self._news_cache[cache_key] = (current_time, news_items, db_entry.warning)
+            return news_items, db_entry.warning
 
         try:
-            news_items = self._fetch_google_news_items(block)
+            news_items = self._fetch_news_items(block)
             news_warning = None if news_items else (
                 "No recent South Australia agriculture news matched the relevance filter right now."
             )
+            self._store_db_cached_news(
+                db,
+                cache_key=cache_key,
+                query=self._build_news_query(block),
+                news_items=news_items,
+                warning=news_warning,
+                current_time=current_time,
+            )
         except Exception as exc:
-            print(f"Growing Opportunities news fetch failed: {exc}")
+            logger.warning("Growing Opportunities news fetch failed: %s", exc)
+            if cached_entry and cached_entry[1]:
+                return cached_entry[1], "Live South Australia agriculture news is temporarily unavailable. Showing cached results."
+            if db_entry and db_entry.payload:
+                stale_items = self._deserialize_news_items(db_entry.payload)
+                stale_warning = "Live South Australia agriculture news is temporarily unavailable. Showing saved fallback results."
+                self._news_cache[cache_key] = (current_time, stale_items, stale_warning)
+                return stale_items, stale_warning
             news_items = []
             news_warning = "Live South Australia agriculture news is temporarily unavailable."
 
         self._news_cache[cache_key] = (current_time, news_items, news_warning)
         return news_items, news_warning
 
-    def _fetch_google_news_items(self, block: Block) -> list[GrowingOpportunityNewsItem]:
-        collected_items: list[GrowingOpportunityNewsItem] = []
-        seen_urls: set[str] = set()
+    def _fetch_news_items(self, block: Block) -> list[GrowingOpportunityNewsItem]:
+        with httpx.Client(
+            timeout=self.NEWS_REQUEST_TIMEOUT_SECONDS,
+            follow_redirects=True,
+            headers=self.NEWS_REQUEST_HEADERS,
+        ) as client:
+            response = self._fetch_google_news_rss_with_retry(
+                client,
+                query=self._build_news_query(block),
+            )
 
-        with httpx.Client(timeout=8.0, follow_redirects=True) as client:
-            for query in self._build_news_queries(block):
-                response = client.get(self._build_google_news_rss_url(query))
+        return self._parse_google_news_rss(response.text, block)
+
+    def _fetch_google_news_rss_with_retry(self, client: httpx.Client, *, query: str) -> httpx.Response:
+        last_error: Exception | None = None
+        params = {
+            "q": query,
+            "hl": "en-AU",
+            "gl": "AU",
+            "ceid": "AU:en",
+        }
+
+        for attempt in range(1, self.NEWS_MAX_RETRIES + 1):
+            try:
+                response = client.get(self.GOOGLE_NEWS_RSS_URL, params=params)
+                if response.status_code in self.NEWS_RETRYABLE_STATUS_CODES:
+                    response.raise_for_status()
                 response.raise_for_status()
-                parsed_items = self._parse_google_news_feed(response.text, block)
+                return response
+            except (httpx.TimeoutException, httpx.NetworkError, httpx.HTTPStatusError) as exc:
+                last_error = exc
+                status_code = exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) and exc.response else None
+                should_retry = (
+                    attempt < self.NEWS_MAX_RETRIES
+                    and (
+                        status_code in self.NEWS_RETRYABLE_STATUS_CODES
+                        or isinstance(exc, (httpx.TimeoutException, httpx.NetworkError))
+                    )
+                )
+                logger.warning(
+                    "event=growing_opportunities_news_fetch_failed attempt=%s query=%s status=%s error=%s",
+                    attempt,
+                    query,
+                    status_code,
+                    exc,
+                )
+                if not should_retry:
+                    break
+                time.sleep(0.6 * attempt)
 
-                for item in parsed_items:
-                    if item.source_url in seen_urls:
-                        continue
-                    seen_urls.add(item.source_url)
-                    collected_items.append(item)
+        raise RuntimeError(f"Google News RSS fetch failed for query '{query}': {last_error}")
 
-        collected_items.sort(
-            key=lambda item: (
-                self._parse_news_datetime(item.published_at) or datetime.min.replace(tzinfo=timezone.utc),
-                self._score_news_item(item.title, item.summary, block),
-            ),
-            reverse=True,
-        )
-        return collected_items[: self.NEWS_LIMIT]
-
-    def _build_news_queries(self, block: Block) -> list[str]:
+    def _build_news_query(self, block: Block) -> str:
         crop = (block.crop or "").strip()
-        queries = list(self.NEWS_QUERY_TERMS)
+        broad_terms = (
+            "agriculture OR farming OR irrigation OR horticulture OR viticulture "
+            "OR vineyard OR vineyards OR crops OR growers OR livestock OR dairy "
+            "OR grain OR wine OR citrus OR almonds OR olives"
+        )
         if crop:
-            queries.insert(0, f"South Australia {crop} growers agriculture")
-            queries.insert(1, f"Riverland {crop} South Australia")
-        else:
-            queries.insert(0, "South Australia wine grapes growers")
-            queries.insert(1, "Riverland viticulture citrus almonds olives")
-        return queries
+            return f'("South Australia" OR Riverland) ({broad_terms} OR "{crop}")'
+        return f'("South Australia" OR Riverland) ({broad_terms})'
 
-    @staticmethod
-    def _build_google_news_rss_url(query: str) -> str:
-        encoded_query = quote(query)
-        return f"https://news.google.com/rss/search?q={encoded_query}&hl=en-AU&gl=AU&ceid=AU:en"
-
-    def _parse_google_news_feed(self, rss_text: str, block: Block) -> list[GrowingOpportunityNewsItem]:
-        root = ElementTree.fromstring(rss_text)
+    def _parse_google_news_rss(self, payload: str, block: Block) -> list[GrowingOpportunityNewsItem]:
         parsed_items: list[GrowingOpportunityNewsItem] = []
         current_year = datetime.now(timezone.utc).year
+        try:
+            root = ET.fromstring(payload)
+        except ET.ParseError as exc:
+            raise RuntimeError(f"Unable to parse Google News RSS payload: {exc}") from exc
 
         for item in root.findall("./channel/item"):
             title = (item.findtext("title") or "").strip()
             link = (item.findtext("link") or "").strip()
-            description_html = item.findtext("description") or ""
             published_at = (item.findtext("pubDate") or "").strip() or None
-            source_name = (item.findtext("source") or "").strip() or self._extract_source_from_title(title)
-            summary = self._clean_html_text(description_html)
+            source_name = self._extract_source_from_title(title) or "Google News"
+            summary = self._clean_html_text((item.findtext("description") or "").strip())
             published_datetime = self._parse_news_datetime(published_at)
 
             if not title or not link:
@@ -498,7 +563,7 @@ class GrowingOpportunitiesService:
                     id=self._build_news_id(link),
                     title=self._clean_title(title),
                     summary=summary,
-                    source=source_name or "Google News",
+                    source=source_name,
                     source_url=link,
                     published_at=published_datetime.isoformat(),
                     category=self._classify_news_category(title, summary),
@@ -506,7 +571,65 @@ class GrowingOpportunitiesService:
                 )
             )
 
-        return parsed_items
+        parsed_items.sort(
+            key=lambda news_item: (
+                self._parse_news_datetime(news_item.published_at) or datetime.min.replace(tzinfo=timezone.utc),
+                self._score_news_item(news_item.title, news_item.summary, block),
+            ),
+            reverse=True,
+        )
+        return parsed_items[: self.NEWS_LIMIT]
+
+    def _get_db_cached_news(self, db: Session, cache_key: str) -> GrowingOpportunityNewsCache | None:
+        return (
+            db.query(GrowingOpportunityNewsCache)
+            .filter(GrowingOpportunityNewsCache.cache_key == cache_key)
+            .one_or_none()
+        )
+
+    def _store_db_cached_news(
+        self,
+        db: Session,
+        *,
+        cache_key: str,
+        query: str,
+        news_items: list[GrowingOpportunityNewsItem],
+        warning: str | None,
+        current_time: datetime,
+    ) -> None:
+        expires_at = current_time + timedelta(seconds=self.NEWS_CACHE_TTL_SECONDS)
+        payload = [item.model_dump() for item in news_items]
+        record = self._get_db_cached_news(db, cache_key)
+        if record is None:
+            record = GrowingOpportunityNewsCache(
+                cache_key=cache_key,
+                query=query,
+                payload=payload,
+                warning=warning,
+                refreshed_at=current_time,
+                expires_at=expires_at,
+            )
+            db.add(record)
+        else:
+            record.query = query
+            record.payload = payload
+            record.warning = warning
+            record.refreshed_at = current_time
+            record.expires_at = expires_at
+        db.commit()
+
+    def _deserialize_news_items(self, payload: object) -> list[GrowingOpportunityNewsItem]:
+        if not isinstance(payload, list):
+            return []
+        items: list[GrowingOpportunityNewsItem] = []
+        for item in payload:
+            if not isinstance(item, dict):
+                continue
+            try:
+                items.append(GrowingOpportunityNewsItem.model_validate(item))
+            except Exception:
+                continue
+        return items
 
     def _is_relevant_news_item(self, title: str, summary: str, block: Block) -> bool:
         return self._score_news_item(title, summary, block) >= 6

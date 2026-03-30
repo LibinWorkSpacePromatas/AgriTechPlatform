@@ -5,7 +5,7 @@
 }
 
 .header-section {
-    display: flex;
+    display: flex; 
     flex-direction: column;
     gap: 0.25rem;
 }
@@ -270,22 +270,183 @@
 
 .reference-card {
     padding: 0.95rem 1rem;
-    border-radius: 14px;
+    border-radius: 16px;
     background: #ffffff;
-    border: 1px solid #e8edf3;
+    border: 1px solid #e6ebf2;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    position: relative;
 }
 
 .reference-label {
     display: block;
-    margin-bottom: 0.3rem;
-    font-size: 0.74rem;
+    font-size: 0.71rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: #64748b;
+    font-weight: 700;
 }
 
-.reference-card strong {
+.reference-label-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    width: 100%;
+    min-height: 1.1rem;
+}
+
+.reference-value {
     color: #0f172a;
+    font-size: clamp(1.05rem, 1.35vw, 1.24rem);
+    line-height: 1.2;
+    letter-spacing: -0.03em;
+    font-weight: 700;
+}
+
+.reference-value-wrap {
+    line-height: 1.28;
+    max-width: 22ch;
+}
+
+.reference-subvalue {
+    color: #475569;
+    font-size: 0.8rem;
+    line-height: 1.4;
+}
+
+.reference-divider {
+    margin: 0 0.24rem;
+    color: #94a3b8;
+}
+
+.reference-info {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+}
+
+.reference-info-trigger {
+    width: 0.72rem;
+    height: 0.72rem;
+    border: none;
+    background: transparent;
+    color: #215a46;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: help;
+    padding: 0;
+    transition: color 140ms ease;
+}
+
+.reference-info-trigger i-lucide {
+    width: 0.68rem;
+    height: 0.68rem;
+}
+
+.reference-info:hover .reference-info-trigger,
+.reference-info:focus-within .reference-info-trigger {
+    color: #174a39;
+}
+
+.reference-tooltip {
+    position: absolute;
+    top: calc(100% + 0.45rem);
+    right: -0.4rem;
+    width: min(210px, 70vw);
+    padding: 0.6rem 0.7rem;
+    border-radius: 10px;
+    background: #ffffff;
+    border: 1px solid #dce7e1;
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 140ms ease, visibility 140ms ease;
+    z-index: 8;
+}
+
+.reference-tooltip::before {
+    content: "";
+    position: absolute;
+    bottom: calc(100% - 0.35rem);
+    right: 0.7rem;
+    width: 0.7rem;
+    height: 0.7rem;
+    background: #ffffff;
+    border-top: 1px solid #dce7e1;
+    border-left: 1px solid #dce7e1;
+    transform: rotate(45deg);
+}
+
+.reference-info:hover .reference-tooltip,
+.reference-info:focus-within .reference-tooltip {
+    opacity: 1;
+    visibility: visible;
+}
+
+.reference-tooltip-title {
+    display: block;
+    margin-bottom: 0.35rem;
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.reference-tooltip-line {
+    display: block;
+    font-size: 0.7rem;
+    line-height: 1.35;
+    color: #475569;
+}
+
+.reference-tooltip-line + .reference-tooltip-line {
+    margin-top: 0.25rem;
+}
+
+.reference-card-highlight {
+    position: relative;
+    overflow: visible;
+}
+
+.reference-card-highlight::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: #2563eb;
+    border-radius: 16px 0 0 16px;
+    pointer-events: none;
+}
+
+.reference-card-positive {
+    border-color: #dbe7de;
+}
+
+.reference-card-negative,
+.reference-card-critical {
+    border-color: #efd8d3;
+}
+
+.reference-card-warning {
+    border-color: #efdfbf;
+}
+
+.reference-card-water-high {
+    border-color: #ddd9f6;
+}
+
+.reference-card-water-moderate {
+    border-color: #dbe5f3;
+}
+
+.reference-card-water-low {
+    border-color: #d8ebdf;
 }
 
 .card-header h3,
@@ -354,6 +515,10 @@
     height: 380px;
 }
 
+.chart-canvas-shell-bubble {
+    height: 430px;
+}
+
 @media (max-width: 1100px) {
     .reference-strip {
         grid-template-columns: 1fr;
@@ -380,5 +545,18 @@
 
     .chart-canvas-shell-price {
         height: 340px;
+    }
+
+    .chart-canvas-shell-bubble {
+        height: 360px;
+    }
+
+    .reference-tooltip {
+        right: -0.2rem;
+        width: min(190px, 68vw);
+    }
+
+    .reference-tooltip::before {
+        right: 0.55rem;
     }
 }

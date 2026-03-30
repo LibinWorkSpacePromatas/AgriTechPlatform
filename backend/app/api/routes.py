@@ -20,6 +20,7 @@ from fastapi import Query
 from pydantic import BaseModel
 from app.schemas.opportunities import OpportunitiesResponse
 from app.schemas.growing_opportunities import (
+    GrowingOpportunityNewsResponse,
     GrowingOpportunitiesResponse,
     GrowingOpportunityFeedbackRequest,
     GrowingOpportunityFeedbackResponse,
@@ -1027,6 +1028,19 @@ def get_growing_opportunities(block_id: str, db: Session = Depends(get_db)):
     try:
         block = resolve_block(db, block_id)
         return growing_opportunities_service.build_page_payload(db, block)
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail=f"Database error while fetching growing opportunities: {exc}") from exc
+
+
+@router.get(
+    "/api/blocks/{block_id}/growing-opportunities/news",
+    response_model=GrowingOpportunityNewsResponse,
+    tags=["growing-opportunities"],
+)
+def get_growing_opportunities_news(block_id: str, db: Session = Depends(get_db)):
+    try:
+        block = resolve_block(db, block_id)
+        return growing_opportunities_service.build_news_payload(db, block)
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=500, detail=f"Database error while fetching growing opportunities: {exc}") from exc
 

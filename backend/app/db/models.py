@@ -216,3 +216,18 @@ class BlockDecision(Base):
     sensors_ready = Column(Boolean, nullable=False, default=False, server_default=text("false"))
     decision_payload = Column(JSONB, nullable=True)
     status = Column(String(32), nullable=False, default="pending", server_default=text("'pending'"))
+
+
+class GrowingOpportunityNewsCache(Base):
+    __tablename__ = "growing_opportunity_news_cache"
+    __table_args__ = (
+        Index("ix_growing_opportunity_news_cache_expires_at", "expires_at"),
+        Index("ix_growing_opportunity_news_cache_refreshed_at", "refreshed_at"),
+    )
+
+    cache_key = Column(String(128), primary_key=True)
+    query = Column(Text, nullable=False)
+    payload = Column(JSONB, nullable=False)
+    warning = Column(Text, nullable=True)
+    refreshed_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), server_default=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=False)

@@ -9,6 +9,7 @@ from app.db.base import Base
 from app.db.database import engine
 from app.db.models import (
     BlockDecision,
+    GrowingOpportunityNewsCache,
     SatelliteCache,
     SatelliteRefreshEventRecord,
     SatelliteRefreshJob,
@@ -124,6 +125,7 @@ def ensure_satellite_support_tables() -> None:
         bind=engine,
         tables=[
             BlockDecision.__table__,
+            GrowingOpportunityNewsCache.__table__,
             SatelliteCache.__table__,
             SatelliteRefreshJob.__table__,
             SatelliteRefreshEventRecord.__table__,
