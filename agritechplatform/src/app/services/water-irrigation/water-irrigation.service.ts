@@ -10,6 +10,7 @@ export interface IrrigationStatus {
   recommendation: string;
   urgency?: 'HIGH' | 'MEDIUM' | 'LOW';
   waterNeeded?: number;
+  waterNeededLiters?: number;
   confidence?: number;
   date: string | null;
   dataQuality: 'good' | 'degraded' | 'no_data';

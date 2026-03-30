@@ -734,6 +734,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
             recommendation: decision.reason,
             urgency: decision.urgency,
             waterNeeded: decision.water_needed_mm,
+            waterNeededLiters: decision.water_needed_liters,
             confidence: decision.confidence
           };
         }
@@ -796,6 +797,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
                   recommendation: decision.reason,
                   urgency: decision.urgency,
                   waterNeeded: decision.water_needed_mm,
+                  waterNeededLiters: decision.water_needed_liters,
                   confidence: decision.confidence
                 };
                 this.updateTileFromStatus();
@@ -841,6 +843,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
           recommendation: decision.reason,
           urgency: decision.urgency,
           waterNeeded: decision.water_needed_mm,
+          waterNeededLiters: decision.water_needed_liters,
           confidence: decision.confidence
         };
         this.updateTileFromStatus();

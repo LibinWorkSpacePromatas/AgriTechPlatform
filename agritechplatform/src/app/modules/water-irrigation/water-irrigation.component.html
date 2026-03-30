@@ -200,6 +200,9 @@
                     <div *ngIf="irrigationStatus.waterNeeded" class="ndwi-smart-metric mt-2">
                       <span class="ndwi-value-label">Estimated Water</span>
                       <p class="ndwi-support-copy font-bold text-blue-600">💧 {{ irrigationStatus.waterNeeded }} mm</p>
+                      <p class="ndwi-support-copy" *ngIf="irrigationStatus.waterNeededLiters">
+                        ≈ {{ (irrigationStatus.waterNeededLiters / 1000000) | number:'1.1-2' }} ML
+                      </p>
                     </div>
                     
                     
