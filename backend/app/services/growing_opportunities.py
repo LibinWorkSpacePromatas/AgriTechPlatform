@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Block, SatelliteTimeseries
 from app.schemas.growing_opportunities import (
+    GrowingOpportunityNewsResponse,
     GrowingOpportunitiesResponse,
     GrowingOpportunityFeedbackRequest,
     GrowingOpportunityFeedbackResponse,
@@ -184,7 +185,6 @@ class GrowingOpportunitiesService:
         self,
         db: Session,
         block: Block,
-        include_news: bool = True,
     ) -> GrowingOpportunitiesResponse:
         insights = satellite_insights_service.get_block_insights(db, block)
         observed_series = (
@@ -203,11 +203,6 @@ class GrowingOpportunitiesService:
         }
         recommendations = self._build_recommendations(block, insights, payload, observed_series)
         trend_summary = self._build_trend_summary(observed_series)
-        news_items: list[GrowingOpportunityNewsItem] = []
-        news_warning: str | None = None
-
-        if include_news:
-            news_items, news_warning = self._load_news_items(block)
 
         return GrowingOpportunitiesResponse(
             block_id=str(block.id),
@@ -234,6 +229,12 @@ class GrowingOpportunitiesService:
             warning=self._build_warning(block, insights),
             trend_summary=trend_summary,
             recommendations=recommendations,
+        )
+
+    def build_news_payload(self, block: Block) -> GrowingOpportunityNewsResponse:
+        news_items, news_warning = self._load_news_items(block)
+        return GrowingOpportunityNewsResponse(
+            block_id=str(block.id),
             news_items=news_items,
             news_warning=news_warning,
         )

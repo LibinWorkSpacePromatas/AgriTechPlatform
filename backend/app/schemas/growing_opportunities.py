@@ -45,6 +45,12 @@ class GrowingOpportunityNewsItem(BaseModel):
     tags: list[str] = []
 
 
+class GrowingOpportunityNewsResponse(BaseModel):
+    block_id: str
+    news_items: list[GrowingOpportunityNewsItem] = []
+    news_warning: str | None = None
+
+
 class GrowingOpportunitiesResponse(BaseModel):
     block_id: str
     crop: str | None = None
