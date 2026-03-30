@@ -7,6 +7,7 @@ import { BaseChartDirective } from 'ng2-charts';
 import {
   BarController,
   BarElement,
+  BubbleController,
   CategoryScale,
   Chart,
   ChartConfiguration,
@@ -14,6 +15,7 @@ import {
   Legend,
   LinearScale,
   Plugin,
+  PointElement,
   Tooltip
 } from 'chart.js';
 import { distinctUntilChanged, filter } from 'rxjs';
@@ -33,7 +35,7 @@ import { BlockService } from '../../shared/services/block.service';
 import { Block } from '../../shared/models';
 import { AdelaideTimePipe } from '../../shared/pipes/adelaide-time.pipe';
 
-Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip, Legend);
+Chart.register(BarController, BarElement, BubbleController, CategoryScale, LinearScale, PointElement, Tooltip, Legend);
 
 interface ProfitRiskScenarioMargins {
   low: number;
@@ -237,6 +239,23 @@ export class ProfitRiskComponent implements OnInit {
       .map(crop => rowsByCrop.get(crop))
       .filter((row): row is ProfitRiskCropRow => !!row);
   });
+  readonly revenueWaterRows = computed(() => {
+    const desiredOrder = [
+      'Olives EVOO',
+      'Table Grapes',
+      'Mandarins',
+      'Citrus Oranges',
+      'Peaches',
+      'Chardonnay',
+      'Shiraz',
+      'Almonds'
+    ];
+
+    const rowsByCrop = new Map(this.marginRows().map(row => [this.getChartLabel(row.crop), row]));
+    return desiredOrder
+      .map(crop => rowsByCrop.get(crop))
+      .filter((row): row is ProfitRiskCropRow => !!row);
+  });
   readonly priceChartData = computed<ChartData<'bar'>>(() => ({
     labels: this.priceChartRows().map(row => this.getChartLabel(row.crop)),
     datasets: [
@@ -343,6 +362,134 @@ export class ProfitRiskComponent implements OnInit {
       }
     }
   };
+  readonly revenueWaterChartData = computed<ChartData<'bubble'>>(() => ({
+    datasets: [
+      {
+        label: 'Revenue per ML of water',
+        data: this.revenueWaterRows().map(row => ({
+          x: row.water_req_ml_ha,
+          y: this.getRevenuePerML(row),
+          r: this.getRevenueBubbleRadius(row)
+        })),
+        backgroundColor: this.revenueWaterRows().map(row => this.getRevenueBubbleColor(row.crop)),
+        borderColor: this.revenueWaterRows().map(row => this.getRevenueBubbleBorderColor(row.crop)),
+        borderWidth: 3,
+        hoverBorderWidth: 3,
+        hoverRadius: this.revenueWaterRows().map(row => this.getRevenueBubbleRadius(row) + 1)
+      }
+    ]
+  }));
+  readonly revenueWaterGuidePlugin: Plugin<'bubble'> = {
+    id: 'revenueWaterGuide',
+    afterDatasetsDraw: chart => {
+      const ctx = chart.ctx;
+      const yScale = chart.scales['y'];
+      const xScale = chart.scales['x'];
+      const datasetMeta = chart.getDatasetMeta(0);
+      const rows = this.revenueWaterRows();
+      const guideY = yScale.getPixelForValue(700);
+      const labelOffsets: Record<string, { x: number; y: number }> = {
+        'Olives EVOO': { x: 14, y: -12 },
+        'Table Grapes': { x: 14, y: -12 },
+        'Mandarins': { x: 14, y: -18 },
+        'Citrus Oranges': { x: 14, y: -2 },
+        'Peaches': { x: 14, y: -14 },
+        'Chardonnay': { x: 14, y: -12 },
+        'Shiraz': { x: 14, y: -2 },
+        'Almonds': { x: 14, y: -12 }
+      };
+
+      ctx.save();
+      ctx.setLineDash([6, 4]);
+      ctx.strokeStyle = '#f19c8f';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(xScale.left, guideY);
+      ctx.lineTo(xScale.right, guideY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#4b5563';
+      ctx.font = '600 11px Arial';
+      ctx.fillText('Approx. min viable ($700/ML)', xScale.right - 180, guideY - 8);
+
+      ctx.font = '600 11px Arial';
+      ctx.fillStyle = '#374151';
+      rows.forEach((row, index) => {
+        const element = datasetMeta.data[index];
+        if (!element) {
+          return;
+        }
+
+        const label = this.getChartLabel(row.crop);
+        const offset = labelOffsets[label] ?? { x: 14, y: -10 };
+        const x = element.x + offset.x;
+        const y = element.y + offset.y;
+        ctx.fillText(label, x, y);
+      });
+      ctx.restore();
+    }
+  };
+  readonly revenueWaterChartOptions: ChartConfiguration<'bubble'>['options'] = {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: false,
+    plugins: {
+      legend: {
+        display: false
+      },
+      tooltip: {
+        callbacks: {
+          label: context => {
+            const row = this.revenueWaterRows()[context.dataIndex];
+            if (!row) {
+              return '';
+            }
+            return [
+              `${this.getChartLabel(row.crop)}`,
+              `Revenue/ML: ${this.formatCurrency(this.getRevenuePerML(row))}`,
+              `Water use: ${row.water_req_ml_ha.toFixed(1)} ML/ha`
+            ];
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+       
+        max: 14,
+        ticks: {
+          color: '#111827',
+          stepSize: 2
+        },
+        title: {
+          display: true,
+          text: 'Water use (ML per hectare)',
+          color: '#4b5563',
+          font: { size: 12 }
+        },
+        grid: { color: '#e6e9ef' },
+        border: { color: '#c7cfd8' }
+      },
+      y: {
+        min: -2000,
+        max: 14000,
+        ticks: {
+          color: '#111827',
+          stepSize: 2000,
+          callback: value => this.formatCurrency(Number(value))
+        },
+        title: {
+          display: true,
+          text: 'Revenue per ML of water (AUD)',
+          color: '#4b5563',
+          font: { size: 12 }
+        },
+        grid: { color: '#e6e9ef' },
+        border: { color: '#c7cfd8' }
+      }
+    }
+  };
   readonly topSummary = computed(() => {
     const data = this.profitData();
     const current = this.currentCrop();
@@ -441,6 +588,58 @@ export class ProfitRiskComponent implements OnInit {
     };
 
     return colors[this.getChartLabel(crop)] ?? '#ff7a6b';
+  }
+
+  getRevenuePerML(row: ProfitRiskCropRow): number {
+    const revenuePerHa = this.getChartLabel(row.crop) === 'Olives EVOO'
+      ? row.current_price * 7000
+      : row.current_price * row.yield_t_ha;
+    return Math.round(revenuePerHa / Math.max(row.water_req_ml_ha, 0.1));
+  }
+
+  getRevenueBubbleRadius(row: ProfitRiskCropRow): number {
+    const sizes: Record<string, number> = {
+      'Olives EVOO': 12,
+      'Table Grapes': 14,
+      'Mandarins': 18,
+      'Citrus Oranges': 18,
+      'Peaches': 11,
+      'Chardonnay': 10,
+      'Shiraz': 10,
+      'Almonds': 11
+    };
+
+    return sizes[this.getChartLabel(row.crop)] ?? 12;
+  }
+
+  getRevenueBubbleColor(crop: string): string {
+    const colors: Record<string, string> = {
+      'Olives EVOO': '#6fc278',
+      'Table Grapes': '#58a9ec',
+      'Mandarins': '#7fd7e4',
+      'Citrus Oranges': '#57c8da',
+      'Peaches': '#ff8d63',
+      'Chardonnay': '#f5a623',
+      'Shiraz': '#ff6e66',
+      'Almonds': '#b96ad1'
+    };
+
+    return colors[this.getChartLabel(crop)] ?? '#7aaef7';
+  }
+
+  getRevenueBubbleBorderColor(crop: string): string {
+    const borders: Record<string, string> = {
+      'Olives EVOO': '#4f9d5d',
+      'Table Grapes': '#2f81d1',
+      'Mandarins': '#30b2c8',
+      'Citrus Oranges': '#2aa7bf',
+      'Peaches': '#e96d3f',
+      'Chardonnay': '#cf8600',
+      'Shiraz': '#d44b45',
+      'Almonds': '#9847b4'
+    };
+
+    return borders[this.getChartLabel(crop)] ?? '#5a86d9';
   }
 
   private reloadCurrentBlock(): void {
