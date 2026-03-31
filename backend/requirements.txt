@@ -16,3 +16,8 @@ httpx
 geopandas
 shapely
 fiona
+
+pandas
+openpyxl
+scikit-learn
+

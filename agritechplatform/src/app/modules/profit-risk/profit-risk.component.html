@@ -122,7 +122,7 @@
                         baseChart
                         [type]="'bar'"
                         [data]="marginChartData()"
-                        [options]="marginChartOptions">
+                        [options]="marginChartOptions()">
                     </canvas>
                 </div>
              </div>
@@ -140,10 +140,32 @@
                         baseChart
                         [type]="'bar'"
                         [data]="priceChartData()"
-                        [options]="priceChartOptions"
+                        [options]="priceChartOptions()"
                         [plugins]="[priceStatusPlugin]">
                     </canvas>
                 </div>
+            </div>
+        </div>
+
+        <div class="chart-card revenue-ml-card">
+            <div class="pdf-chart-header revenue-ml-header">
+                <h3>Revenue per ML of water used</h3>
+            </div>
+
+            <div class="revenue-ml-figure">
+                <div class="chart-canvas-shell chart-canvas-shell-revenue-ml">
+                    <canvas
+                        baseChart
+                        [type]="'bubble'"
+                        [data]="revenueMlChartData()"
+                        [options]="revenueMlChartOptions()"
+                        [plugins]="[revenueMlOverlayPlugin]">
+                    </canvas>
+                </div>
+                <p class="revenue-ml-footnote">
+                    Dashed reference line = approximate minimum viable revenue/ML based on
+                    current delivery + market water costs.
+                </p>
             </div>
         </div>
     </div>

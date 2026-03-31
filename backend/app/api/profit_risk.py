@@ -22,12 +22,13 @@ def get_profit_risk(
     try:
         block = resolve_block(db, block_id)
         service = get_profit_risk_service()
-        payload = service.build_response(block.crop or "Unknown crop", water_price)
+        payload = service.build_response(db=db, block_crop=block.crop or "Unknown crop", water_price=water_price, block_id=str(block.id))
         payload["block_id"] = str(block.id)
         payload["block_name"] = block.lanslu or block.crop or "Selected block"
         return payload
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=500, detail=f"Database error while resolving block data: {exc}") from exc
-
