@@ -38,7 +38,11 @@ export class UserSelectionComponent implements OnInit {
     selectUser(user: User): void {
         const success = this.authService.login(user.userId);
         if (success) {
-            this.router.navigate(['/dashboard']);
+            if (user.role === 'bidder') {
+                this.router.navigate(['/bidder/dashboard']);
+            } else {
+                this.router.navigate(['/dashboard']);
+            }
         }
     }
 

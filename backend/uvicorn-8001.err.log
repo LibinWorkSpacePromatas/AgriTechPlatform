@@ -1,0 +1,16 @@
+INFO:     Started server process [12816]
+INFO:     Waiting for application startup.
+INFO:app.services.earth_engine:Earth Engine initialized for project agritech-gee.
+INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
+INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
+INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
+INFO:apscheduler.scheduler:Added job "SatelliteRefreshScheduler.enqueue_all_blocks" to job store "default"
+INFO:apscheduler.scheduler:Added job "SatelliteRefreshScheduler.recover_stuck_jobs" to job store "default"
+INFO:apscheduler.scheduler:Added job "SatelliteRefreshScheduler.backfill_all_blocks" to job store "default"
+INFO:apscheduler.scheduler:Scheduler started
+INFO:app.services.satellite_scheduler:event=satellite_scheduler_started workers=2 schedule_enabled=True backfill_enabled=True gee_enabled=True
+INFO:     Application startup complete.
+ERROR:    [Errno 10048] error while attempting to bind on address ('0.0.0.0', 8001): [winerror 10048] only one usage of each socket address (protocol/network address/port) is normally permitted
+INFO:     Waiting for application shutdown.
+INFO:apscheduler.scheduler:Scheduler has been shut down
+INFO:     Application shutdown complete.

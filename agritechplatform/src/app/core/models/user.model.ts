@@ -27,6 +27,7 @@ export interface User {
     farmLocation: string;
     primaryCropName: string;
     primarySoilType: string;
+    role: 'farmer' | 'bidder';
     blocks: UserBlock[];
     financials?: {
         projectedRoi: number;

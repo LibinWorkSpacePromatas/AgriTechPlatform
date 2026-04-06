@@ -1,0 +1,357 @@
+<div class="detail-shell" [class.page-ready]="pageReady()">
+  <div class="detail-loading" *ngIf="isLoading()">
+    <div class="loading-spinner"></div>
+    <p class="loading-label">Loading auction...</p>
+  </div>
+
+  <div class="detail-not-found" *ngIf="!isLoading() && (loadError() || !auction())">
+    <div class="not-found-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+        <circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/>
+      </svg>
+    </div>
+    <p class="not-found-title">{{ loadError() || 'Auction not found' }}</p>
+    <button type="button" class="back-arrow" (click)="goBack()" aria-label="Go back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M19 12H5M12 5l-7 7 7 7"/>
+      </svg>
+    </button>
+  </div>
+
+  <ng-container *ngIf="!isLoading() && !loadError() && auction() as a">
+    <div class="detail-topbar">
+      <button type="button" class="back-arrow" (click)="goBack()" aria-label="Go back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5M12 5l-7 7 7 7"/>
+        </svg>
+      </button>
+      <div class="topbar-center">
+        <span class="status-badge" [ngClass]="statusClass()">
+          <span class="status-dot" *ngIf="timerState() === 'active'"></span>
+          {{ displayStatus() }}
+        </span>
+        <span class="ws-dot" [class.ws-dot--on]="wsConnected()" *ngIf="timerState() === 'active'"
+          [title]="wsConnected() ? 'Real-time connected' : 'Connecting...'">
+          <span class="ws-dot-inner"></span>
+          {{ wsConnected() ? 'Live' : 'Connecting...' }}
+        </span>
+      </div>
+      <div class="topbar-right">
+        <div class="my-bid-badge" *ngIf="isMyTopBid() || didIWinAuction()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <path d="M5 13l4 4 10-10"/>
+          </svg>
+          {{ didIWinAuction() ? 'You Won' : "You're winning" }}
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-grid">
+      <aside class="panel-left">
+        <div class="lot-card">
+          <div class="lot-image-wrap">
+            <img *ngIf="a.image_url" [src]="a.image_url" [alt]="a.produce_name" class="lot-image" />
+            <div *ngIf="!a.image_url" class="lot-image-placeholder">{{ a.produce_name.charAt(0) }}</div>
+            <span class="lot-badge" [ngClass]="statusClass()">{{ displayStatus() }}</span>
+          </div>
+          <div class="lot-info">
+            <h1 class="lot-title">{{ a.produce_name }}</h1>
+            <div class="lot-meta-row">
+              <div class="lot-meta-item">
+                <span class="lot-meta-label">Quantity</span>
+                <span class="lot-meta-value">{{ a.quantity | number }} {{ a.unit }}</span>
+              </div>
+              <div class="lot-meta-item">
+                <span class="lot-meta-label">Base Price</span>
+                <span class="lot-meta-value">${{ formatMoney(a.base_price) }}</span>
+              </div>
+            </div>
+            <div class="lot-dates">
+              <div class="lot-date-row">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+                </svg>
+                <div>
+                  <span class="lot-date-label">Opens</span>
+                  <span class="lot-date-val">{{ formatDate(a.start_time) }}</span>
+                </div>
+              </div>
+              <div class="lot-date-row">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+                </svg>
+                <div>
+                  <span class="lot-date-label">Closes</span>
+                  <span class="lot-date-val">{{ formatDate(a.end_time) }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="lot-stats-mini">
+              <div class="lsm-item">
+                <span class="lsm-val">{{ bidCount() }}</span>
+                <span class="lsm-label">Bids</span>
+              </div>
+              <div class="lsm-divider"></div>
+              <div class="lsm-item">
+                <span class="lsm-val">${{ formatMoney(highestBid()) }}</span>
+                <span class="lsm-label">Highest</span>
+              </div>
+              <div class="lsm-divider"></div>
+              <div class="lsm-item">
+                <span class="lsm-val">{{ a.quantity | number }}</span>
+                <span class="lsm-label">{{ a.unit }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <main class="panel-center">
+        <div class="timer-card" [ngClass]="'timer-' + timerState()">
+          <ng-container *ngIf="timerState() === 'upcoming'">
+            <div class="timer-label-top">Starts In</div>
+            <div class="timer-digits urgency-normal">
+              <div class="timer-unit"><span class="timer-num">{{ timerParts().h }}</span><span class="timer-unit-label">Hours</span></div>
+              <span class="timer-colon">:</span>
+              <div class="timer-unit"><span class="timer-num">{{ timerParts().m }}</span><span class="timer-unit-label">Min</span></div>
+              <span class="timer-colon">:</span>
+              <div class="timer-unit"><span class="timer-num">{{ timerParts().s }}</span><span class="timer-unit-label">Sec</span></div>
+            </div>
+            <div class="timer-sub">until auction opens</div>
+            <div class="timer-urgency-bar urgency-bar-normal"></div>
+          </ng-container>
+
+          <ng-container *ngIf="timerState() === 'active'">
+            <div class="timer-label-top">Ends In</div>
+            <div class="timer-digits" [ngClass]="'urgency-' + timerUrgency()">
+              <div class="timer-unit"><span class="timer-num">{{ timerParts().h }}</span><span class="timer-unit-label">Hours</span></div>
+              <span class="timer-colon">:</span>
+              <div class="timer-unit"><span class="timer-num">{{ timerParts().m }}</span><span class="timer-unit-label">Min</span></div>
+              <span class="timer-colon">:</span>
+              <div class="timer-unit"><span class="timer-num">{{ timerParts().s }}</span><span class="timer-unit-label">Sec</span></div>
+            </div>
+            <div class="timer-sub" [ngClass]="'urgency-text-' + timerUrgency()">
+              <span *ngIf="timerUrgency() === 'danger'">Ending very soon</span>
+              <span *ngIf="timerUrgency() === 'warning'">Ending soon</span>
+              <span *ngIf="timerUrgency() === 'normal'">remaining</span>
+            </div>
+            <div class="timer-urgency-bar" [ngClass]="'urgency-bar-' + timerUrgency()"></div>
+          </ng-container>
+
+          <ng-container *ngIf="timerState() === 'ended'">
+            <div class="timer-ended-wrap">
+              <div class="timer-ended-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+                </svg>
+              </div>
+              <div>
+                <p class="timer-ended-title">Auction Ended</p>
+                <p class="timer-ended-sub">Closed {{ formatDate(a.end_time) }}</p>
+              </div>
+            </div>
+          </ng-container>
+        </div>
+
+        <div class="graph-card">
+          <div class="graph-header">
+            <div>
+              <h2 class="graph-title">Live Bidding</h2>
+              <p class="graph-sub">{{ timerState() === 'active' ? 'Real-time bid activity' : 'Bid history' }}</p>
+            </div>
+            <span class="graph-live-dot" *ngIf="timerState() === 'active'">
+              <span class="pulse-dot"></span> Live
+            </span>
+          </div>
+          <div class="bid-spike" *ngIf="bidDelta() > 0 && timerState() === 'active'">
+            +${{ formatMoney(bidDelta()) }} above base
+          </div>
+          <div class="graph-wrap">
+            <canvas #graphCanvas class="bid-graph"
+              (mousemove)="onCanvasMouseMove($event)"
+              (mouseleave)="onCanvasMouseLeave()">
+            </canvas>
+            <div #tooltipEl class="graph-tooltip"
+              [class.visible]="tooltipVisible()"
+              [style.left.px]="tooltipX()"
+              [style.top.px]="tooltipY()">
+              {{ tooltipText() }}
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <aside class="panel-right">
+        <div class="bid-display-card" [class.bid-flash]="bidFlash()">
+          <div class="bid-display-label">Current Bid</div>
+          <div class="bid-display-amount">
+            ${{ formatMoney(currentBid()) }}<span class="bid-currency"> AUD</span>
+          </div>
+          <div class="bid-display-delta" *ngIf="bidDelta() > 0">
+            +${{ formatMoney(bidDelta()) }} above base
+          </div>
+          <div class="bid-display-delta zero" *ngIf="bidDelta() === 0">
+            No bids yet - base price
+          </div>
+          <div class="winning-notice" *ngIf="isMyTopBid() || didIWinAuction()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+              <path d="M5 13l4 4 10-10"/>
+            </svg>
+            <span>{{ didIWinAuction() ? 'You Won this auction!' : "You're currently winning this auction!" }}</span>
+          </div>
+        </div>
+
+        <div class="bid-input-card" *ngIf="timerState() === 'active'">
+          <div class="bid-input-head">
+            <div class="bid-input-label">Place Your Bid</div>
+            <button
+              type="button"
+              class="voice-icon-btn"
+              *ngIf="voiceSupported()"
+              [class.voice-icon-btn--listening]="voiceStatus() === 'listening'"
+              [class.voice-icon-btn--processing]="voiceStatus() === 'processing'"
+              [class.voice-icon-btn--error]="voiceStatus() === 'error'"
+              (pointerdown)="startVoice($event)"
+              (pointerup)="stopVoice($event)"
+              (pointercancel)="stopVoice($event)"
+              (pointerleave)="stopVoice($event)"
+              [disabled]="isBidding()"
+              aria-label="Hold to bid by voice"
+              title="Hold to bid by voice">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="23"/>
+                <line x1="8" y1="23" x2="16" y2="23"/>
+              </svg>
+              <div class="voice-rings" *ngIf="voiceStatus() === 'listening'">
+                <span></span><span></span><span></span>
+              </div>
+            </button>
+          </div>
+          <div class="bid-min-hint">Min bid: ${{ formatMoney(minBid()) }}</div>
+
+          <div class="bid-amount-row">
+            <button type="button" class="bid-adj-btn" (click)="adjustBid(-50)" [disabled]="isBidding()">-50</button>
+            <div class="bid-amount-wrap">
+              <span class="bid-dollar">$</span>
+              <input
+                #bidInput
+                type="number"
+                class="bid-amount-input"
+                [value]="bidAmount()"
+                (input)="bidAmount.set(+$any($event.target).value)"
+                [min]="minBid()"
+                [disabled]="isBidding()"
+                aria-label="Bid amount"
+              />
+            </div>
+            <button type="button" class="bid-adj-btn" (click)="adjustBid(50)" [disabled]="isBidding()">+50</button>
+          </div>
+
+          <div class="bid-quick-row">
+            <button type="button" class="bid-quick-btn" (click)="adjustBid(100)" [disabled]="isBidding()">+$100</button>
+            <button type="button" class="bid-quick-btn" (click)="adjustBid(250)" [disabled]="isBidding()">+$250</button>
+            <button type="button" class="bid-quick-btn" (click)="adjustBid(500)" [disabled]="isBidding()">+$500</button>
+          </div>
+
+          <p class="bid-error" *ngIf="bidError()">{{ bidError() }}</p>
+          <p class="bid-success" *ngIf="bidSuccess()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 13l4 4 10-10"/></svg>
+            Bid placed successfully!
+          </p>
+
+          <button
+            type="button"
+            class="place-bid-btn"
+            (click)="placeBid()"
+            [disabled]="isBidding() || !bidAmount()">
+            <span *ngIf="!isBidding()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+              Place Bid - ${{ formatMoney(bidAmount()) }}
+            </span>
+            <span *ngIf="isBidding()" class="btn-spinner"></span>
+          </button>
+
+          <div class="voice-inline-status" *ngIf="voiceSupported() || voiceTranscript()">
+            <span class="voice-inline-label" *ngIf="voiceSupported()">
+              <ng-container [ngSwitch]="voiceStatus()">
+                <span *ngSwitchCase="'idle'">Hold the mic to speak</span>
+                <span *ngSwitchCase="'listening'">Listening...</span>
+                <span *ngSwitchCase="'processing'">Processing...</span>
+                <span *ngSwitchCase="'error'">Try again</span>
+              </ng-container>
+            </span>
+            <span class="voice-inline-label" *ngIf="voiceDetectedAmount()">
+              Ready to bid ${{ formatMoney(voiceDetectedAmount()) }}
+            </span>
+            <div class="voice-transcript" *ngIf="voiceTranscript()">
+              "{{ voiceTranscript() }}"
+            </div>
+            <p class="voice-unsupported" *ngIf="!voiceSupported()">
+              Voice bidding requires Chrome, Edge, or Safari on a supported device.
+            </p>
+          </div>
+        </div>
+
+        <div class="ended-card" *ngIf="timerState() === 'ended'">
+          <div class="ended-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+            </svg>
+          </div>
+          <p class="ended-title">Auction Closed</p>
+          <p class="ended-sub" *ngIf="a.final_price">
+            Final price: <strong>${{ formatMoney(a.final_price) }}</strong>
+          </p>
+          <p class="ended-sub" *ngIf="!a.final_price">No bids were placed.</p>
+        </div>
+
+        <div class="upcoming-card" *ngIf="timerState() === 'upcoming'">
+          <div class="upcoming-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
+            </svg>
+          </div>
+          <p class="upcoming-title">Bidding opens soon</p>
+          <p class="upcoming-sub">Come back when the auction starts to place your bid.</p>
+        </div>
+
+        <div class="recent-bids-card">
+          <div class="rb-header">
+            <h3>Recent Bids</h3>
+            <span class="rb-count">{{ bidCount() }} total</span>
+          </div>
+          <div class="rb-empty" *ngIf="bids().length === 0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/>
+            </svg>
+            <span>No bids placed yet</span>
+          </div>
+          <div class="rb-list" *ngIf="bids().length > 0">
+            <div class="rb-item"
+              *ngFor="let bid of bids(); trackBy: trackBid"
+              [class.rb-top]="bid.is_top"
+              [class.rb-mine]="bid.bidder_id === currentUser?.userId">
+              <div class="rb-avatar" [class.rb-avatar--mine]="bid.bidder_id === currentUser?.userId">
+                {{ bid.bidder_initials }}
+              </div>
+              <div class="rb-info">
+                <div class="rb-name-row">
+                  <span class="rb-name">{{ bid.bidder_id === currentUser?.userId ? 'You' : bid.bidder_name }}</span>
+                  <span class="rb-top-badge" *ngIf="bid.is_top">Top Bid</span>
+                </div>
+                <span class="rb-time">{{ timeAgo(bid.created_at) }}</span>
+              </div>
+              <div class="rb-amount-col">
+                <span class="rb-amount">${{ formatMoney(bid.amount) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </ng-container>
+</div>

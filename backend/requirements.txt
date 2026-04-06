@@ -1,9 +1,11 @@
 fastapi
 uvicorn
+websockets
 sqlalchemy
 psycopg2-binary
 pydantic
 pydantic-settings
+python-dotenv
 alembic
 passlib
 python-jose
@@ -16,3 +18,4 @@ httpx
 geopandas
 shapely
 fiona
+cryptography

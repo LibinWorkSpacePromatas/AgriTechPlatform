@@ -5,11 +5,13 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
+load_dotenv(ENV_FILE)
 
 
 class Settings(BaseSettings):
@@ -73,6 +75,10 @@ class Settings(BaseSettings):
 
     openrouter_api_key: str | None = Field(default=None, alias="OPENROUTER_API_KEY")
     openrouter_model: str = Field(default="google/gemini-2.0-flash-001", alias="OPENROUTER_MODEL")
+    auction_account_encryption_key: str = Field(default="agritech-auction-local-key", alias="AUCTION_ACCOUNT_ENCRYPTION_KEY")
+    cloudinary_cloud_name: str | None = Field(default=None, alias="CLOUDINARY_CLOUD_NAME")
+    cloudinary_api_key: str | None = Field(default=None, alias="CLOUDINARY_API_KEY")
+    cloudinary_api_secret: str | None = Field(default=None, alias="CLOUDINARY_API_SECRET")
     profit_risk_dataset_path: str = Field(
         default=str(Path(__file__).resolve().parents[2] / "Dataset" / "SA_Farmgate_Prices_Final.xlsx"),
         alias="PROFIT_RISK_DATASET_PATH",

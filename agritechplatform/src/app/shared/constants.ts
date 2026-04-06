@@ -63,6 +63,11 @@ export const NAVIGATION_ITEMS = [
         label: 'Grower GPT',
         route: '/grower-gpt',
         icon: 'message-circle'
+    },
+    {
+        label: 'Auctions',
+        route: '/auctions',
+        icon: 'store'
     }
 ];
 
