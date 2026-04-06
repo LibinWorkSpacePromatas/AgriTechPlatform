@@ -27,6 +27,7 @@ export class MyListingsComponent implements OnInit, OnDestroy {
   showCreateForm = false;
   editingListingId: string | null = null;
   editingListingImageUrl: string | null = null;
+  detailsModalListing: RentalListing | null = null;
   selectedCalendarListingId: string | null = null;
   calendarDate = new Date().toISOString().slice(0, 10);
   calendarSlots: RentalCalendarSlot[] = [];
@@ -288,6 +289,14 @@ export class MyListingsComponent implements OnInit, OnDestroy {
       },
       error: err => this.error = err.message || 'Toggle failed',
     });
+  }
+
+  openDetails(listing: RentalListing): void {
+    this.detailsModalListing = listing;
+  }
+
+  closeDetailsModal(): void {
+    this.detailsModalListing = null;
   }
 
   viewCalendar(listing: RentalListing): void {

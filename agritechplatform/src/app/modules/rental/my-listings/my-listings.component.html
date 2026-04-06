@@ -2,6 +2,7 @@
   <p *ngIf="error" class="error">{{ error }}</p>
   <section class="management-card">
     <div>
+      <span class="eyebrow">Owner Workspace</span>
       <h3>Rental Management</h3>
       <p>Manage your equipment rentals and bookings</p>
     </div>
@@ -85,12 +86,17 @@
   </div>
 
   <p *ngIf="createSuccess" class="ok">{{ createSuccess }}</p>
-  <p class="hint">Location is auto-filled from the selected block.</p>
-  <h2>My Listings</h2>
+  <section class="listings-head">
+    <div>
+      <p class="hint">Location is auto-filled from the selected block.</p>
+      <h2>My Listings</h2>
+    </div>
+    <div class="listings-count">{{ listings.length }} listing{{ listings.length === 1 ? '' : 's' }}</div>
+  </section>
   <p *ngIf="loading">Loading listings...</p>
 
-  <div class="cards">
-    <article class="card" *ngFor="let listing of listings">
+  <div class="cards" *ngIf="listings.length; else emptyListings">
+    <article class="card" *ngFor="let listing of listings" (click)="openDetails(listing)">
       <div class="card-media">
         <img *ngIf="listing.image_url" class="listing-image" [src]="listing.image_url" [alt]="listing.equipment_name">
         <span class="card-badge" [class.inactive]="!listing.is_active">{{ listing.is_active ? 'ACTIVE' : 'PAUSED' }}</span>
@@ -111,14 +117,72 @@
           <p class="listing-meta">Bookings: {{ listing.bookings_count || 0 }}</p>
         </div>
         <div class="listing-actions">
-          <button class="btn btn-outline listing-edit-btn" (click)="openEditForm(listing)">Edit</button>
-          <button class="btn" [class.listing-pause-btn]="listing.is_active" [class.listing-activate-btn]="!listing.is_active" (click)="toggleListing(listing)">
+          <button class="btn btn-outline listing-edit-btn" (click)="openEditForm(listing); $event.stopPropagation()">Edit</button>
+          <button class="btn" [class.listing-pause-btn]="listing.is_active" [class.listing-activate-btn]="!listing.is_active" (click)="toggleListing(listing); $event.stopPropagation()">
             {{ listing.is_active ? 'Deactivate' : 'Activate' }}
           </button>
         </div>
       </div>
     </article>
   </div>
+
+  <div class="details-modal-backdrop" *ngIf="detailsModalListing" (click)="closeDetailsModal()">
+    <div class="details-modal" *ngIf="detailsModalListing as listing" (click)="$event.stopPropagation()">
+      <div class="details-modal-media">
+        <img *ngIf="listing.image_url" class="details-modal-image" [src]="listing.image_url" [alt]="listing.equipment_name">
+        <span class="details-modal-badge" [class.inactive]="!listing.is_active">{{ listing.is_active ? 'ACTIVE' : 'PAUSED' }}</span>
+      </div>
+
+      <div class="details-modal-content">
+        <div class="details-modal-header">
+          <div>
+            <h3>{{ listing.equipment_name }}</h3>
+            <p>{{ listing.is_active ? 'Available for booking' : 'Currently inactive' }}</p>
+          </div>
+          <button class="modal-close" type="button" (click)="closeDetailsModal()" aria-label="Close details">x</button>
+        </div>
+
+        <p class="details-modal-price">{{ listing.price | currency:'USD':'symbol':'1.0-2' }} / {{ listing.price_type }}</p>
+        <p class="details-modal-description">
+          {{ listing.description || 'No description added yet.' }}
+        </p>
+
+        <div class="details-modal-grid">
+          <div class="details-modal-item">
+            <span>Location</span>
+            <strong>{{ listing.location_label || 'Unknown' }}</strong>
+          </div>
+          <div class="details-modal-item">
+            <span>Bookings</span>
+            <strong>{{ listing.bookings_count || 0 }}</strong>
+          </div>
+          <div class="details-modal-item">
+            <span>Pricing</span>
+            <strong>{{ listing.price_type === 'daily' ? 'Per day' : 'Per hour' }}</strong>
+          </div>
+          <div class="details-modal-item">
+            <span>Status</span>
+            <strong>{{ listing.is_active ? 'Active' : 'Paused' }}</strong>
+          </div>
+        </div>
+
+        <div class="details-modal-actions">
+          <button class="btn btn-outline listing-edit-btn" type="button" (click)="openEditForm(listing); closeDetailsModal()">Edit</button>
+          <button class="btn" type="button" [class.listing-pause-btn]="listing.is_active" [class.listing-activate-btn]="!listing.is_active" (click)="toggleListing(listing); closeDetailsModal()">
+            {{ listing.is_active ? 'Deactivate' : 'Activate' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <ng-template #emptyListings>
+    <section class="empty-state">
+      <h3>No listings yet</h3>
+      <p>Create your first rental listing to start getting booking requests from nearby growers.</p>
+      <button type="button" class="btn btn-primary" (click)="openCreateForm()">Create Listing</button>
+    </section>
+  </ng-template>
 
   <div class="calendar-box" *ngIf="selectedCalendarListingId && calendarSlots.length">
     <h3>Farmer Calendar View</h3>

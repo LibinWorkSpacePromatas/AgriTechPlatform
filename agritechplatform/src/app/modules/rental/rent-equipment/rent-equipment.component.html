@@ -1,47 +1,170 @@
 <section class="section">
-  <h2>Rent Equipment</h2>
+  <section class="page-hero">
+    <div>
+      <span class="eyebrow">Rental Marketplace</span>
+      <h2>Rent Equipment</h2>
+      <p>Browse nearby tools, compare rental rates, and book the equipment your block needs.</p>
+    </div>
+  </section>
 
-  <div class="recommendation-card" *ngIf="recommendationLoading || recommendation">
-    <h3>Recommended for you</h3>
-    <p *ngIf="recommendationLoading">Analyzing your block conditions...</p>
-    <ng-container *ngIf="!recommendationLoading && recommendation as rec">
-      <p class="recommendation-reason">{{ rec.reason }}</p>
-      <p *ngIf="rec.weather_guardrail" class="recommendation-guardrail">{{ rec.weather_guardrail }}</p>
-      <div *ngIf="rec.recommendations.length; else noRecommendation">
-        <span class="recommendation-tag" *ngFor="let item of rec.recommendations">{{ item }}</span>
+  <section class="search-toolbar">
+    <label class="search-shell">
+      <span class="search-label">Search Tool</span>
+      <input
+        type="text"
+        [(ngModel)]="machineSearchTerm"
+        (keyup.enter)="applyMachineSearch()"
+        placeholder="Pump, tractor, sprayer...">
+    </label>
+
+    <div class="search-actions">
+      <button class="btn toolbar-search-btn action-btn action-btn-search" type="button" (click)="applyMachineSearch()">
+        <span class="action-btn-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <circle cx="11" cy="11" r="6"></circle>
+            <path d="M16 16L21 21"></path>
+          </svg>
+        </span>
+        <span>Search</span>
+      </button>
+      <button class="btn filter-trigger-btn action-btn action-btn-filter" type="button" (click)="openFilterPanel()">
+        <span class="action-btn-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <path d="M4 6H20"></path>
+            <path d="M7 12H17"></path>
+            <path d="M10 18H14"></path>
+          </svg>
+        </span>
+        <span>Filter</span>
+      </button>
+      <button class="btn toolbar-reset-btn action-btn action-btn-reset" type="button" (click)="resetAllFilters()">
+        <span class="action-btn-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <path d="M4 4V10H10"></path>
+            <path d="M20 20V14H14"></path>
+            <path d="M20 9A7 7 0 0 0 8 5L4 10"></path>
+            <path d="M4 15A7 7 0 0 0 16 19L20 14"></path>
+          </svg>
+        </span>
+        <span>Reset</span>
+      </button>
+    </div>
+  </section>
+
+  <section class="tool-shortcuts" *ngIf="quickToolOptions.length">
+    <div class="tool-shortcuts-head">
+      <span class="tool-shortcuts-label">Quick Picks</span>
+      <button
+        *ngIf="categoryFilter"
+        class="tool-shortcuts-clear"
+        type="button"
+        (click)="toggleQuickCategory(categoryFilter)">
+        Clear
+      </button>
+    </div>
+
+    <div class="tool-shortcuts-row">
+      <button
+        *ngFor="let option of quickToolOptions"
+        class="tool-chip"
+        type="button"
+        [class.tool-chip-all]="option === 'All'"
+        [class.tool-chip-active]="option === 'All' ? !categoryFilter : categoryFilter === option"
+        (click)="toggleQuickCategory(option)">
+        {{ option }}
+      </button>
+
+      <button class="tool-chip tool-chip-other" type="button" (click)="openFilterPanel()">
+        Other
+      </button>
+    </div>
+  </section>
+
+  <div class="filter-drawer-backdrop" *ngIf="showFilterPanel" (click)="closeFilterPanel()">
+    <aside class="filter-drawer" (click)="$event.stopPropagation()">
+      <div class="filter-drawer-header">
+        <div>
+          <h3>Filters</h3>
+          <p>Tune the rental results without pushing the listings down the page.</p>
+        </div>
+        <button class="modal-close" type="button" (click)="closeFilterPanel()" aria-label="Close filters"></button>
       </div>
-      <p class="recommendation-action" *ngIf="rec.recommendations.includes('irrigation_pump')">Book irrigation pump now</p>
-      <ng-template #noRecommendation>
-        <p>No urgent rental recommendation right now.</p>
-      </ng-template>
-    </ng-container>
-  </div>
 
-  <div class="filters">
-    <input
-      type="text"
-      [(ngModel)]="machineSearchTerm"
-      (keyup.enter)="applyMachineSearch()"
-      placeholder="Search machine (e.g., pump, tractor)">
-    <label>Distance (km): {{ radiusKm }}</label>
-    <input type="range" min="5" max="50" [(ngModel)]="radiusKm">
-    <input type="number" [(ngModel)]="minPrice" placeholder="Min price">
-    <input type="number" [(ngModel)]="maxPrice" placeholder="Max price">
-    <select [(ngModel)]="typeFilter">
-      <option value="">All Types</option>
-      <option value="hourly">hourly</option>
-      <option value="daily">daily</option>
-    </select>
-    <button class="btn btn-outline" (click)="applyMachineSearch()">Search</button>
-    <button class="btn btn-secondary" (click)="loadListings()">Apply</button>
+      <div class="filter-drawer-body">
+        <label class="filter-field filter-range-panel">
+          <span>Distance</span>
+          <div class="range-wrap">
+            <div class="range-meta">
+              <strong>{{ draftRadiusKm }} km</strong>
+              <small>within your selected block</small>
+            </div>
+            <input type="range" min="5" max="50" [(ngModel)]="draftRadiusKm">
+          </div>
+        </label>
+
+        <label class="filter-field">
+          <span>Minimum Price</span>
+          <input type="number" [(ngModel)]="draftMinPrice" placeholder="0">
+        </label>
+
+        <label class="filter-field">
+          <span>Maximum Price</span>
+          <input type="number" [(ngModel)]="draftMaxPrice" placeholder="100000">
+        </label>
+
+        <label class="filter-field">
+          <span>Pricing Type</span>
+          <select [(ngModel)]="draftTypeFilter">
+            <option value="">All Types</option>
+            <option value="hourly">Hourly</option>
+            <option value="daily">Daily</option>
+          </select>
+        </label>
+
+        <label class="filter-field">
+          <span>Equipment Type</span>
+          <select [(ngModel)]="draftCategoryFilter">
+            <option value="">All Equipment</option>
+            <option *ngFor="let option of equipmentTypeOptions" [value]="option">{{ option }}</option>
+          </select>
+        </label>
+
+        <div class="filter-grid">
+          <label class="filter-field">
+            <span>Location</span>
+            <input type="text" [(ngModel)]="draftLocationFilter" placeholder="Search by block or area">
+          </label>
+        </div>
+
+        <label class="filter-field">
+          <span>Sort Results</span>
+          <select [(ngModel)]="draftSortBy">
+            <option *ngFor="let option of sortOptions" [value]="option.value">{{ option.label }}</option>
+          </select>
+        </label>
+
+        <label class="filter-toggle">
+          <input type="checkbox" [(ngModel)]="draftOnlyWithImage">
+          <div>
+            <strong>Show listings with images only</strong>
+            <small>Hide entries that do not have a tool photo yet.</small>
+          </div>
+        </label>
+      </div>
+
+      <div class="filter-drawer-actions">
+        <button class="btn btn-outline" type="button" (click)="resetFilters()">Reset</button>
+        <button class="btn btn-primary" type="button" (click)="applyFilters()">Apply Filters</button>
+      </div>
+    </aside>
   </div>
 
   <p *ngIf="loading">Loading listings...</p>
   <p *ngIf="error" class="error">{{ error }}</p>
   <p *ngIf="info" class="ok">{{ info }}</p>
 
-  <div class="cards">
-    <article class="card" *ngFor="let listing of filteredListings">
+  <div class="cards" *ngIf="filteredListings.length; else emptyListingsState">
+    <article class="card" *ngFor="let listing of filteredListings" (click)="openDetails(listing)">
       <div class="card-media">
         <img *ngIf="listing.image_url" class="listing-image" [src]="listing.image_url" [alt]="listing.equipment_name">
         <span class="card-badge">{{ listing.price_type | uppercase }}</span>
@@ -61,9 +184,6 @@
           <p class="card-meta">Distance: {{ (listing.distance_m || 0) / 1000 | number:'1.1-1' }} km</p>
         </div>
         <div class="card-actions">
-          <button class="btn btn-outline compact-details-btn" type="button" (click)="openDetails(listing)">
-            View Details
-          </button>
           <button class="btn btn-primary compact-book-btn" type="button" (click)="openBooking(listing); $event.stopPropagation()">
             Book Now
           </button>
@@ -71,6 +191,33 @@
       </div>
     </article>
   </div>
+
+  <ng-template #emptyListingsState>
+    <section class="empty-listings-state">
+      <div class="empty-state-icon" aria-hidden="true">
+        <svg viewBox="0 0 64 64" focusable="false">
+          <rect x="10" y="18" width="44" height="26" rx="8"></rect>
+          <path d="M18 44V50"></path>
+          <path d="M46 44V50"></path>
+          <path d="M20 26H44"></path>
+          <path d="M22 34H34"></path>
+          <circle cx="47" cy="17" r="9"></circle>
+          <path d="M43.5 13.5L50.5 20.5"></path>
+          <path d="M50.5 13.5L43.5 20.5"></path>
+        </svg>
+      </div>
+      <h3>No tools found</h3>
+      <p *ngIf="categoryFilter; else genericEmptyMessage">
+        No {{ categoryFilter.toLowerCase() }} listings are available right now in your selected area.
+      </p>
+      <ng-template #genericEmptyMessage>
+        <p>There are no rental items matching your current search or filters right now.</p>
+      </ng-template>
+      <button class="btn btn-outline empty-state-button" type="button" (click)="resetAllFilters()">
+        Show all tools
+      </button>
+    </section>
+  </ng-template>
 
   <div class="details-modal-backdrop" *ngIf="detailsModalListing" (click)="closeDetailsModal()">
     <div class="details-modal" *ngIf="detailsModalListing as listing" (click)="$event.stopPropagation()">
@@ -102,15 +249,20 @@
             <span>Distance</span>
             <strong>{{ (listing.distance_m || 0) / 1000 | number:'1.1-1' }} km</strong>
           </div>
-          <div class="details-modal-item">
-            <span>Pricing</span>
-            <strong>{{ listing.price_type === 'daily' ? 'Per day' : 'Per hour' }}</strong>
-          </div>
-          <div class="details-modal-item">
-            <span>Availability</span>
-            <strong>Open for booking</strong>
-          </div>
         </div>
+
+        <section class="details-modal-section" *ngIf="listing.specifications && (listing.specifications | keyvalue).length">
+          <div class="details-modal-section-head">
+            <h4>Specifications</h4>
+            <span>{{ (listing.specifications | keyvalue).length }} details</span>
+          </div>
+          <div class="spec-grid">
+            <div class="spec-card" *ngFor="let spec of listing.specifications | keyvalue">
+              <span>{{ spec.key }}</span>
+              <strong>{{ spec.value || 'Not provided' }}</strong>
+            </div>
+          </div>
+        </section>
 
         <div class="details-modal-actions">
           <button class="btn btn-outline" type="button" (click)="closeDetailsModal()">Close</button>
@@ -127,9 +279,7 @@
           <h3>{{ listing.equipment_name }}</h3>
           <p>{{ listing.price_type === 'daily' ? 'Daily Rental' : 'Hourly Rental' }}</p>
         </div>
-        <button class="modal-close" type="button" (click)="closeBookingModal()" aria-label="Close booking form">
-          ×
-        </button>
+        <button class="modal-close" type="button" (click)="closeBookingModal()" aria-label="Close booking form"></button>
       </div>
 
       <div class="booking-modal-body">

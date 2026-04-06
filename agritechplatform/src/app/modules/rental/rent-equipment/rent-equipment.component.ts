@@ -23,6 +23,36 @@ import {
   styleUrl: './rent-equipment.component.css'
 })
 export class RentEquipmentComponent implements OnInit {
+  readonly baseToolOptions = [
+    'Tractor',
+    'Irrigation Pump',
+    'Sprayer',
+    'Seeder',
+    'Harvester',
+    'Cultivator',
+    'Rotavator',
+    'Plough',
+    'Trailer',
+    'Generator',
+    'Drone',
+    'Water Tanker',
+    'Power Tiller',
+    'Transplanter',
+    'Mulcher',
+    'Baler',
+    'Thresher',
+    'Excavator',
+    'Loader',
+    'Mini Tractor',
+  ] as const;
+
+  readonly sortOptions = [
+    { value: 'distance', label: 'Nearest First' },
+    { value: 'price_low', label: 'Price: Low to High' },
+    { value: 'price_high', label: 'Price: High to Low' },
+    { value: 'name', label: 'Name: A to Z' },
+  ] as const;
+
   listings: RentalListing[] = [];
   loading = false;
   error: string | null = null;
@@ -34,8 +64,21 @@ export class RentEquipmentComponent implements OnInit {
   minPrice = 0;
   maxPrice = 100000;
   typeFilter: '' | RentalPriceType = '';
+  categoryFilter = '';
+  locationFilter = '';
+  onlyWithImage = false;
+  sortBy: 'distance' | 'price_low' | 'price_high' | 'name' = 'distance';
   machineSearchTerm = '';
   appliedMachineSearchTerm = '';
+  showFilterPanel = false;
+  draftRadiusKm = 50;
+  draftMinPrice = 0;
+  draftMaxPrice = 100000;
+  draftTypeFilter: '' | RentalPriceType = '';
+  draftCategoryFilter = '';
+  draftLocationFilter = '';
+  draftOnlyWithImage = false;
+  draftSortBy: 'distance' | 'price_low' | 'price_high' | 'name' = 'distance';
   detailsModalListing: RentalListing | null = null;
   bookingModalListing: RentalListing | null = null;
 
@@ -71,6 +114,7 @@ export class RentEquipmentComponent implements OnInit {
     }
     this.loadMyBookings();
     this.loadListings();
+    this.syncDraftFilters();
   }
 
   loadListings(): void {
@@ -90,18 +134,114 @@ export class RentEquipmentComponent implements OnInit {
 
   get filteredListings(): RentalListing[] {
     const search = this.appliedMachineSearchTerm.trim().toLowerCase();
+    const locationSearch = this.locationFilter.trim().toLowerCase();
+    const categorySearch = this.categoryFilter.trim().toLowerCase();
+
     return this.listings.filter(listing => {
       const typeMatch = !this.typeFilter || listing.price_type === this.typeFilter;
       const priceMatch = listing.price >= this.minPrice && listing.price <= this.maxPrice;
       const machineMatch = !search
         || listing.equipment_name.toLowerCase().includes(search)
         || (listing.description || '').toLowerCase().includes(search);
-      return typeMatch && priceMatch && machineMatch;
+      const categoryMatch = !categorySearch || listing.equipment_name.toLowerCase() === categorySearch;
+      const locationMatch = !locationSearch || (listing.location_label || '').toLowerCase().includes(locationSearch);
+      const imageMatch = !this.onlyWithImage || !!listing.image_url;
+
+      return typeMatch && priceMatch && machineMatch && categoryMatch && locationMatch && imageMatch;
+    }).sort((left, right) => {
+      if (this.sortBy === 'price_low') {
+        return left.price - right.price;
+      }
+
+      if (this.sortBy === 'price_high') {
+        return right.price - left.price;
+      }
+
+      if (this.sortBy === 'name') {
+        return left.equipment_name.localeCompare(right.equipment_name);
+      }
+
+      return (left.distance_m ?? Number.MAX_SAFE_INTEGER) - (right.distance_m ?? Number.MAX_SAFE_INTEGER);
     });
+  }
+
+  get equipmentTypeOptions(): string[] {
+    return [...new Set([...this.baseToolOptions, ...this.listings.map(listing => listing.equipment_name).filter(Boolean)])]
+      .sort((left, right) => left.localeCompare(right));
+  }
+
+  get quickToolOptions(): string[] {
+    return [
+      'All',
+      'Tractor',
+      'Irrigation Pump',
+      'Sprayer',
+      'Seeder',
+      'Harvester',
+      'Cultivator',
+      'Trailer',
+    ];
   }
 
   applyMachineSearch(): void {
     this.appliedMachineSearchTerm = this.machineSearchTerm;
+  }
+
+  toggleQuickCategory(option: string): void {
+    if (option === 'All') {
+      this.categoryFilter = '';
+    } else {
+      this.categoryFilter = this.categoryFilter === option ? '' : option;
+    }
+    this.draftCategoryFilter = this.categoryFilter;
+  }
+
+  openFilterPanel(): void {
+    this.syncDraftFilters();
+    this.showFilterPanel = true;
+  }
+
+  closeFilterPanel(): void {
+    this.showFilterPanel = false;
+  }
+
+  applyFilters(): void {
+    this.radiusKm = this.draftRadiusKm;
+    this.minPrice = this.draftMinPrice;
+    this.maxPrice = this.draftMaxPrice;
+    this.typeFilter = this.draftTypeFilter;
+    this.categoryFilter = this.draftCategoryFilter;
+    this.locationFilter = this.draftLocationFilter;
+    this.onlyWithImage = this.draftOnlyWithImage;
+    this.sortBy = this.draftSortBy;
+    this.showFilterPanel = false;
+    this.loadListings();
+  }
+
+  resetFilters(): void {
+    this.draftRadiusKm = 50;
+    this.draftMinPrice = 0;
+    this.draftMaxPrice = 100000;
+    this.draftTypeFilter = '';
+    this.draftCategoryFilter = '';
+    this.draftLocationFilter = '';
+    this.draftOnlyWithImage = false;
+    this.draftSortBy = 'distance';
+  }
+
+  resetAllFilters(): void {
+    this.machineSearchTerm = '';
+    this.appliedMachineSearchTerm = '';
+    this.radiusKm = 50;
+    this.minPrice = 0;
+    this.maxPrice = 100000;
+    this.typeFilter = '';
+    this.categoryFilter = '';
+    this.locationFilter = '';
+    this.onlyWithImage = false;
+    this.sortBy = 'distance';
+    this.resetFilters();
+    this.loadListings();
   }
 
   openDetails(listing: RentalListing): void {
@@ -288,5 +428,16 @@ export class RentEquipmentComponent implements OnInit {
         this.recommendationLoading = false;
       },
     });
+  }
+
+  private syncDraftFilters(): void {
+    this.draftRadiusKm = this.radiusKm;
+    this.draftMinPrice = this.minPrice;
+    this.draftMaxPrice = this.maxPrice;
+    this.draftTypeFilter = this.typeFilter;
+    this.draftCategoryFilter = this.categoryFilter;
+    this.draftLocationFilter = this.locationFilter;
+    this.draftOnlyWithImage = this.onlyWithImage;
+    this.draftSortBy = this.sortBy;
   }
 }
