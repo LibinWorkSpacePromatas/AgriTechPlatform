@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import math
+import json
 from datetime import date, datetime
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from app.schemas.rental import CreateBookingRequest, CreateListingRequest
+from app.services.cloudinary_service import CloudinaryUploadError, upload_rental_listing_image
 from app.services import rental_queries as queries
 
 
@@ -78,7 +80,14 @@ def _get_listing_or_404(db: Session, listing_id: UUID) -> dict:
     return dict(row)
 
 
-def create_listing(db: Session, user_id: UUID, payload: CreateListingRequest) -> dict:
+def create_listing(
+    db: Session,
+    user_id: UUID,
+    payload: CreateListingRequest,
+    *,
+    image_url: str,
+    image_public_id: str,
+) -> dict:
     _ensure_user_exists(db, user_id)
     latitude = payload.latitude
     longitude = payload.longitude
@@ -96,8 +105,11 @@ def create_listing(db: Session, user_id: UUID, payload: CreateListingRequest) ->
             "block_id": str(payload.block_id) if payload.block_id is not None else None,
             "equipment_name": payload.equipment_name.strip(),
             "description": payload.description,
+            "specifications": json.dumps(payload.specifications) if payload.specifications else None,
             "price": float(payload.price),
             "price_type": payload.price_type,
+            "image_url": image_url,
+            "image_public_id": image_public_id,
             "latitude": latitude,
             "longitude": longitude,
         },
@@ -140,6 +152,54 @@ def toggle_listing(db: Session, user_id: UUID, listing_id: UUID) -> dict:
 
     db.commit()
     return dict(toggled)
+
+
+def update_listing(
+    db: Session,
+    user_id: UUID,
+    listing_id: UUID,
+    payload: CreateListingRequest,
+    *,
+    image_url: str | None = None,
+    image_public_id: str | None = None,
+) -> dict:
+    _ensure_user_exists(db, user_id)
+    existing = _get_listing_or_404(db, listing_id)
+    if str(existing["owner_id"]) != str(user_id):
+        raise RentalServiceError("Listing not found or not owned by user", status_code=404)
+
+    block_id = payload.block_id if payload.block_id is not None else existing.get("block_id")
+    latitude = payload.latitude if payload.latitude is not None else existing.get("latitude")
+    longitude = payload.longitude if payload.longitude is not None else existing.get("longitude")
+
+    if block_id is not None:
+        _ensure_block_owned_by_user(db, UUID(str(block_id)), user_id)
+        block_lat, block_lon = _get_block_centroid(db, UUID(str(block_id)))
+        latitude = block_lat
+        longitude = block_lon
+
+    updated = db.execute(
+        queries.UPDATE_LISTING_SQL,
+        {
+            "listing_id": str(listing_id),
+            "owner_id": str(user_id),
+            "block_id": str(block_id) if block_id is not None else None,
+            "equipment_name": payload.equipment_name.strip(),
+            "description": payload.description,
+            "specifications": json.dumps(payload.specifications) if payload.specifications else None,
+            "price": float(payload.price),
+            "price_type": payload.price_type,
+            "image_url": image_url if image_url is not None else existing.get("image_url"),
+            "image_public_id": image_public_id if image_public_id is not None else existing.get("image_public_id"),
+            "latitude": latitude,
+            "longitude": longitude,
+        },
+    ).mappings().first()
+    if not updated:
+        raise RentalServiceError("Listing not found or not owned by user", status_code=404)
+
+    db.commit()
+    return dict(updated)
 
 
 def check_availability(
@@ -333,6 +393,69 @@ def get_listing_calendar(db: Session, listing_id: UUID, day: date) -> dict:
         "date": day.isoformat(),
         "slots": slots,
     }
+
+
+def create_listing_with_image(
+    db: Session,
+    user_id: UUID,
+    payload: CreateListingRequest,
+    *,
+    image_bytes: bytes,
+    image_filename: str,
+    image_content_type: str | None = None,
+) -> dict:
+    try:
+        uploaded = upload_rental_listing_image(
+            file_bytes=image_bytes,
+            filename=image_filename,
+            content_type=image_content_type,
+        )
+    except CloudinaryUploadError as exc:
+        raise RentalServiceError(str(exc), status_code=502) from exc
+
+    return create_listing(
+        db,
+        user_id,
+        payload,
+        image_url=str(uploaded["image_url"]),
+        image_public_id=str(uploaded["image_public_id"]),
+    )
+
+
+def update_listing_with_optional_image(
+    db: Session,
+    user_id: UUID,
+    listing_id: UUID,
+    payload: CreateListingRequest,
+    *,
+    image_bytes: bytes | None = None,
+    image_filename: str | None = None,
+    image_content_type: str | None = None,
+) -> dict:
+    image_url: str | None = None
+    image_public_id: str | None = None
+
+    if image_bytes is not None:
+        try:
+            uploaded = upload_rental_listing_image(
+                file_bytes=image_bytes,
+                filename=image_filename or "listing-image",
+                content_type=image_content_type,
+            )
+        except CloudinaryUploadError as exc:
+            raise RentalServiceError(str(exc), status_code=502) from exc
+
+        image_url = str(uploaded["image_url"])
+        image_public_id = str(uploaded["image_public_id"])
+
+    return update_listing(
+        db,
+        user_id,
+        listing_id,
+        payload,
+        image_url=image_url,
+        image_public_id=image_public_id,
+    )
 
 
 def suggest_equipment(data: dict) -> list[str]:

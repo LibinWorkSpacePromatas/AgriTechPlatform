@@ -23,8 +23,11 @@ export interface RentalListing {
   block_id: string | null;
   equipment_name: string;
   description: string | null;
+  specifications?: Record<string, string> | null;
   price: number;
   price_type: RentalPriceType;
+  image_url?: string | null;
+  image_public_id?: string | null;
   latitude: number | null;
   longitude: number | null;
   is_active: boolean;
@@ -38,8 +41,10 @@ export interface RentalListing {
 export interface CreateListingPayload {
   equipment_name: string;
   description?: string | null;
+  specifications?: Record<string, string> | null;
   price: number;
   price_type: RentalPriceType;
+  image?: File;
   latitude?: number | null;
   longitude?: number | null;
   block_id?: string | null;
@@ -137,9 +142,17 @@ export class RentalService {
   }
 
   createListing(userId: string, payload: CreateListingPayload): Observable<RentalListing> {
+    const formData = this.buildListingFormData(payload);
     return this.http
-      .post<RentalListing>(`${this.baseUrl}/listings`, payload, { params: new HttpParams().set('user_id', userId) })
+      .post<RentalListing>(`${this.baseUrl}/listings`, formData, { params: new HttpParams().set('user_id', userId) })
       .pipe(catchError(error => this.handleError('POST /api/rental/listings', error)));
+  }
+
+  updateListing(userId: string, listingId: string, payload: CreateListingPayload): Observable<RentalListing> {
+    const formData = this.buildListingFormData(payload);
+    return this.http
+      .patch<RentalListing>(`${this.baseUrl}/listings/${listingId}`, formData, { params: new HttpParams().set('user_id', userId) })
+      .pipe(catchError(error => this.handleError('PATCH /api/rental/listings/{id}', error)));
   }
 
   getMyListings(userId: string): Observable<RentalListing[]> {
@@ -228,6 +241,34 @@ export class RentalService {
     return this.http
       .get<RentalRecommendationResponse>(`${this.baseUrl}/recommendations/${blockId}`)
       .pipe(catchError(error => this.handleError('GET /api/rental/recommendations/{blockId}', error)));
+  }
+
+  private buildListingFormData(payload: CreateListingPayload): FormData {
+    const formData = new FormData();
+    formData.append('equipment_name', payload.equipment_name);
+    formData.append('price', String(payload.price));
+    formData.append('price_type', payload.price_type);
+
+    if (payload.description) {
+      formData.append('description', payload.description);
+    }
+    if (payload.specifications && Object.keys(payload.specifications).length) {
+      formData.append('specifications', JSON.stringify(payload.specifications));
+    }
+    if (payload.latitude != null) {
+      formData.append('latitude', String(payload.latitude));
+    }
+    if (payload.longitude != null) {
+      formData.append('longitude', String(payload.longitude));
+    }
+    if (payload.block_id) {
+      formData.append('block_id', payload.block_id);
+    }
+    if (payload.image) {
+      formData.append('image', payload.image, payload.image.name);
+    }
+
+    return formData;
   }
 
   private handleError(operation: string, error: HttpErrorResponse): Observable<never> {

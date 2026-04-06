@@ -36,6 +36,8 @@ export class RentEquipmentComponent implements OnInit {
   typeFilter: '' | RentalPriceType = '';
   machineSearchTerm = '';
   appliedMachineSearchTerm = '';
+  detailsModalListing: RentalListing | null = null;
+  bookingModalListing: RentalListing | null = null;
 
   selectedListingId: string | null = null;
   bookingStart = '';
@@ -76,7 +78,6 @@ export class RentEquipmentComponent implements OnInit {
     this.error = null;
     this.rentalService.getListings(this.lat ?? undefined, this.lon ?? undefined, this.radiusKm).subscribe({
       next: response => {
-        console.log('LISTINGS:', response);
         this.listings = response;
         this.loading = false;
       },
@@ -101,6 +102,41 @@ export class RentEquipmentComponent implements OnInit {
 
   applyMachineSearch(): void {
     this.appliedMachineSearchTerm = this.machineSearchTerm;
+  }
+
+  openDetails(listing: RentalListing): void {
+    this.detailsModalListing = listing;
+  }
+
+  closeDetailsModal(): void {
+    this.detailsModalListing = null;
+  }
+
+  openBooking(listing: RentalListing): void {
+    this.bookingModalListing = listing;
+    this.selectedListingId = listing.id;
+    this.availability = null;
+    this.info = null;
+    this.error = null;
+    this.bookingStart = '';
+    this.bookingEnd = '';
+    this.bookingStartDate = '';
+    this.bookingEndDate = '';
+    this.calendarDate = new Date().toISOString().slice(0, 10);
+    this.detailsModalListing = null;
+    this.loadCalendar(listing.id, this.calendarDate);
+  }
+
+  closeBookingModal(): void {
+    this.bookingModalListing = null;
+    this.selectedListingId = null;
+    this.availability = null;
+    this.calendarSlots = [];
+    this.nextAvailableSlot = null;
+    this.bookingStart = '';
+    this.bookingEnd = '';
+    this.bookingStartDate = '';
+    this.bookingEndDate = '';
   }
 
   onTimeChange(listing: RentalListing): void {
@@ -154,6 +190,7 @@ export class RentEquipmentComponent implements OnInit {
         this.loadMyBookings();
         this.calendarDate = new Date(window.start).toISOString().slice(0, 10);
         this.loadCalendar(listing.id, this.calendarDate);
+        this.closeBookingModal();
       },
       error: err => {
         this.error = err.message || 'Booking failed';

@@ -1,33 +1,122 @@
 <section class="section">
-  <h2>My Listings</h2>
   <p *ngIf="error" class="error">{{ error }}</p>
+  <section class="management-card">
+    <div>
+      <h3>Rental Management</h3>
+      <p>Manage your equipment rentals and bookings</p>
+    </div>
+    <button type="button" class="btn btn-primary create-trigger" (click)="openCreateForm()">+ Create Listing</button>
+  </section>
 
-  <form class="form" (ngSubmit)="createListing()">
-    <input class="field field-name" [(ngModel)]="form.equipment_name" name="equipment_name" placeholder="Equipment name" required>
-    <input class="field field-price" [(ngModel)]="form.price" name="price" type="number" min="1" placeholder="Price" required>
-    <select class="field field-type" [(ngModel)]="form.price_type" name="price_type">
-      <option *ngFor="let type of priceTypes" [value]="type">{{ type }}</option>
-    </select>
-    <textarea class="field field-description" [(ngModel)]="form.description" name="description" rows="2" placeholder="Description"></textarea>
-    <button type="submit" class="btn btn-primary field-submit">Create Listing</button>
-  </form>
-  <p class="hint">Location is auto-filled from the selected block.</p>
+  <div class="modal-backdrop" *ngIf="showCreateForm" (click)="closeCreateForm()">
+    <section class="modal-panel" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>{{ isEditMode ? 'Edit Rental Listing' : 'Create Rental Listing' }}</h3>
+        <button type="button" class="modal-close" (click)="closeCreateForm()" aria-label="Close create listing form">x</button>
+      </div>
 
-  <p *ngIf="createError" class="error">{{ createError }}</p>
+      <form class="form" (ngSubmit)="createListing()">
+        <div class="field field-full">
+          <label class="form-label" for="equipment_name">Equipment Type *</label>
+          <select id="equipment_name" [(ngModel)]="form.equipment_name" name="equipment_name" (ngModelChange)="onEquipmentTypeChange()" required>
+            <option value="" disabled>Select equipment type</option>
+            <option *ngFor="let equipmentType of equipmentTypes" [value]="equipmentType">{{ equipmentType }}</option>
+          </select>
+        </div>
+
+        <div class="field field-half">
+          <label class="form-label" for="price_type">Pricing Type *</label>
+          <select id="price_type" [(ngModel)]="form.price_type" name="price_type" required>
+            <option *ngFor="let type of priceTypes" [value]="type">{{ type === 'daily' ? 'Per Day' : 'Per Hour' }}</option>
+          </select>
+        </div>
+
+        <div class="field field-half">
+          <label class="form-label" for="price">{{ priceLabel }} *</label>
+          <input id="price" [(ngModel)]="form.price" name="price" type="number" min="1" [placeholder]="form.price_type === 'daily' ? 'Enter price' : 'Enter hourly rate'" required>
+        </div>
+
+        <div class="field field-full">
+          <label class="form-label" for="description">Description *</label>
+          <textarea id="description" [(ngModel)]="form.description" name="description" rows="5" maxlength="1000" placeholder="Describe your equipment..." required></textarea>
+          <p class="character-count">{{ descriptionLength }}/1000 characters</p>
+        </div>
+
+        <div class="field field-full specs-section" *ngIf="currentSpecFields.length">
+          <div class="specs-header">
+            <h4>Equipment Details</h4>
+            <p>Add the most useful details for renters based on this tool type.</p>
+          </div>
+          <div class="specs-grid">
+            <div class="field field-half spec-field" *ngFor="let specField of currentSpecFields">
+              <label class="form-label" [for]="specField.key">{{ specField.label }}</label>
+              <input
+                [id]="specField.key"
+                [(ngModel)]="specValues[specField.key]"
+                [name]="specField.key"
+                type="text"
+                [placeholder]="specField.placeholder">
+            </div>
+          </div>
+        </div>
+
+        <div class="field field-full">
+          <label class="form-label" for="listing-image">Images (Max 5MB each)</label>
+          <div class="upload-box">
+            <label class="upload-trigger" for="listing-image">Choose File</label>
+            <span class="upload-file-name">{{ selectedImageName || (isEditMode ? 'Keep current image' : 'No file chosen') }}</span>
+            <input id="listing-image" class="upload-input" type="file" accept="image/*" (change)="onImageSelected($event)" [required]="!isEditMode">
+          </div>
+          <p class="upload-hint">Images will be uploaded to Cloudinary</p>
+        </div>
+
+        <div class="image-preview" *ngIf="imagePreviewUrl || editingListingImageUrl">
+          <img [src]="imagePreviewUrl || editingListingImageUrl" alt="Selected tool preview">
+        </div>
+
+        <p *ngIf="createError" class="error modal-message">{{ createError }}</p>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" (click)="closeCreateForm()">Cancel</button>
+          <button type="submit" class="btn btn-primary">{{ isEditMode ? 'Save Changes' : 'Create Listing' }}</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
   <p *ngIf="createSuccess" class="ok">{{ createSuccess }}</p>
+  <p class="hint">Location is auto-filled from the selected block.</p>
+  <h2>My Listings</h2>
   <p *ngIf="loading">Loading listings...</p>
 
   <div class="cards">
     <article class="card" *ngFor="let listing of listings">
-      <h3>{{ listing.equipment_name }}</h3>
-      <p>{{ listing.price | currency:'USD':'symbol':'1.0-2' }} / {{ listing.price_type }}</p>
-      <p>Location: {{ listing.location_label || 'Unknown' }}</p>
-      <p>Bookings: {{ listing.bookings_count || 0 }}</p>
-      <p>Status: <strong>{{ listing.is_active ? 'Active' : 'Inactive' }}</strong></p>
-      <button class="btn btn-outline" (click)="toggleListing(listing)">
-        {{ listing.is_active ? 'Deactivate' : 'Activate' }}
-      </button>
-      <button class="btn btn-secondary" (click)="viewCalendar(listing)">View Calendar</button>
+      <div class="card-media">
+        <img *ngIf="listing.image_url" class="listing-image" [src]="listing.image_url" [alt]="listing.equipment_name">
+        <span class="card-badge" [class.inactive]="!listing.is_active">{{ listing.is_active ? 'ACTIVE' : 'PAUSED' }}</span>
+      </div>
+      <div class="listing-content">
+        <div class="listing-head">
+          <h3>{{ listing.equipment_name }}</h3>
+          <span class="listing-inline-status" [class.active]="listing.is_active" [class.inactive]="!listing.is_active">
+            {{ listing.is_active ? 'Available' : 'Inactive' }}
+          </span>
+        </div>
+        <p class="listing-price">{{ listing.price | currency:'USD':'symbol':'1.0-2' }} / {{ listing.price_type }}</p>
+        <p class="listing-preview-description">
+          {{ listing.description || 'No description added yet.' }}
+        </p>
+        <div class="listing-summary">
+          <p class="listing-meta">Location: {{ listing.location_label || 'Unknown' }}</p>
+          <p class="listing-meta">Bookings: {{ listing.bookings_count || 0 }}</p>
+        </div>
+        <div class="listing-actions">
+          <button class="btn btn-outline listing-edit-btn" (click)="openEditForm(listing)">Edit</button>
+          <button class="btn" [class.listing-pause-btn]="listing.is_active" [class.listing-activate-btn]="!listing.is_active" (click)="toggleListing(listing)">
+            {{ listing.is_active ? 'Deactivate' : 'Activate' }}
+          </button>
+        </div>
+      </div>
     </article>
   </div>
 
