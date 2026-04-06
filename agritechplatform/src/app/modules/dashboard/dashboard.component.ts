@@ -89,6 +89,7 @@ interface IotDashboardSensor {
   value: number;
   unit: string;
   displayUnit: string;
+  displayFormat: string;
   status: IotSensorStatus;
   icon: any;
   observedAt: string;
@@ -293,6 +294,33 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     return this.latestInsights.source === 'simulated' || this.latestInsights.dataQuality === 'no_data';
+  }
+
+  get iotSensorFreshnessLabel(): string {
+    if (this.isIotSensorsLoading && !this.iotSensors.length) {
+      return 'Syncing live soil data';
+    }
+
+    if (!this.iotSensors.length) {
+      return 'Awaiting live block readings';
+    }
+
+    const latestObservedAt = this.iotSensors
+      .map(sensor => this.parseDateValue(sensor.observedAt))
+      .filter(date => !Number.isNaN(date.getTime()))
+      .sort((left, right) => right.getTime() - left.getTime())[0];
+
+    if (!latestObservedAt) {
+      return 'Live sensor feed connected';
+    }
+
+    return `Last sensor reading ${latestObservedAt.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    })}`;
   }
 
   get currentSensorLabels(): string[] {
@@ -1003,7 +1031,8 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
       label: sensor.label,
       value: sensor.value,
       unit: sensor.unit,
-      displayUnit: sensor.unit === 'C' ? '\u00B0C' : sensor.unit,
+      displayUnit: this.formatIotDisplayUnit(sensor.unit),
+      displayFormat: this.getIotSensorDisplayFormat(sensor.sensor_type),
       status: sensor.status,
       icon: this.getIotSensorIcon(sensor.sensor_type),
       observedAt: sensor.observed_at,
@@ -1053,10 +1082,8 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   private getIotSensorIcon(sensorType: IotSensorType): any {
     const iconMap: Record<IotSensorType, any> = {
       soil_moisture: Droplets,
-      soil_temperature: Thermometer,
-      air_temperature: Wind,
-      humidity: CloudRain,
-      ph_level: Beaker
+      ph_level: Beaker,
+      ec: Zap
     };
 
     return iconMap[sensorType];
@@ -1068,6 +1095,19 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     return unit;
+  }
+
+  private getIotSensorDisplayFormat(sensorType: IotSensorType): string {
+    switch (sensorType) {
+      case 'soil_moisture':
+        return '1.1-1';
+      case 'ph_level':
+        return '1.2-2';
+      case 'ec':
+        return '1.3-4';
+      default:
+        return '1.1-1';
+    }
   }
 
   private findSensorById(id?: DashboardMetricKey): DashboardSensor | null {
@@ -1106,9 +1146,9 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     return {
       moisture: sensorMap.get('soil_moisture'),
       ph: sensorMap.get('ph_level'),
-      soilTemp: sensorMap.get('soil_temperature'),
-      airTemp: sensorMap.get('air_temperature') ?? this.weatherData?.current.temperature,
-      humidity: sensorMap.get('humidity') ?? this.weatherData?.current.relativeHumidity
+      soilTemp: undefined,
+      airTemp: this.weatherData?.current.temperature,
+      humidity: this.weatherData?.current.relativeHumidity
     };
   }
 

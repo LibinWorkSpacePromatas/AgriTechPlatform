@@ -70,6 +70,10 @@
                         <span>IoT Sensor Readings</span>
                     </div>
                 </div>
+                <div class="iot-sensors-meta">
+                    <span class="iot-meta-pill">{{ iotSensors.length || 3 }} live metrics</span>
+                    <span class="iot-meta-pill subtle">{{ iotSensorFreshnessLabel }}</span>
+                </div>
             </div>
 
             <div class="iot-sensor-inline-error" *ngIf="iotSensorErrorMessage">{{ iotSensorErrorMessage }}</div>
@@ -83,20 +87,24 @@
                     [title]="getIotSensorTooltip(sensor.observedAt)"
                     (click)="openIotSensorHistory(sensor)">
                     <div class="iot-card-topbar">
-                        <span class="iot-status-indicator" [ngClass]="getStatusToneClass(sensor.status)"></span>
-                        <span class="iot-card-status-text" [ngClass]="getStatusToneClass(sensor.status)">{{ sensor.status }}</span>
+                        <span class="iot-card-status-group">
+                            <span class="iot-status-indicator" [ngClass]="getStatusToneClass(sensor.status)"></span>
+                            <span class="iot-card-status-text" [ngClass]="getStatusToneClass(sensor.status)">{{ sensor.status }}</span>
+                        </span>
                     </div>
 
                     <div class="iot-card-main">
-                        <i-lucide [img]="sensor.icon" size="22" class="iot-card-icon"></i-lucide>
+                        <span class="iot-card-icon-shell">
+                            <i-lucide [img]="sensor.icon" size="22" class="iot-card-icon"></i-lucide>
+                        </span>
                         <div class="iot-card-copy">
                             <div class="iot-card-label" [title]="sensor.label">{{ sensor.label }}</div>
                         </div>
                     </div>
 
                     <div class="iot-card-reading-row">
-                        <div class="iot-card-value" [title]="(sensor.value | number:'1.1-1') + sensor.displayUnit">
-                            {{ sensor.value | number:'1.1-1' }}
+                        <div class="iot-card-value" [title]="(sensor.value | number:sensor.displayFormat) + sensor.displayUnit">
+                            {{ sensor.value | number:sensor.displayFormat }}
                             <span class="unit" *ngIf="sensor.displayUnit">{{ sensor.displayUnit }}</span>
                         </div>
                     </div>
@@ -875,15 +883,15 @@
         <div class="modal-stats">
             <div class="stat-box">
                 <span class="label">Current</span>
-                <span class="value">{{ sensor.value | number:'1.1-1' }}{{ sensor.displayUnit }}</span>
+                <span class="value">{{ sensor.value | number:sensor.displayFormat }}{{ sensor.displayUnit }}</span>
             </div>
             <div class="stat-box">
                 <span class="label">Average</span>
-                <span class="value">{{ getAverage(currentIotSensorData) | number:'1.1-1' }}{{ sensor.displayUnit }}</span>
+                <span class="value">{{ getAverage(currentIotSensorData) | number:sensor.displayFormat }}{{ sensor.displayUnit }}</span>
             </div>
             <div class="stat-box">
                 <span class="label">Max</span>
-                <span class="value">{{ getMax(currentIotSensorData) | number:'1.1-1' }}{{ sensor.displayUnit }}</span>
+                <span class="value">{{ getMax(currentIotSensorData) | number:sensor.displayFormat }}{{ sensor.displayUnit }}</span>
             </div>
         </div>
     </div>

@@ -10,6 +10,14 @@ from app.db.database import engine
 from app.db.models import (
     BlockDecision,
     GrowingOpportunityNewsCache,
+    LiveSensorBlockMapping,
+    LiveSensorDescription,
+    LiveSensorLatest,
+    LiveSensorReading,
+    LiveSensorSource,
+    LiveSensorSourceLatest,
+    LiveSensorSourceReading,
+    LiveSensorSyncState,
     SatelliteCache,
     SatelliteRefreshEventRecord,
     SatelliteRefreshJob,
@@ -51,6 +59,50 @@ EXPECTED_SATELLITE_TIMESERIES_COLUMNS = {
     "cloud_cover_pct",
     "pixel_count",
     "data_quality",
+}
+
+LIVE_SENSOR_SOURCE_READING_ADDITIONAL_COLUMNS: dict[str, str] = {
+    "n_ppm": "DOUBLE PRECISION",
+    "n_kg_ha": "DOUBLE PRECISION",
+    "p_ppm": "DOUBLE PRECISION",
+    "p_kg_ha": "DOUBLE PRECISION",
+    "k_ppm": "DOUBLE PRECISION",
+    "k_kg_ha": "DOUBLE PRECISION",
+    "ca_ppm": "DOUBLE PRECISION",
+    "ca_kg_ha": "DOUBLE PRECISION",
+    "mg_ppm": "DOUBLE PRECISION",
+    "mg_kg_ha": "DOUBLE PRECISION",
+    "s_ppm": "DOUBLE PRECISION",
+    "s_kg_ha": "DOUBLE PRECISION",
+    "fe_ppm": "DOUBLE PRECISION",
+    "fe_kg_ha": "DOUBLE PRECISION",
+    "zn_ppm": "DOUBLE PRECISION",
+    "zn_kg_ha": "DOUBLE PRECISION",
+    "cu_ppm": "DOUBLE PRECISION",
+    "cu_kg_ha": "DOUBLE PRECISION",
+    "raw_payload": "JSONB",
+}
+
+LIVE_SENSOR_SOURCE_LATEST_ADDITIONAL_COLUMNS: dict[str, str] = {
+    "n_ppm": "DOUBLE PRECISION",
+    "n_kg_ha": "DOUBLE PRECISION",
+    "p_ppm": "DOUBLE PRECISION",
+    "p_kg_ha": "DOUBLE PRECISION",
+    "k_ppm": "DOUBLE PRECISION",
+    "k_kg_ha": "DOUBLE PRECISION",
+    "ca_ppm": "DOUBLE PRECISION",
+    "ca_kg_ha": "DOUBLE PRECISION",
+    "mg_ppm": "DOUBLE PRECISION",
+    "mg_kg_ha": "DOUBLE PRECISION",
+    "s_ppm": "DOUBLE PRECISION",
+    "s_kg_ha": "DOUBLE PRECISION",
+    "fe_ppm": "DOUBLE PRECISION",
+    "fe_kg_ha": "DOUBLE PRECISION",
+    "zn_ppm": "DOUBLE PRECISION",
+    "zn_kg_ha": "DOUBLE PRECISION",
+    "cu_ppm": "DOUBLE PRECISION",
+    "cu_kg_ha": "DOUBLE PRECISION",
+    "raw_payload": "JSONB",
 }
 
 
@@ -99,6 +151,43 @@ def _ensure_satellite_timeseries_schema() -> None:
         )
 
 
+def _ensure_live_sensor_source_schema() -> None:
+    inspector = inspect(engine)
+
+    with engine.begin() as connection:
+        if inspector.has_table(LiveSensorSourceReading.__tablename__):
+            existing_columns = {
+                column["name"] for column in inspector.get_columns(LiveSensorSourceReading.__tablename__)
+            }
+            for column_name, column_type in LIVE_SENSOR_SOURCE_READING_ADDITIONAL_COLUMNS.items():
+                if column_name in existing_columns:
+                    continue
+                connection.execute(
+                    text(
+                        f"""
+                        ALTER TABLE {LiveSensorSourceReading.__tablename__}
+                        ADD COLUMN {column_name} {column_type}
+                        """
+                    )
+                )
+
+        if inspector.has_table(LiveSensorSourceLatest.__tablename__):
+            existing_columns = {
+                column["name"] for column in inspector.get_columns(LiveSensorSourceLatest.__tablename__)
+            }
+            for column_name, column_type in LIVE_SENSOR_SOURCE_LATEST_ADDITIONAL_COLUMNS.items():
+                if column_name in existing_columns:
+                    continue
+                connection.execute(
+                    text(
+                        f"""
+                        ALTER TABLE {LiveSensorSourceLatest.__tablename__}
+                        ADD COLUMN {column_name} {column_type}
+                        """
+                    )
+                )
+
+
 def ensure_blocks_timezone_column() -> None:
     with engine.begin() as connection:
         # Check if timezone column exists in blocks table
@@ -136,6 +225,7 @@ def ensure_satellite_support_tables() -> None:
     _ensure_satellite_timeseries_schema()
     ensure_blocks_timezone_column()
     _ensure_sensor_support_tables()
+    _ensure_live_sensor_support_tables()
     ensure_crop_config_table()
     ensure_soil_class_config_table()
     ensure_soil_reference_table()
@@ -573,20 +663,29 @@ def ensure_unified_farm_state_view() -> None:
                 CREATE OR REPLACE VIEW unified_farm_state AS
                 SELECT
                     b.id AS block_id,
-                    MAX(CASE WHEN sd.sensor_type = 'soil_moisture' THEN sl.value END) AS soil_moisture,
+                    COALESCE(
+                        AVG(lsource_latest.soil_moisture),
+                        MAX(CASE WHEN sd.sensor_type = 'soil_moisture' THEN sl.value END)
+                    ) AS soil_moisture,
                     MAX(CASE WHEN sd.sensor_type = 'soil_temperature' THEN sl.value END) AS soil_temperature,
                     MAX(CASE WHEN sd.sensor_type = 'air_temperature' THEN sl.value END) AS air_temperature,
                     MAX(CASE WHEN sd.sensor_type = 'humidity' THEN sl.value END) AS humidity,
-                    MAX(CASE WHEN sd.sensor_type = 'ph_level' THEN sl.value END) AS ph_level,
+                    COALESCE(
+                        AVG(lsource_latest.ph_level),
+                        MAX(CASE WHEN sd.sensor_type = 'ph_level' THEN sl.value END)
+                    ) AS ph_level,
                     (sc.payload->>'ndvi')::float AS ndvi,
                     (sc.payload->>'ndwi')::float AS ndwi,
                     (sc.payload->>'evi')::float AS evi,
                     (sc.payload->>'lai')::float AS lai,
                     sc.data_quality,
-                    sc.composite_date_to
+                    sc.composite_date_to,
+                    AVG(lsource_latest.ec) AS ec
                 FROM blocks b
                 LEFT JOIN sensor_definitions sd ON sd.block_id = b.id
                 LEFT JOIN sensor_latest sl ON sl.sensor_id = sd.id
+                LEFT JOIN live_sensor_block_mappings lsbm ON lsbm.block_id = b.id AND lsbm.is_active = true
+                LEFT JOIN live_sensor_source_latest lsource_latest ON lsource_latest.source_id = lsbm.source_id
                 LEFT JOIN satellite_cache sc ON sc.block_id = b.id
                 GROUP BY b.id, sc.payload, sc.data_quality, sc.composite_date_to
                 """
@@ -723,6 +822,121 @@ def _ensure_sensor_support_tables() -> None:
                 CREATE INDEX IF NOT EXISTS ix_sensor_readings_raw_recent
                 ON sensor_readings (sensor_id, observed_at DESC)
                 WHERE granularity = 'raw'
+                """
+            )
+        )
+
+
+def _ensure_live_sensor_support_tables() -> None:
+    Base.metadata.create_all(
+        bind=engine,
+        tables=[
+            LiveSensorSource.__table__,
+            LiveSensorBlockMapping.__table__,
+            LiveSensorSourceReading.__table__,
+            LiveSensorSourceLatest.__table__,
+            LiveSensorDescription.__table__,
+            LiveSensorReading.__table__,
+            LiveSensorLatest.__table__,
+            LiveSensorSyncState.__table__,
+        ],
+    )
+    _ensure_live_sensor_source_schema()
+
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_live_sensor_sources_external_user_id
+                ON live_sensor_sources (external_user_id)
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_live_sensor_sources_serial_number
+                ON live_sensor_sources (serial_number)
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_live_sensor_block_mappings_block_id
+                ON live_sensor_block_mappings (block_id)
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_live_sensor_block_mappings_user_id
+                ON live_sensor_block_mappings (user_id)
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_live_sensor_block_mappings_source_id
+                ON live_sensor_block_mappings (source_id)
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_live_sensor_source_readings_source_recorded_at
+                ON live_sensor_source_readings (source_id, recorded_at DESC)
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_live_sensor_source_readings_serial_recorded_at
+                ON live_sensor_source_readings (serial_number, recorded_at DESC)
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_live_sensor_descriptions_block_id
+                ON live_sensor_descriptions (block_id)
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_live_sensor_descriptions_user_id
+                ON live_sensor_descriptions (user_id)
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_live_sensor_descriptions_serial_number
+                ON live_sensor_descriptions (serial_number)
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_live_sensor_readings_description_recorded_at
+                ON live_sensor_readings (description_id, recorded_at DESC)
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_live_sensor_readings_serial_recorded_at
+                ON live_sensor_readings (serial_number, recorded_at DESC)
                 """
             )
         )

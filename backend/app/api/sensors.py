@@ -12,7 +12,7 @@ from app.schemas.sensors import (
     SensorSimulationResponse,
     SensorType,
 )
-from app.services.sensor_service import sensor_service
+from app.services.live_sensor_service import live_sensor_service
 
 
 router = APIRouter()
@@ -29,7 +29,7 @@ def get_db():
 @router.get("/blocks/{block_id}/sensors", response_model=BlockSensorsResponse)
 def get_block_sensors(block_id: str, db: Session = Depends(get_db)):
     try:
-        return sensor_service.get_block_sensor_dashboard(db, block_id)
+        return live_sensor_service.get_block_sensor_dashboard(db, block_id)
     except SQLAlchemyError as exc:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error while fetching block sensors: {exc}") from exc
@@ -43,7 +43,7 @@ def get_block_sensor_history(
     db: Session = Depends(get_db),
 ):
     try:
-        return sensor_service.get_sensor_history(db, block_id, sensor_type, granularity)
+        return live_sensor_service.get_sensor_history(db, block_id, sensor_type, granularity)
     except SQLAlchemyError as exc:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error while fetching sensor history: {exc}") from exc
@@ -52,7 +52,7 @@ def get_block_sensor_history(
 @router.post("/blocks/{block_id}/sensors/simulate", response_model=SensorSimulationResponse)
 def simulate_block_sensors(block_id: str, db: Session = Depends(get_db)):
     try:
-        return sensor_service.simulate_block_readings(db, block_id)
+        return live_sensor_service.sync_block_readings(db, block_id)
     except SQLAlchemyError as exc:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error while simulating block sensors: {exc}") from exc

@@ -1,5 +1,9 @@
 # AgriTech System Summary
 
+Additional architecture note:
+
+- Live sensor integration plan: [`LIVE_SENSOR_INTEGRATION_PLAN.md`](c:\PromatasDev\AgriTech\LIVE_SENSOR_INTEGRATION_PLAN.md)
+
 ## What This System Is
 
 This repository contains an agriculture-focused decision support platform with:

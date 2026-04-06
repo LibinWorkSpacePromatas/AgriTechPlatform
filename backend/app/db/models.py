@@ -203,6 +203,221 @@ class SensorLatest(Base):
     updated_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), server_default=func.now())
 
 
+class LiveSensorDescription(Base):
+    __tablename__ = "live_sensor_descriptions"
+    __table_args__ = (
+        UniqueConstraint("block_id", name="uq_live_sensor_descriptions_block_id"),
+        Index("ix_live_sensor_descriptions_block_id", "block_id"),
+        Index("ix_live_sensor_descriptions_user_id", "user_id"),
+        Index("ix_live_sensor_descriptions_serial_number", "serial_number"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    block_id = Column(UUID(as_uuid=True), ForeignKey("blocks.id", ondelete="CASCADE"), nullable=False)
+    external_user_id = Column(Integer, nullable=True)
+    serial_number = Column(String(100), nullable=True)
+    label = Column(String(128), nullable=False)
+    source_region = Column(String(64), nullable=False, default="Kerala", server_default=text("'Kerala'"))
+    is_active = Column(Boolean, nullable=False, default=True, server_default=text("true"))
+    created_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=func.now(),
+        onupdate=func.now(),
+        server_default=func.now(),
+    )
+
+
+class LiveSensorReading(Base):
+    __tablename__ = "live_sensor_readings"
+    __table_args__ = (
+        UniqueConstraint(
+            "description_id",
+            "external_reading_id",
+            name="uq_live_sensor_readings_description_external_id",
+        ),
+        Index("ix_live_sensor_readings_description_recorded_at", "description_id", "recorded_at"),
+        Index("ix_live_sensor_readings_serial_recorded_at", "serial_number", "recorded_at"),
+    )
+
+    id = Column(BigInteger, Identity(always=True), primary_key=True)
+    description_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("live_sensor_descriptions.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    external_reading_id = Column(BigInteger, nullable=False)
+    external_user_id = Column(Integer, nullable=False)
+    serial_number = Column(String(100), nullable=False)
+    soil_moisture = Column(Float, nullable=True)
+    ec = Column(Float, nullable=True)
+    ph_level = Column(Float, nullable=True)
+    recorded_at = Column(DateTime(timezone=True), nullable=False)
+    source_created_at = Column(DateTime(timezone=True), nullable=True)
+    fetched_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), server_default=func.now())
+
+
+class LiveSensorLatest(Base):
+    __tablename__ = "live_sensor_latest"
+
+    description_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("live_sensor_descriptions.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    external_reading_id = Column(BigInteger, nullable=False)
+    soil_moisture = Column(Float, nullable=True)
+    ec = Column(Float, nullable=True)
+    ph_level = Column(Float, nullable=True)
+    observed_at = Column(DateTime(timezone=True), nullable=False)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), server_default=func.now())
+
+
+class LiveSensorSyncState(Base):
+    __tablename__ = "live_sensor_sync_state"
+
+    cursor_key = Column(String(64), primary_key=True)
+    last_id = Column(BigInteger, nullable=False, default=0, server_default=text("0"))
+    last_polled_at = Column(DateTime(timezone=True), nullable=True)
+    last_success_at = Column(DateTime(timezone=True), nullable=True)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), server_default=func.now())
+
+
+class LiveSensorSource(Base):
+    __tablename__ = "live_sensor_sources"
+    __table_args__ = (
+        UniqueConstraint("external_user_id", "serial_number", name="uq_live_sensor_sources_external_user_serial"),
+        Index("ix_live_sensor_sources_external_user_id", "external_user_id"),
+        Index("ix_live_sensor_sources_serial_number", "serial_number"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    external_user_id = Column(Integer, nullable=False)
+    serial_number = Column(String(100), nullable=False)
+    label = Column(String(128), nullable=False)
+    source_region = Column(String(64), nullable=False, default="Kerala", server_default=text("'Kerala'"))
+    is_active = Column(Boolean, nullable=False, default=True, server_default=text("true"))
+    created_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=func.now(),
+        onupdate=func.now(),
+        server_default=func.now(),
+    )
+
+
+class LiveSensorBlockMapping(Base):
+    __tablename__ = "live_sensor_block_mappings"
+    __table_args__ = (
+        UniqueConstraint("block_id", "source_id", name="uq_live_sensor_block_mappings_block_source"),
+        Index("ix_live_sensor_block_mappings_block_id", "block_id"),
+        Index("ix_live_sensor_block_mappings_user_id", "user_id"),
+        Index("ix_live_sensor_block_mappings_source_id", "source_id"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    block_id = Column(UUID(as_uuid=True), ForeignKey("blocks.id", ondelete="CASCADE"), nullable=False)
+    source_id = Column(UUID(as_uuid=True), ForeignKey("live_sensor_sources.id", ondelete="CASCADE"), nullable=False)
+    label = Column(String(128), nullable=True)
+    is_primary = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    is_active = Column(Boolean, nullable=False, default=True, server_default=text("true"))
+    created_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=func.now(),
+        onupdate=func.now(),
+        server_default=func.now(),
+    )
+
+
+class LiveSensorSourceReading(Base):
+    __tablename__ = "live_sensor_source_readings"
+    __table_args__ = (
+        UniqueConstraint(
+            "source_id",
+            "external_reading_id",
+            name="uq_live_sensor_source_readings_source_external_id",
+        ),
+        Index("ix_live_sensor_source_readings_source_recorded_at", "source_id", "recorded_at"),
+        Index("ix_live_sensor_source_readings_serial_recorded_at", "serial_number", "recorded_at"),
+    )
+
+    id = Column(BigInteger, Identity(always=True), primary_key=True)
+    source_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("live_sensor_sources.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    external_reading_id = Column(BigInteger, nullable=False)
+    external_user_id = Column(Integer, nullable=False)
+    serial_number = Column(String(100), nullable=False)
+    soil_moisture = Column(Float, nullable=True)
+    ec = Column(Float, nullable=True)
+    ph_level = Column(Float, nullable=True)
+    n_ppm = Column(Float, nullable=True)
+    n_kg_ha = Column(Float, nullable=True)
+    p_ppm = Column(Float, nullable=True)
+    p_kg_ha = Column(Float, nullable=True)
+    k_ppm = Column(Float, nullable=True)
+    k_kg_ha = Column(Float, nullable=True)
+    ca_ppm = Column(Float, nullable=True)
+    ca_kg_ha = Column(Float, nullable=True)
+    mg_ppm = Column(Float, nullable=True)
+    mg_kg_ha = Column(Float, nullable=True)
+    s_ppm = Column(Float, nullable=True)
+    s_kg_ha = Column(Float, nullable=True)
+    fe_ppm = Column(Float, nullable=True)
+    fe_kg_ha = Column(Float, nullable=True)
+    zn_ppm = Column(Float, nullable=True)
+    zn_kg_ha = Column(Float, nullable=True)
+    cu_ppm = Column(Float, nullable=True)
+    cu_kg_ha = Column(Float, nullable=True)
+    recorded_at = Column(DateTime(timezone=True), nullable=False)
+    source_created_at = Column(DateTime(timezone=True), nullable=True)
+    raw_payload = Column(JSONB, nullable=True)
+    fetched_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), server_default=func.now())
+
+
+class LiveSensorSourceLatest(Base):
+    __tablename__ = "live_sensor_source_latest"
+
+    source_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("live_sensor_sources.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    external_reading_id = Column(BigInteger, nullable=False)
+    soil_moisture = Column(Float, nullable=True)
+    ec = Column(Float, nullable=True)
+    ph_level = Column(Float, nullable=True)
+    n_ppm = Column(Float, nullable=True)
+    n_kg_ha = Column(Float, nullable=True)
+    p_ppm = Column(Float, nullable=True)
+    p_kg_ha = Column(Float, nullable=True)
+    k_ppm = Column(Float, nullable=True)
+    k_kg_ha = Column(Float, nullable=True)
+    ca_ppm = Column(Float, nullable=True)
+    ca_kg_ha = Column(Float, nullable=True)
+    mg_ppm = Column(Float, nullable=True)
+    mg_kg_ha = Column(Float, nullable=True)
+    s_ppm = Column(Float, nullable=True)
+    s_kg_ha = Column(Float, nullable=True)
+    fe_ppm = Column(Float, nullable=True)
+    fe_kg_ha = Column(Float, nullable=True)
+    zn_ppm = Column(Float, nullable=True)
+    zn_kg_ha = Column(Float, nullable=True)
+    cu_ppm = Column(Float, nullable=True)
+    cu_kg_ha = Column(Float, nullable=True)
+    observed_at = Column(DateTime(timezone=True), nullable=False)
+    raw_payload = Column(JSONB, nullable=True)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), server_default=func.now())
+
+
 class BlockDecision(Base):
     __tablename__ = "block_decisions"
     __table_args__ = (

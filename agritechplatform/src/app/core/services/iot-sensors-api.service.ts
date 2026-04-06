@@ -5,10 +5,8 @@ import { environment } from '../../../environments/environment';
 
 export type IotSensorType =
   | 'soil_moisture'
-  | 'soil_temperature'
-  | 'air_temperature'
-  | 'humidity'
-  | 'ph_level';
+  | 'ph_level'
+  | 'ec';
 
 export type IotSensorStatus = 'Normal' | 'High' | 'Low';
 

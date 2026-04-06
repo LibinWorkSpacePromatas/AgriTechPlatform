@@ -358,10 +358,21 @@ def _get_block_sensor_context(db: Session, block_id: str) -> GrowerGPTSensorData
     latest_updated = db.execute(
         text(
             """
-            SELECT MAX(sl.observed_at) AS last_updated
-            FROM sensor_definitions sd
-            LEFT JOIN sensor_latest sl ON sl.sensor_id = sd.id
-            WHERE sd.block_id = :block_id
+            SELECT MAX(last_updated_at) AS last_updated
+            FROM (
+                SELECT MAX(sl.observed_at) AS last_updated_at
+                FROM sensor_definitions sd
+                LEFT JOIN sensor_latest sl ON sl.sensor_id = sd.id
+                WHERE sd.block_id = :block_id
+
+                UNION ALL
+
+                SELECT MAX(lsource_latest.observed_at) AS last_updated_at
+                FROM live_sensor_block_mappings lsbm
+                LEFT JOIN live_sensor_source_latest lsource_latest ON lsource_latest.source_id = lsbm.source_id
+                WHERE lsbm.block_id = :block_id
+                  AND lsbm.is_active = true
+            ) sensor_updates
             """
         ),
         {"block_id": str(block_id)},

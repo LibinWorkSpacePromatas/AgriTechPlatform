@@ -78,6 +78,13 @@ class Settings(BaseSettings):
         default=str(Path(__file__).resolve().parents[2] / "Dataset" / "SA_Farmgate_Prices_Final.xlsx"),
         alias="PROFIT_RISK_DATASET_PATH",
     )
+    live_sensor_api_url: str = Field(
+        default="https://thebiotaportal.in/get_device_readings.php",
+        alias="LIVE_SENSOR_API_URL",
+    )
+    live_sensor_poll_limit: int = Field(default=100, alias="LIVE_SENSOR_POLL_LIMIT")
+    live_sensor_timeout_seconds: float = Field(default=15.0, alias="LIVE_SENSOR_TIMEOUT_SECONDS")
+    live_sensor_min_poll_interval_seconds: int = Field(default=20, alias="LIVE_SENSOR_MIN_POLL_INTERVAL_SECONDS")
 
     @field_validator("cors_origins", mode="before")
     @classmethod

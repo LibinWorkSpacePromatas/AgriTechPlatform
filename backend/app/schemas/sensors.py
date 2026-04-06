@@ -12,6 +12,7 @@ SensorType = Literal[
     "air_temperature",
     "humidity",
     "ph_level",
+    "ec",
 ]
 SensorStatus = Literal["Normal", "High", "Low"]
 SensorGranularity = Literal["raw", "hourly", "daily", "weekly"]
