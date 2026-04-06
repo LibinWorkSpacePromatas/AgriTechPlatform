@@ -28,6 +28,7 @@ export class MyListingsComponent implements OnInit {
     description: '',
     price: 0,
     price_type: 'hourly',
+    quantity_total: 1,
     latitude: null,
     longitude: null,
   };
@@ -77,6 +78,10 @@ export class MyListingsComponent implements OnInit {
       this.createError = 'Name and valid price are required';
       return;
     }
+    if (!this.form.quantity_total || this.form.quantity_total <= 0) {
+      this.createError = 'Quantity must be at least 1';
+      return;
+    }
 
     const selectedBlock = this.blockService.getSelectedBlock();
     if (!selectedBlock?.id) {
@@ -87,6 +92,7 @@ export class MyListingsComponent implements OnInit {
     const payload: CreateListingPayload = {
       ...this.form,
       block_id: selectedBlock.id,
+      quantity_total: this.form.quantity_total,
       latitude: null,
       longitude: null,
     };
@@ -100,6 +106,7 @@ export class MyListingsComponent implements OnInit {
           description: '',
           price: 0,
           price_type: 'hourly',
+          quantity_total: 1,
           latitude: null,
           longitude: null,
         };
@@ -137,5 +144,23 @@ export class MyListingsComponent implements OnInit {
         this.nextAvailableSlot = null;
       },
     });
+  }
+
+  get rateLabel(): string {
+    return this.form.price_type === 'daily' ? 'Rate (per day)' : 'Rate (per hour)';
+  }
+
+  get rateHint(): string {
+    return this.form.price_type === 'daily'
+      ? 'Enter daily usage rate (per day).'
+      : 'Enter hourly usage rate (per hour).';
+  }
+
+  get isCreateDisabled(): boolean {
+    return !this.form.equipment_name?.trim()
+      || !this.form.price
+      || this.form.price <= 0
+      || !this.form.quantity_total
+      || this.form.quantity_total <= 0;
   }
 }

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -67,8 +67,9 @@ def calculate_price(start: datetime, end: datetime, price: float, price_type: st
     if price_type == "hourly":
         return round(duration_hours * price, 2)
 
-    days = math.ceil(duration_hours / 24)
-    return round(days * price, 2)
+    # Option A: daily listings allow partial-duration billing by converting to hourly.
+    hourly_rate = price / 24
+    return round(duration_hours * hourly_rate, 2)
 
 
 def _get_listing_or_404(db: Session, listing_id: UUID) -> dict:
@@ -98,6 +99,7 @@ def create_listing(db: Session, user_id: UUID, payload: CreateListingRequest) ->
             "description": payload.description,
             "price": float(payload.price),
             "price_type": payload.price_type,
+            "quantity_total": int(payload.quantity_total),
             "latitude": latitude,
             "longitude": longitude,
         },
@@ -111,9 +113,13 @@ def get_listings(
     lat: float | None = None,
     lon: float | None = None,
     radius_km: float | None = None,
+    exclude_owner_id: UUID | None = None,
 ) -> list[dict]:
     if radius_km is None:
-        rows = db.execute(queries.LIST_LISTINGS_SQL).mappings().all()
+        rows = db.execute(
+            queries.LIST_LISTINGS_SQL,
+            {"exclude_owner_id": str(exclude_owner_id) if exclude_owner_id else None},
+        ).mappings().all()
         return [dict(row) for row in rows]
 
     if radius_km <= 0:
@@ -125,6 +131,7 @@ def get_listings(
             "lat": lat,
             "lon": lon,
             "radius_in_meters": radius_km * 1000.0,
+            "exclude_owner_id": str(exclude_owner_id) if exclude_owner_id else None,
         },
     ).mappings().all()
     return [dict(row) for row in rows]
@@ -155,6 +162,7 @@ def check_availability(
         listing_id,
         start,
         end,
+        quantity_requested=1,
         exclude_booking_id=exclude_booking_id,
     )
     return bool(result["available"])
@@ -166,30 +174,70 @@ def check_availability_with_reason(
     start: datetime,
     end: datetime,
     *,
+    quantity_requested: int = 1,
     exclude_booking_id: UUID | None = None,
 ) -> dict:
     if start >= end:
         raise RentalServiceError("start_datetime must be earlier than end_datetime", status_code=400)
+    now_reference = datetime.now(start.tzinfo) if start.tzinfo else datetime.utcnow()
+    min_start = now_reference + timedelta(minutes=30)
+    if start < min_start:
+        raise RentalServiceError("start_datetime must be at least 30 minutes in the future", status_code=400)
 
     listing = _get_listing_or_404(db, listing_id)
     if not listing.get("is_active", False):
-        return {"available": False, "reason": "Listing is inactive"}
+        return {"available": False, "reason": "Listing is inactive", "available_quantity": 0}
 
-    detail = db.execute(
-        queries.BOOKING_CONFLICT_DETAIL_SQL,
+    if quantity_requested <= 0:
+        raise RentalServiceError("quantity_requested must be at least 1", status_code=400)
+
+    quantity_total = int(listing.get("quantity_total") or 1)
+    if quantity_requested > quantity_total:
+        return {
+            "available": False,
+            "reason": f"Only {quantity_total} unit(s) available",
+            "available_quantity": quantity_total,
+        }
+
+    reserved_overlap = db.execute(
+        queries.BOOKING_RESERVED_UNITS_SQL,
         {
             "listing_id": str(listing_id),
             "start_datetime": start,
             "end_datetime": end,
             "exclude_booking_id": str(exclude_booking_id) if exclude_booking_id else None,
         },
-    ).mappings().first()
-    reason = detail["conflict_reason"] if detail else None
-    if reason == "overlap":
-        return {"available": False, "reason": "Overlapping booking"}
-    if reason == "buffer":
-        return {"available": False, "reason": "Buffer period conflict"}
-    return {"available": True, "reason": None}
+    ).scalar() or 0
+    available_overlap = max(0, quantity_total - int(reserved_overlap))
+    if quantity_requested > available_overlap:
+        return {
+            "available": False,
+            "reason": "Overlapping booking",
+            "available_quantity": available_overlap,
+        }
+
+    reserved_buffer = db.execute(
+        queries.BOOKING_BUFFER_RESERVED_UNITS_SQL,
+        {
+            "listing_id": str(listing_id),
+            "start_datetime": start,
+            "end_datetime": end,
+            "exclude_booking_id": str(exclude_booking_id) if exclude_booking_id else None,
+        },
+    ).scalar() or 0
+    available_buffer = max(0, quantity_total - int(reserved_buffer))
+    if quantity_requested > available_buffer:
+        return {
+            "available": False,
+            "reason": "Buffer period conflict",
+            "available_quantity": available_buffer,
+        }
+
+    return {
+        "available": True,
+        "reason": None,
+        "available_quantity": min(available_overlap, available_buffer),
+    }
 
 
 def create_booking(db: Session, user_id: UUID, payload: CreateBookingRequest) -> dict:
@@ -202,9 +250,18 @@ def create_booking(db: Session, user_id: UUID, payload: CreateBookingRequest) ->
     if str(owner_id) == str(user_id):
         raise RentalServiceError("Owner cannot book own listing", status_code=400)
 
-    is_available = check_availability(db, payload.listing_id, payload.start_datetime, payload.end_datetime)
-    if not is_available:
-        raise RentalServiceError("Not available", status_code=409)
+    # Prevent race condition: serialize bookings per listing within transaction.
+    db.execute(queries.LOCK_LISTING_FOR_BOOKING_SQL, {"listing_id": str(payload.listing_id)})
+
+    availability = check_availability_with_reason(
+        db,
+        payload.listing_id,
+        payload.start_datetime,
+        payload.end_datetime,
+        quantity_requested=payload.quantity_requested,
+    )
+    if not availability["available"]:
+        raise RentalServiceError(availability["reason"] or "Not available", status_code=409)
 
     total_price = calculate_price(
         payload.start_datetime,
@@ -212,6 +269,7 @@ def create_booking(db: Session, user_id: UUID, payload: CreateBookingRequest) ->
         float(listing["price"]),
         str(listing["price_type"]),
     )
+    total_price = round(total_price * int(payload.quantity_requested), 2)
     booking = db.execute(
         queries.INSERT_BOOKING_SQL,
         {
@@ -220,6 +278,7 @@ def create_booking(db: Session, user_id: UUID, payload: CreateBookingRequest) ->
             "owner_id": str(owner_id),
             "start_datetime": payload.start_datetime,
             "end_datetime": payload.end_datetime,
+            "quantity_requested": int(payload.quantity_requested),
             "total_price": total_price,
         },
     ).mappings().first()
@@ -239,6 +298,8 @@ def _update_booking_status(db: Session, booking_id: UUID, owner_id: UUID, status
         raise RentalServiceError("Only pending bookings can be updated", status_code=400)
 
     if status == "approved":
+        # Prevent race condition between concurrent approvals/bookings on same listing.
+        db.execute(queries.LOCK_LISTING_FOR_BOOKING_SQL, {"listing_id": str(booking["listing_id"])})
         is_available = check_availability(
             db,
             booking["listing_id"],
@@ -246,7 +307,15 @@ def _update_booking_status(db: Session, booking_id: UUID, owner_id: UUID, status
             booking["end_datetime"],
             exclude_booking_id=booking_id,
         )
-        if not is_available:
+        availability = check_availability_with_reason(
+            db,
+            booking["listing_id"],
+            booking["start_datetime"],
+            booking["end_datetime"],
+            quantity_requested=int(booking.get("quantity_requested") or 1),
+            exclude_booking_id=booking_id,
+        )
+        if not is_available or not availability["available"]:
             raise RentalServiceError("Cannot approve booking because slot is no longer available", status_code=409)
 
     updated = db.execute(
@@ -313,21 +382,59 @@ def pay_booking(db: Session, booking_id: UUID, renter_id: UUID) -> dict:
 def get_listing_calendar(db: Session, listing_id: UUID, day: date) -> dict:
     _get_listing_or_404(db, listing_id)
     day_start = datetime.combine(day, datetime.min.time())
+    day_end = day_start + timedelta(days=1)
+    day_start_minus_buffer = day_start - timedelta(hours=1)
+
     rows = db.execute(
-        queries.LISTING_CALENDAR_SLOTS_SQL,
+        queries.LISTING_CALENDAR_BOOKINGS_SQL,
         {
             "listing_id": str(listing_id),
-            "day_start": day_start,
+            "day_start_minus_buffer": day_start_minus_buffer,
+            "day_end": day_end,
         },
     ).mappings().all()
-    slots = [
-        {
-            "start_datetime": row["slot_start"],
-            "end_datetime": row["slot_end"],
-            "status": row["status"],
-        }
-        for row in rows
-    ]
+
+    def to_naive(dt: datetime) -> datetime:
+        # Normalize timezone-aware DB datetimes so comparisons are safe.
+        return dt.replace(tzinfo=None) if dt.tzinfo is not None else dt
+
+    bookings = []
+    for row in rows:
+        start_dt = row["start_datetime"]
+        end_dt = row["end_datetime"]
+        if start_dt is None or end_dt is None:
+            continue
+        bookings.append((to_naive(start_dt), to_naive(end_dt)))
+
+    def overlaps(a_start: datetime, a_end: datetime, b_start: datetime, b_end: datetime) -> bool:
+        return a_start < b_end and a_end > b_start
+
+    slots = []
+    for hour in range(24):
+        slot_start = day_start + timedelta(hours=hour)
+        slot_end = slot_start + timedelta(hours=1)
+        status = "available"
+
+        for booking_start, booking_end in bookings:
+            if overlaps(slot_start, slot_end, booking_start, booking_end):
+                status = "booked"
+                break
+
+        if status == "available":
+            for booking_start, booking_end in bookings:
+                buffer_end = booking_end + timedelta(hours=1)
+                if overlaps(slot_start, slot_end, booking_end, buffer_end):
+                    status = "buffer"
+                    break
+
+        slots.append(
+            {
+                "start_datetime": slot_start,
+                "end_datetime": slot_end,
+                "status": status,
+            }
+        )
+
     return {
         "listing_id": str(listing_id),
         "date": day.isoformat(),

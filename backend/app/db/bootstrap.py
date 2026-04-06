@@ -157,6 +157,7 @@ def ensure_equipment_marketplace_tables() -> None:
                     description TEXT,
                     price DOUBLE PRECISION NOT NULL,
                     price_type VARCHAR(10) NOT NULL CHECK (price_type IN ('hourly', 'daily')),
+                    quantity_total INTEGER NOT NULL DEFAULT 1,
                     latitude DOUBLE PRECISION,
                     longitude DOUBLE PRECISION,
                     is_active BOOLEAN DEFAULT true,
@@ -175,6 +176,7 @@ def ensure_equipment_marketplace_tables() -> None:
                     owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                     start_datetime TIMESTAMPTZ NOT NULL,
                     end_datetime TIMESTAMPTZ NOT NULL,
+                    quantity_requested INTEGER NOT NULL DEFAULT 1,
                     status VARCHAR(20) NOT NULL CHECK (
                         status IN ('pending', 'approved', 'rejected', 'completed')
                     ),
@@ -182,6 +184,22 @@ def ensure_equipment_marketplace_tables() -> None:
                     created_at TIMESTAMPTZ DEFAULT now(),
                     CONSTRAINT ck_equipment_bookings_time_range CHECK (end_datetime > start_datetime)
                 )
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                ALTER TABLE equipment_listings
+                ADD COLUMN IF NOT EXISTS quantity_total INTEGER NOT NULL DEFAULT 1
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                ALTER TABLE equipment_bookings
+                ADD COLUMN IF NOT EXISTS quantity_requested INTEGER NOT NULL DEFAULT 1
                 """
             )
         )

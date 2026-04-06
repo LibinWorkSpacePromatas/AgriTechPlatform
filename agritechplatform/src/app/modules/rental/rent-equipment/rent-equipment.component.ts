@@ -42,6 +42,9 @@ export class RentEquipmentComponent implements OnInit {
   bookingEnd = '';
   bookingStartDate = '';
   bookingEndDate = '';
+  bookingStartTime = '';
+  bookingEndTime = '';
+  bookingQuantity = 1;
   availability: CheckAvailabilityResponse | null = null;
   calendarSlots: RentalCalendarSlot[] = [];
   calendarDate = '';
@@ -50,6 +53,10 @@ export class RentEquipmentComponent implements OnInit {
   recommendation: RentalRecommendationResponse | null = null;
   recommendationLoading = false;
   blockId: string | null = null;
+  toastVisible = false;
+  toastMessage = '';
+  toastType: 'success' | 'error' = 'success';
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private rentalService: RentalService,
@@ -74,7 +81,13 @@ export class RentEquipmentComponent implements OnInit {
   loadListings(): void {
     this.loading = true;
     this.error = null;
-    this.rentalService.getListings(this.lat ?? undefined, this.lon ?? undefined, this.radiusKm).subscribe({
+    const currentUser = this.authService.getCurrentUser();
+    this.rentalService.getListings(
+      this.lat ?? undefined,
+      this.lon ?? undefined,
+      this.radiusKm,
+      currentUser?.userId
+    ).subscribe({
       next: response => {
         console.log('LISTINGS:', response);
         this.listings = response;
@@ -82,6 +95,7 @@ export class RentEquipmentComponent implements OnInit {
       },
       error: err => {
         this.error = err.message || 'Unable to load listings';
+        this.notifyError(this.error ?? 'Unable to load listings');
         this.loading = false;
       },
     });
@@ -100,11 +114,71 @@ export class RentEquipmentComponent implements OnInit {
   }
 
   applyMachineSearch(): void {
+    this.onPriceFilterChange();
     this.appliedMachineSearchTerm = this.machineSearchTerm;
+  }
+
+  onPriceFilterChange(): void {
+    if (this.minPrice < 0) {
+      this.minPrice = 0;
+    }
+    if (this.maxPrice < 0) {
+      this.maxPrice = 0;
+    }
+    if (this.maxPrice < this.minPrice) {
+      this.maxPrice = this.minPrice;
+    }
+  }
+
+  getBookingValidationError(listing: RentalListing): string | null {
+    const now = new Date();
+    const minStart = new Date(now.getTime() + 30 * 60 * 1000);
+
+    if (listing.price_type === 'daily') {
+      if (!this.bookingStartDate || !this.bookingEndDate || !this.bookingStartTime || !this.bookingEndTime) {
+        return 'Select start/end date and time';
+      }
+      const start = new Date(`${this.bookingStartDate}T${this.bookingStartTime}:00`);
+      const end = new Date(`${this.bookingEndDate}T${this.bookingEndTime}:00`);
+      if (start < minStart) {
+        return 'Start time must be at least 30 minutes from now';
+      }
+      if (end <= start) {
+        return 'End date/time must be later than start';
+      }
+      return null;
+    }
+
+    if (!this.bookingStart || !this.bookingEnd) {
+      return 'Select start and end date/time';
+    }
+    const start = new Date(this.bookingStart);
+    const end = new Date(this.bookingEnd);
+    if (start < minStart) {
+      return 'Start time must be at least 30 minutes from now';
+    }
+    if (end <= start) {
+      return 'End time must be later than start time';
+    }
+    return null;
+  }
+
+  canBook(listing: RentalListing): boolean {
+    const hasValidWindow = !this.getBookingValidationError(listing);
+    const hasValidQuantity = this.bookingQuantity >= 1 && this.bookingQuantity <= this.getAvailableUnits(listing);
+    const hasAvailability = this.selectedListingId !== listing.id || this.availability?.available !== false;
+    return hasValidWindow && hasValidQuantity && hasAvailability;
   }
 
   onTimeChange(listing: RentalListing): void {
     this.selectedListingId = listing.id;
+    if (!this.bookingQuantity || this.bookingQuantity < 1) {
+      this.bookingQuantity = 1;
+    }
+    const availableUnits = this.getAvailableUnits(listing);
+    if (this.bookingQuantity > availableUnits) {
+      this.bookingQuantity = availableUnits;
+    }
     this.availability = null;
     this.info = null;
     const window = this.buildBookingWindow(listing);
@@ -119,50 +193,99 @@ export class RentEquipmentComponent implements OnInit {
       listing_id: listing.id,
       start_datetime: window.start,
       end_datetime: window.end,
+      quantity_requested: this.bookingQuantity,
     };
 
     this.rentalService.checkAvailability(payload).subscribe({
       next: res => this.availability = res,
-      error: err => this.error = err.message || 'Availability check failed',
+      error: err => {
+        this.error = err.message || 'Availability check failed';
+        this.notifyError(this.error ?? 'Availability check failed');
+      },
     });
+  }
+
+  onBookingInputChange(listing: RentalListing): void {
+    // Recheck live stock whenever booking window/quantity changes.
+    this.onTimeChange(listing);
   }
 
   bookNow(listing: RentalListing): void {
     const user = this.authService.getCurrentUser();
     if (!user) {
       this.error = 'No active user selected';
+      this.notifyError(this.error ?? 'No active user selected');
+      return;
+    }
+
+    const validationError = this.getBookingValidationError(listing);
+    if (validationError) {
+      this.error = validationError;
+      this.notifyError(this.error ?? 'Invalid booking input');
       return;
     }
 
     const window = this.buildBookingWindow(listing);
     if (!window) {
-      this.error = listing.price_type === 'daily' ? 'Select start and end date' : 'Select start and end time';
+      this.error = 'Select valid start/end date and time';
+      this.notifyError(this.error ?? 'Select valid start/end date and time');
       return;
     }
 
-    const payload: CreateBookingPayload = {
+    const availabilityPayload: CheckAvailabilityPayload = {
       listing_id: listing.id,
       start_datetime: window.start,
       end_datetime: window.end,
+      quantity_requested: this.bookingQuantity,
     };
+    this.rentalService.checkAvailability(availabilityPayload).subscribe({
+      next: availabilityRes => {
+        this.availability = availabilityRes;
+        if (!availabilityRes.available) {
+          this.error = `Not available: ${availabilityRes.reason || 'Overlapping / Buffer'}`;
+          this.notifyError(this.error ?? 'Not available');
+          return;
+        }
 
-    this.rentalService.createBooking(user.userId, payload).subscribe({
-      next: res => {
-        this.info = `Booking requested (${res.booking.status})`;
-        this.availability = { listing_id: listing.id, available: true, conflict: false, reason: null };
-        this.myBookings.unshift(res.booking);
-        this.loadMyBookings();
-        this.calendarDate = new Date(window.start).toISOString().slice(0, 10);
-        this.loadCalendar(listing.id, this.calendarDate);
+        const payload: CreateBookingPayload = {
+          listing_id: listing.id,
+          start_datetime: window.start,
+          end_datetime: window.end,
+          quantity_requested: this.bookingQuantity,
+        };
+        this.rentalService.createBooking(user.userId, payload).subscribe({
+          next: res => {
+            this.info = `Booking requested (${res.booking.status}) - ${res.booking.quantity_requested} unit(s), total amount ${res.booking.total_price || 0}`;
+            this.notifySuccess(this.info);
+            this.availability = {
+              listing_id: listing.id,
+              available: true,
+              conflict: false,
+              reason: null,
+              available_quantity: availabilityRes.available_quantity,
+            };
+            this.myBookings.unshift(res.booking);
+            this.loadMyBookings();
+            this.calendarDate = new Date(window.start).toISOString().slice(0, 10);
+            this.loadCalendar(listing.id, this.calendarDate);
+            // Refresh live availability after successful booking so remaining stock is updated immediately.
+            this.onTimeChange(listing);
+          },
+          error: err => {
+            this.error = err.message || 'Booking failed';
+            this.notifyError(this.error ?? 'Booking failed');
+            this.availability = { listing_id: listing.id, available: false, conflict: true, reason: null };
+          },
+        });
       },
       error: err => {
-        this.error = err.message || 'Booking failed';
-        this.availability = { listing_id: listing.id, available: false, conflict: true, reason: null };
+        this.error = err.message || 'Availability check failed';
+        this.notifyError(this.error ?? 'Availability check failed');
       },
     });
   }
 
-  getBookingSummary(listing: RentalListing): { start: Date; end: Date; duration: string; total: number } | null {
+  getBookingSummary(listing: RentalListing): { start: Date; end: Date; duration: string; total: number; billingLine: string; rateLabel: string } | null {
     const window = this.buildBookingWindow(listing);
     if (!window) {
       return null;
@@ -170,29 +293,55 @@ export class RentEquipmentComponent implements OnInit {
     const start = new Date(window.start);
     const end = new Date(window.end);
     const hours = Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60 * 60));
-    const duration = listing.price_type === 'daily'
-      ? `${Math.ceil(hours / 24)} day(s)`
-      : `${hours.toFixed(1)} hour(s)`;
-    const total = listing.price_type === 'daily'
-      ? Math.ceil(hours / 24) * listing.price
-      : hours * listing.price;
-    return { start, end, duration, total };
+    const duration = `${hours.toFixed(2)} hour(s)`;
+    const effectiveHourlyRate = listing.price_type === 'daily' ? listing.price / 24 : listing.price;
+    const billedUnits = hours;
+    const baseTotal = billedUnits * effectiveHourlyRate;
+    const total = baseTotal * this.bookingQuantity;
+    const rateLabel = listing.price_type === 'daily'
+      ? `${effectiveHourlyRate.toFixed(2)} / hour (converted from ${listing.price.toFixed(2)} / day)`
+      : `${listing.price.toFixed(2)} / hour`;
+    const billingLine = `${billedUnits.toFixed(2)} hour(s) x ${this.bookingQuantity} unit(s) x ${effectiveHourlyRate.toFixed(2)}`;
+    return { start, end, duration, total, billingLine, rateLabel };
+  }
+
+  onQuantityChange(listing: RentalListing): void {
+    if (!this.bookingQuantity || this.bookingQuantity < 1) {
+      this.bookingQuantity = 1;
+    }
+    const availableUnits = this.getAvailableUnits(listing);
+    if (this.bookingQuantity > availableUnits) {
+      this.bookingQuantity = availableUnits;
+    }
+    if (this.selectedListingId === listing.id) {
+      this.onTimeChange(listing);
+    }
+  }
+
+  getAvailableUnits(listing: RentalListing): number {
+    if (this.selectedListingId === listing.id && this.availability?.available_quantity != null) {
+      return Math.max(0, this.availability.available_quantity);
+    }
+    return listing.quantity_total || 1;
+  }
+
+  hasLiveAvailability(listing: RentalListing): boolean {
+    return this.selectedListingId === listing.id && this.availability?.available_quantity != null;
   }
 
   private buildBookingWindow(listing: RentalListing): { start: string; end: string } | null {
     if (listing.price_type === 'daily') {
-      if (!this.bookingStartDate || !this.bookingEndDate) {
+      if (!this.bookingStartDate || !this.bookingEndDate || !this.bookingStartTime || !this.bookingEndTime) {
         return null;
       }
-      const start = new Date(`${this.bookingStartDate}T00:00:00`);
-      const endBase = new Date(`${this.bookingEndDate}T00:00:00`);
-      endBase.setDate(endBase.getDate() + 1);
-      if (start >= endBase) {
+      const start = new Date(`${this.bookingStartDate}T${this.bookingStartTime}:00`);
+      const end = new Date(`${this.bookingEndDate}T${this.bookingEndTime}:00`);
+      if (start >= end) {
         return null;
       }
       return {
         start: start.toISOString(),
-        end: endBase.toISOString(),
+        end: end.toISOString(),
       };
     }
 
@@ -229,7 +378,7 @@ export class RentEquipmentComponent implements OnInit {
     this.rentalService.getListingCalendar(listingId, date).subscribe({
       next: response => {
         this.calendarSlots = response.slots;
-        const nextSlot = response.slots.find(slot => slot.status === 'available');
+        const nextSlot = response.slots.find(slot => slot.status === 'available' && !this.isPastSlot(slot));
         this.nextAvailableSlot = nextSlot ? new Date(nextSlot.start_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
       },
       error: () => {
@@ -252,4 +401,59 @@ export class RentEquipmentComponent implements OnInit {
       },
     });
   }
+
+  private notifyError(message: string): void {
+    this.showToast(this.cleanMessage(message), 'error');
+  }
+
+  private notifySuccess(message: string): void {
+    this.showToast(this.cleanMessage(message), 'success');
+  }
+
+  private cleanMessage(message: string): string {
+    const marker = ' failed: ';
+    if (message.includes(marker)) {
+      return message.split(marker).pop() || message;
+    }
+    return message;
+  }
+
+  closeToast(): void {
+    this.toastVisible = false;
+    if (this.toastTimer) {
+      clearTimeout(this.toastTimer);
+      this.toastTimer = null;
+    }
+  }
+
+  private showToast(message: string, type: 'success' | 'error'): void {
+    this.toastMessage = message;
+    this.toastType = type;
+    this.toastVisible = true;
+    if (this.toastTimer) {
+      clearTimeout(this.toastTimer);
+    }
+    this.toastTimer = setTimeout(() => {
+      this.toastVisible = false;
+      this.toastTimer = null;
+    }, type === 'error' ? 5000 : 3200);
+  }
+
+  isPastSlot(slot: RentalCalendarSlot): boolean {
+    return new Date(slot.end_datetime).getTime() <= Date.now();
+  }
+
+  getSlotDisplayStatus(slot: RentalCalendarSlot): 'PAST' | 'BOOKED' | 'BUFFER' | 'AVAILABLE' {
+    if (this.isPastSlot(slot)) {
+      return 'PAST';
+    }
+    if (slot.status === 'booked') {
+      return 'BOOKED';
+    }
+    if (slot.status === 'buffer') {
+      return 'BUFFER';
+    }
+    return 'AVAILABLE';
+  }
+
 }

@@ -1,4 +1,12 @@
 <section class="section">
+  <div class="toast" *ngIf="toastVisible" [class.toast-error]="toastType === 'error'" [class.toast-success]="toastType === 'success'">
+    <div class="toast-head">
+      <strong>{{ toastType === 'error' ? 'Action Failed' : 'Success' }}</strong>
+      <button class="toast-close" type="button" (click)="closeToast()">×</button>
+    </div>
+    <p>{{ toastMessage }}</p>
+  </div>
+
   <h2>Rent Equipment</h2>
 
   <div class="recommendation-card" *ngIf="recommendationLoading || recommendation">
@@ -18,22 +26,44 @@
   </div>
 
   <div class="filters">
-    <input
-      type="text"
-      [(ngModel)]="machineSearchTerm"
-      (keyup.enter)="applyMachineSearch()"
-      placeholder="Search machine (e.g., pump, tractor)">
-    <label>Distance (km): {{ radiusKm }}</label>
-    <input type="range" min="5" max="50" [(ngModel)]="radiusKm">
-    <input type="number" [(ngModel)]="minPrice" placeholder="Min price">
-    <input type="number" [(ngModel)]="maxPrice" placeholder="Max price">
-    <select [(ngModel)]="typeFilter">
-      <option value="">All Types</option>
-      <option value="hourly">hourly</option>
-      <option value="daily">daily</option>
-    </select>
-    <button class="btn btn-outline" (click)="applyMachineSearch()">Search</button>
-    <button class="btn btn-secondary" (click)="loadListings()">Apply</button>
+    <div class="filter-field filter-search">
+      <label for="machineSearch">Machine Search</label>
+      <input
+        id="machineSearch"
+        type="text"
+        [(ngModel)]="machineSearchTerm"
+        (keyup.enter)="applyMachineSearch()"
+        placeholder="e.g., pump, tractor">
+    </div>
+
+    <div class="filter-field filter-distance">
+      <label for="distanceRange">Distance (km): {{ radiusKm }}</label>
+      <input id="distanceRange" type="range" min="5" max="50" [(ngModel)]="radiusKm">
+    </div>
+
+    <div class="filter-field">
+      <label for="minPrice">Min Price</label>
+      <input id="minPrice" type="number" min="0" [(ngModel)]="minPrice" (ngModelChange)="onPriceFilterChange()">
+    </div>
+
+    <div class="filter-field">
+      <label for="maxPrice">Max Price</label>
+      <input id="maxPrice" type="number" min="0" [(ngModel)]="maxPrice" (ngModelChange)="onPriceFilterChange()">
+    </div>
+
+    <div class="filter-field">
+      <label for="typeFilter">Rate Type</label>
+      <select id="typeFilter" [(ngModel)]="typeFilter">
+        <option value="">All Types</option>
+        <option value="hourly">Hourly</option>
+        <option value="daily">Daily</option>
+      </select>
+    </div>
+
+    <div class="filter-actions">
+      <button class="btn btn-outline" (click)="applyMachineSearch()">Search</button>
+      <button class="btn btn-secondary" (click)="loadListings()">Apply Filters</button>
+    </div>
   </div>
 
   <p *ngIf="loading">Loading listings...</p>
@@ -45,27 +75,54 @@
       <h3>{{ listing.equipment_name }}</h3>
       <p>Owner: {{ listing.owner_name || 'Farmer' }}</p>
       <p>{{ listing.price | currency:'USD':'symbol':'1.0-2' }} / {{ listing.price_type }}</p>
+      <p>Total Units: {{ listing.quantity_total }}</p>
       <p>Distance: {{ (listing.distance_m || 0) / 1000 | number:'1.1-1' }} km</p>
       <p>Location: {{ listing.location_label || 'Unknown' }}</p>
 
       <div class="booking-panel">
+        <label>Units to Book</label>
+        <input
+          type="number"
+          [(ngModel)]="bookingQuantity"
+          min="1"
+          [max]="getAvailableUnits(listing) || 1"
+          (ngModelChange)="onQuantityChange(listing)">
+        <small class="muted" *ngIf="hasLiveAvailability(listing); else checkStockHint">
+          Available: {{ getAvailableUnits(listing) }} / {{ listing.quantity_total }} units
+        </small>
+        <ng-template #checkStockHint>
+          <small class="muted">Select booking from/to date and time to check live availability.</small>
+        </ng-template>
+
         <ng-container *ngIf="listing.price_type === 'hourly'; else dailyBooking">
-          <label>Start Date & Time</label>
-          <input type="datetime-local" [(ngModel)]="bookingStart" (change)="onTimeChange(listing)">
-          <label>End Date & Time</label>
-          <input type="datetime-local" [(ngModel)]="bookingEnd" (change)="onTimeChange(listing)">
+          <label>Booking From (Date & Time)</label>
+          <input type="datetime-local" [(ngModel)]="bookingStart" (ngModelChange)="onBookingInputChange(listing)">
+          <label>Booking To (Date & Time)</label>
+          <input type="datetime-local" [(ngModel)]="bookingEnd" (ngModelChange)="onBookingInputChange(listing)">
         </ng-container>
         <ng-template #dailyBooking>
-          <label>Start Date</label>
-          <input type="date" [(ngModel)]="bookingStartDate" (change)="onTimeChange(listing)">
-          <label>End Date</label>
-          <input type="date" [(ngModel)]="bookingEndDate" (change)="onTimeChange(listing)">
+          <label>Booking From (Date)</label>
+          <input type="date" [(ngModel)]="bookingStartDate" (ngModelChange)="onBookingInputChange(listing)">
+          <label>Booking From (Time)</label>
+          <input type="time" [(ngModel)]="bookingStartTime" (ngModelChange)="onBookingInputChange(listing)">
+          <label>Booking To (Date)</label>
+          <input type="date" [(ngModel)]="bookingEndDate" (ngModelChange)="onBookingInputChange(listing)">
+          <label>Booking To (Time)</label>
+          <input type="time" [(ngModel)]="bookingEndTime" (ngModelChange)="onBookingInputChange(listing)">
         </ng-template>
       </div>
+
+      <p *ngIf="selectedListingId === listing.id && getBookingValidationError(listing)" class="error">
+        {{ getBookingValidationError(listing) }}
+      </p>
+      <p *ngIf="selectedListingId === listing.id && (bookingQuantity < 1 || bookingQuantity > getAvailableUnits(listing))" class="error">
+        Select quantity between 1 and {{ getAvailableUnits(listing) }}.
+      </p>
 
       <p *ngIf="selectedListingId === listing.id && availability?.available" class="ok">Available</p>
       <p *ngIf="selectedListingId === listing.id && availability && !availability.available" class="error">
         Not Available ({{ availability.reason || 'Overlapping / Buffer' }})
+        <span *ngIf="availability.available_quantity != null"> - Remaining units: {{ availability.available_quantity }}</span>
       </p>
 
       <div class="booking-summary" *ngIf="selectedListingId === listing.id && getBookingSummary(listing) as summary">
@@ -73,21 +130,32 @@
         <p>Equipment: {{ listing.equipment_name }}</p>
         <p>Start: {{ summary.start | date:'medium' }}</p>
         <p>End: {{ summary.end | date:'medium' }}</p>
+        <p>Units: {{ bookingQuantity }}</p>
         <p>Duration: {{ summary.duration }}</p>
-        <p>Total Price: {{ summary.total | currency:'USD':'symbol':'1.0-2' }}</p>
+        <p>Rate: {{ summary.rateLabel }}</p>
+        <p>Billing: {{ summary.billingLine }}</p>
+        <p>Total Amount: {{ summary.total | currency:'USD':'symbol':'1.0-2' }}</p>
         <p>Owner: {{ listing.owner_name || 'Farmer' }}</p>
         <p>Location: {{ listing.location_label || 'Unknown' }}</p>
+        <p class="summary-note">Start time must be at least 30 minutes from now.</p>
         <p class="summary-note">1-hour buffer is automatically applied after booking.</p>
       </div>
 
       <div class="slot-strip" *ngIf="selectedListingId === listing.id && calendarSlots.length">
-        <p *ngIf="nextAvailableSlot" class="next-slot">Next available: {{ nextAvailableSlot }}</p>
-        <div class="slot-pill" *ngFor="let slot of calendarSlots" [class.booked]="slot.status === 'booked'" [class.buffer]="slot.status === 'buffer'" [class.available]="slot.status === 'available'">
-          {{ slot.start_datetime | date:'HH:mm' }}-{{ slot.end_datetime | date:'HH:mm' }} -> {{ slot.status | uppercase }}
+        <p *ngIf="nextAvailableSlot; else noFutureSlot" class="next-slot">Next available: {{ nextAvailableSlot }}</p>
+        <ng-template #noFutureSlot>
+          <p class="next-slot">No future slot available today</p>
+        </ng-template>
+        <div class="slot-pill" *ngFor="let slot of calendarSlots"
+          [class.past]="isPastSlot(slot)"
+          [class.booked]="!isPastSlot(slot) && slot.status === 'booked'"
+          [class.buffer]="!isPastSlot(slot) && slot.status === 'buffer'"
+          [class.available]="!isPastSlot(slot) && slot.status === 'available'">
+          {{ slot.start_datetime | date:'HH:mm' }}-{{ slot.end_datetime | date:'HH:mm' }} -> {{ getSlotDisplayStatus(slot) }}
         </div>
       </div>
 
-      <button class="btn btn-primary" (click)="bookNow(listing)">Book Now</button>
+      <button class="btn btn-primary" [disabled]="!canBook(listing)" (click)="bookNow(listing)">Book Now</button>
     </article>
   </div>
 

@@ -11,6 +11,7 @@ class CreateListingRequest(BaseModel):
     description: str | None = None
     price: float = Field(gt=0)
     price_type: str
+    quantity_total: int = Field(default=1, ge=1)
     latitude: float | None = None
     longitude: float | None = None
     block_id: UUID | None = None
@@ -32,6 +33,7 @@ class ListingResponse(BaseModel):
     description: str | None
     price: float
     price_type: str
+    quantity_total: int
     latitude: float | None
     longitude: float | None
     is_active: bool
@@ -50,6 +52,7 @@ class CheckAvailabilityRequest(BaseModel):
     listing_id: UUID
     start_datetime: datetime
     end_datetime: datetime
+    quantity_requested: int = Field(default=1, ge=1)
 
     @model_validator(mode="after")
     def validate_time_range(self) -> "CheckAvailabilityRequest":
@@ -63,12 +66,15 @@ class CheckAvailabilityResponse(BaseModel):
     available: bool
     conflict: bool
     reason: str | None = None
+    requested_quantity: int = 1
+    available_quantity: int | None = None
 
 
 class CreateBookingRequest(BaseModel):
     listing_id: UUID
     start_datetime: datetime
     end_datetime: datetime
+    quantity_requested: int = Field(default=1, ge=1)
 
     @model_validator(mode="after")
     def validate_time_range(self) -> "CreateBookingRequest":
@@ -86,6 +92,7 @@ class BookingResponse(BaseModel):
     owner_id: UUID
     start_datetime: datetime
     end_datetime: datetime
+    quantity_requested: int
     status: str
     total_price: float | None
     created_at: datetime

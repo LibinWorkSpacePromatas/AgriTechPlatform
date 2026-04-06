@@ -25,6 +25,7 @@ export interface RentalListing {
   description: string | null;
   price: number;
   price_type: RentalPriceType;
+  quantity_total: number;
   latitude: number | null;
   longitude: number | null;
   is_active: boolean;
@@ -40,6 +41,7 @@ export interface CreateListingPayload {
   description?: string | null;
   price: number;
   price_type: RentalPriceType;
+  quantity_total?: number;
   latitude?: number | null;
   longitude?: number | null;
   block_id?: string | null;
@@ -52,6 +54,7 @@ export interface RentalBooking {
   owner_id: string;
   start_datetime: string;
   end_datetime: string;
+  quantity_requested: number;
   status: BookingStatus;
   total_price: number | null;
   created_at: string;
@@ -65,6 +68,7 @@ export interface CheckAvailabilityPayload {
   listing_id: string;
   start_datetime: string;
   end_datetime: string;
+  quantity_requested?: number;
 }
 
 export interface CheckAvailabilityResponse {
@@ -72,12 +76,15 @@ export interface CheckAvailabilityResponse {
   available: boolean;
   conflict: boolean;
   reason?: string | null;
+  requested_quantity?: number;
+  available_quantity?: number | null;
 }
 
 export interface CreateBookingPayload {
   listing_id: string;
   start_datetime: string;
   end_datetime: string;
+  quantity_requested?: number;
 }
 
 export interface RentalRecommendationListing {
@@ -148,10 +155,13 @@ export class RentalService {
       .pipe(catchError(error => this.handleError('GET /api/rental/my-listings', error)));
   }
 
-  getListings(lat?: number, lon?: number, radiusKm?: number): Observable<RentalListing[]> {
+  getListings(lat?: number, lon?: number, radiusKm?: number, userId?: string): Observable<RentalListing[]> {
     let params = new HttpParams();
     if (lat != null && lon != null && radiusKm != null) {
       params = params.set('lat', lat).set('lon', lon).set('radius', radiusKm);
+    }
+    if (userId) {
+      params = params.set('user_id', userId);
     }
 
     return this.http

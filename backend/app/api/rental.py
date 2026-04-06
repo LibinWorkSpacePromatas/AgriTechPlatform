@@ -66,10 +66,17 @@ def get_listings(
     lat: float | None = Query(default=None),
     lon: float | None = Query(default=None),
     radius: float | None = Query(default=None, description="Radius in kilometers"),
+    user_id: UUID | None = Query(default=None, description="Current user ID (optional owner exclusion)"),
     db: Session = Depends(get_db),
 ):
     try:
-        return rental_service.get_listings(db, lat=lat, lon=lon, radius_km=radius)
+        return rental_service.get_listings(
+            db,
+            lat=lat,
+            lon=lon,
+            radius_km=radius,
+            exclude_owner_id=user_id,
+        )
     except RentalServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
     except SQLAlchemyError as exc:
@@ -101,12 +108,15 @@ def check_availability(payload: CheckAvailabilityRequest, db: Session = Depends(
             payload.listing_id,
             payload.start_datetime,
             payload.end_datetime,
+            quantity_requested=payload.quantity_requested,
         )
         return {
             "listing_id": payload.listing_id,
             "available": availability["available"],
             "conflict": not availability["available"],
             "reason": availability["reason"],
+            "requested_quantity": payload.quantity_requested,
+            "available_quantity": availability.get("available_quantity"),
         }
     except RentalServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
