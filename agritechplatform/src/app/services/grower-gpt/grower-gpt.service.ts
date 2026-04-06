@@ -59,6 +59,7 @@ Rules:
 - Explain reasoning clearly and provide actionable advice.
 - If data is missing, say it is missing.
 - Use sensor readings when answering sensor-related questions.
+- If irrigation is required and the farmer may not have equipment, suggest renting suitable equipment from the marketplace.
 `;
 
     const context = `
@@ -95,6 +96,21 @@ Water Needed (mm): ${satellite?.decision?.water_needed_mm ?? 'N/A'}
 Water Needed (liters): ${satellite?.decision?.water_needed_liters ?? 'N/A'}
 Decision Confidence: ${satellite?.decision?.confidence ?? 'N/A'}
 Decision Reason: ${satellite?.decision?.reason ?? 'N/A'}
+Rental Recommendations: ${satellite?.decision?.rental_recommendations?.join(', ') || 'N/A'}
+Rental Reason: ${satellite?.decision?.rental_reason ?? 'N/A'}
+Rental Weather Guardrail: ${satellite?.decision?.rental_weather_guardrail ?? 'N/A'}
+
+Irrigation Decision:
+${satellite?.decision?.irrigation ?? 'N/A'}
+
+Water Needed:
+${satellite?.decision?.water_needed_mm ?? 'N/A'} mm
+
+Soil Moisture:
+${satellite?.sensor_data?.soil_moisture ?? 'N/A'}
+
+Weather Forecast:
+Rain next 48h: ${satellite?.weather?.rain_next_48h ?? 'N/A'}
 
 WEATHER DATA:
 Average Temperature (last 24h): ${satellite?.weather?.temp_avg ?? 'N/A'}

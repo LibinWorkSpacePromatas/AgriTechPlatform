@@ -1,0 +1,27 @@
+<div class="overview">
+  <p *ngIf="loading">Loading dashboard...</p>
+  <p *ngIf="error" class="error">{{ error }}</p>
+
+  <div class="cards" *ngIf="!loading && !error">
+    <article class="card">
+      <h3>Total Listings</h3>
+      <p>{{ metrics.total_listings }}</p>
+    </article>
+    <article class="card">
+      <h3>Active Listings</h3>
+      <p>{{ metrics.active_listings }}</p>
+    </article>
+    <article class="card">
+      <h3>Bookings Given</h3>
+      <p>{{ metrics.bookings_given }}</p>
+    </article>
+    <article class="card">
+      <h3>Bookings Taken</h3>
+      <p>{{ metrics.bookings_taken }}</p>
+    </article>
+    <article class="card">
+      <h3>Revenue</h3>
+      <p>{{ metrics.revenue | currency:'USD':'symbol':'1.0-2' }}</p>
+    </article>
+  </div>
+</div>

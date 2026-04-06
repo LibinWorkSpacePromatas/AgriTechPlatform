@@ -4,6 +4,7 @@ export interface PrimarySoilType {
 }
 
 export interface UserBlock {
+    id?: string;
     lanslu: string;
     soilSubgroup: string;
     primarySoilClass: string;

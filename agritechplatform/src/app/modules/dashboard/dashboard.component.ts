@@ -46,6 +46,7 @@ import {
 } from '../../core/services/iot-sensors-api.service';
 import { SatelliteRefreshEvent, SatelliteRefreshEventsService } from '../../core/services/satellite-refresh-events.service';
 import { CropAdvisorService, FarmerAdvisory, FarmerAdvisoryTone, SensorData } from '../../core/services/crop-advisor.service';
+import { RentalRecommendationResponse, RentalService } from '../../services/rental/rental.service';
 
 interface DashboardBlock extends Omit<SharedBlock, 'location'> {
   crop: string;
@@ -178,6 +179,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   isIotSensorsLoading = false;
   iotSensorErrorMessage: string | null = null;
   farmerAdvisory: FarmerAdvisory | null = null;
+  rentalRecommendation: RentalRecommendationResponse | null = null;
 
   hoveredSensor: DashboardSensor | null = null;
   lockedSensor: DashboardSensor | null = null;
@@ -195,6 +197,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     private iotSensorsApiService: IotSensorsApiService,
     private cropAdvisorService: CropAdvisorService,
     private satelliteRefreshEventsService: SatelliteRefreshEventsService,
+    private rentalService: RentalService,
     @Inject(PLATFORM_ID) platformId: object
   ) {
     this.isBrowser = isPlatformBrowser(platformId);
@@ -751,6 +754,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
         this.refreshWeather();
         this.loadBlockInsights(this.currentBlock);
         this.loadIotSensors(this.currentBlock);
+        this.loadRentalRecommendation(this.currentBlock);
         this.queueNdviMapSync();
       });
 
@@ -978,6 +982,18 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
           this.rebuildFarmerAdvisory();
         }
       });
+  }
+
+  private loadRentalRecommendation(block: DashboardBlock): void {
+    this.rentalRecommendation = null;
+    this.rentalService.getRecommendations(block.lan || block.id).subscribe({
+      next: recommendation => {
+        this.rentalRecommendation = recommendation;
+      },
+      error: () => {
+        this.rentalRecommendation = null;
+      }
+    });
   }
 
   private mapIotSensors(response: BlockIotSensorsResponse): IotDashboardSensor[] {

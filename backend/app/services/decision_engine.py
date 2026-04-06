@@ -127,6 +127,17 @@ def trigger_block_decision(db: Session, block_id: UUID) -> dict[str, Any] | None
         # 2. Compute the decision
         decision = _compute_irrigation_decision(data, db)
 
+        # 2b. Compute rental recommendations from unified farm context.
+        try:
+            from app.services.rental_recommendation_service import get_block_recommendations
+
+            rental_recommendation = get_block_recommendations(db, block_id)
+            decision["rental_recommendations"] = rental_recommendation.get("recommendations", [])
+            decision["rental_reason"] = rental_recommendation.get("reason")
+            decision["rental_weather_guardrail"] = rental_recommendation.get("weather_guardrail")
+        except Exception as exc:
+            logger.warning("event=rental_recommendation_failed block_id=%s error=%s", block_id, exc)
+
         # 3. Save the decision
         _save_decision(db, block_id, decision)
 

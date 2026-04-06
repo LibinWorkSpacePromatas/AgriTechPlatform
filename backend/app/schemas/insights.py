@@ -73,6 +73,9 @@ class GrowerGPTDecision(BaseModel):
     water_needed_liters: float | int | None = None
     reason: str | None = None
     confidence: float | None = None
+    rental_recommendations: list[str] = Field(default_factory=list)
+    rental_reason: str | None = None
+    rental_weather_guardrail: str | None = None
 
 
 class GrowerGPTForecastPoint(BaseModel):

@@ -47,6 +47,19 @@
 
     <!-- OVERVIEW TAB CONTENT -->
     <div *ngIf="activeTab === 'overview'" class="fade-in">
+        <div class="advisor-section card-box rental-alert-card" *ngIf="rentalRecommendation as recommendation">
+            <div class="section-title warning-title">
+                <i-lucide [img]="AlertTriangleIcon" size="20" class="icon-orange"></i-lucide>
+                Smart Rental Alert
+            </div>
+            <p class="warning-text" *ngIf="recommendation.recommendations.includes('irrigation_pump')">
+                Your crop needs irrigation. Equipment is recommended for this block.
+            </p>
+            <p class="warning-text" *ngIf="!recommendation.recommendations.includes('irrigation_pump')">
+                {{ recommendation.reason }}
+            </p>
+        </div>
+
         <div class="iot-sensors-section card-box">
             <div class="iot-sensors-header">
                 <div class="iot-sensors-copy">

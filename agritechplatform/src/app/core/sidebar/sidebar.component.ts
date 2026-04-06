@@ -5,7 +5,7 @@ import { NAVIGATION_ITEMS, MOCK_USER } from '../../shared/constants';
 import { BlockSelectorComponent } from '../../shared/components/block-selector.component';
 import { Block } from '../../shared/models';
 import { BlockService } from '../../shared/services/block.service';
-import { LucideAngularModule, Leaf, LayoutDashboard, Droplet, TrendingUp, Sprout, MessageCircle, LogOut, X } from 'lucide-angular';
+import { LucideAngularModule, Leaf, LayoutDashboard, Droplet, TrendingUp, Sprout, MessageCircle, Tractor, LogOut, X } from 'lucide-angular';
 import { AuthService } from '../services/auth.service';
 
 @Component({
@@ -292,7 +292,8 @@ export class SidebarComponent {
     'droplet': Droplet,
     'trending-up': TrendingUp,
     'sprout': Sprout,
-    'message-circle': MessageCircle
+    'message-circle': MessageCircle,
+    'tractor': Tractor
   };
 
   getIcon(iconName: string): any {

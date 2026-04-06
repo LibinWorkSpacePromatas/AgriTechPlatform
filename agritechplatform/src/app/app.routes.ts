@@ -36,6 +36,10 @@ export const routes: Routes = [
                 path: 'grower-gpt',
                 loadComponent: () => import('./modules/grower-gpt/grower-gpt.component').then(m => m.GrowerGptComponent)
             },
+            {
+                path: 'rental',
+                loadComponent: () => import('./modules/rental/rental.component').then(m => m.RentalComponent)
+            },
         ]
     },
     {

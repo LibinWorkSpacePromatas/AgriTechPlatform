@@ -1,0 +1,213 @@
+.section {
+  padding: 1rem 0 0.6rem;
+}
+
+h2 {
+  margin-bottom: 0.85rem;
+  color: var(--gray-900);
+  font-size: clamp(1.35rem, 1.8vw, 1.75rem);
+}
+
+.recommendation-card {
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(3, 71, 68, 0.22);
+  background: linear-gradient(135deg, rgba(12, 91, 87, 0.08), rgba(31, 123, 74, 0.06));
+}
+
+.recommendation-card h3 {
+  margin: 0 0 0.35rem;
+}
+
+.recommendation-reason {
+  margin-bottom: 0.35rem;
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.recommendation-guardrail {
+  margin-bottom: 0.5rem;
+  color: #b45309;
+  font-weight: 600;
+}
+
+.recommendation-tag {
+  display: inline-block;
+  margin-right: 0.4rem;
+  margin-bottom: 0.35rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  background: #0f766e;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.recommendation-action {
+  margin-top: 0.35rem;
+  color: #0f766e;
+  font-weight: 700;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 0.9rem;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.filters input,
+.filters select,
+.filters label,
+.filters button {
+  grid-column: span 2;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.85rem;
+}
+
+.card {
+  padding: 1rem;
+  border: 1px solid rgba(3, 71, 68, 0.12);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  box-shadow: 0 10px 20px rgba(10, 30, 24, 0.06);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 26px rgba(10, 30, 24, 0.12);
+}
+
+.card h3 {
+  margin-bottom: 0.35rem;
+  color: var(--gray-900);
+}
+
+.card p {
+  margin-bottom: 0.35rem;
+  color: var(--gray-700);
+}
+
+.booking-panel {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0.7rem 0 0.75rem;
+  padding: 0.65rem;
+  border: 1px dashed rgba(3, 71, 68, 0.24);
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, var(--gray-50), #f7faf7);
+}
+
+.slot-strip {
+  margin-bottom: 0.65rem;
+  max-height: 190px;
+  overflow-y: auto;
+  border: 1px solid rgba(3, 71, 68, 0.12);
+  border-radius: var(--radius-md);
+  padding: 0.35rem;
+}
+
+.slot-pill {
+  padding: 0.22rem 0.4rem;
+  margin-bottom: 0.28rem;
+  border-radius: 7px;
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.slot-pill.booked {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.slot-pill.buffer {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.slot-pill.available {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.my-bookings-preview {
+  margin-top: 1rem;
+  padding: 0.8rem;
+  border: 1px solid rgba(3, 71, 68, 0.16);
+  border-radius: var(--radius-lg);
+  background: #f9fcfa;
+}
+
+.my-bookings-preview h3 {
+  margin-bottom: 0.45rem;
+}
+
+.preview-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.84rem;
+  padding: 0.2rem 0;
+}
+
+.booking-panel label {
+  font-size: 0.78rem;
+  color: var(--gray-600);
+  font-weight: 600;
+}
+
+input,
+select {
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: #1f7b4a;
+  box-shadow: 0 0 0 3px rgba(31, 123, 74, 0.15);
+}
+
+.error {
+  color: var(--status-high);
+  font-weight: 600;
+}
+
+.ok {
+  color: var(--status-normal);
+  font-weight: 600;
+}
+
+@media (max-width: 1200px) {
+  .filters input,
+  .filters select,
+  .filters label,
+  .filters button {
+    grid-column: span 4;
+  }
+}
+
+@media (max-width: 768px) {
+  .filters input,
+  .filters select,
+  .filters label,
+  .filters button {
+    grid-column: span 12;
+  }
+}

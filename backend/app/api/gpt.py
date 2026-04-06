@@ -303,6 +303,9 @@ def _get_latest_block_decision(db: Session, block_id: str) -> GrowerGPTDecision 
         water_needed_liters=payload.get("water_needed_liters"),
         reason=payload.get("reason"),
         confidence=payload.get("confidence"),
+        rental_recommendations=payload.get("rental_recommendations") or [],
+        rental_reason=payload.get("rental_reason"),
+        rental_weather_guardrail=payload.get("rental_weather_guardrail"),
     )
 
 

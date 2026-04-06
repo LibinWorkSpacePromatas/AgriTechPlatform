@@ -4016,6 +4016,11 @@
     background: #f8fafc;
 }
 
+.rental-alert-card {
+    border: 1px solid rgba(180, 83, 9, 0.28);
+    background: linear-gradient(135deg, rgba(255, 237, 213, 0.7), rgba(255, 251, 235, 0.85));
+}
+
 @media (max-width: 1180px) {
     .interpretation-hero-grid,
     .migration-summary-grid,

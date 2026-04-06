@@ -1,0 +1,131 @@
+.section {
+  padding: 1rem 0 0.7rem;
+}
+
+h2 {
+  margin-bottom: 0.85rem;
+  color: var(--gray-900);
+  font-size: clamp(1.35rem, 1.8vw, 1.75rem);
+}
+
+.form {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.05rem;
+  padding: 1rem;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.86), rgba(247, 247, 244, 0.95));
+  border: 1px solid rgba(3, 71, 68, 0.12);
+  border-radius: 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.field-name {
+  grid-column: span 3;
+}
+
+.field-price {
+  grid-column: span 2;
+}
+
+.field-type {
+  grid-column: span 2;
+}
+
+.field-description {
+  grid-column: span 10;
+}
+
+.field-submit {
+  grid-column: span 2;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 0.58rem 0.62rem;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #1f7b4a;
+  box-shadow: 0 0 0 3px rgba(31, 123, 74, 0.15);
+}
+
+.form .btn {
+  align-self: stretch;
+  min-height: 44px;
+  font-size: 1rem;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 0.95rem;
+}
+
+.card {
+  padding: 1rem 1rem 0.95rem;
+  border: 1px solid rgba(3, 71, 68, 0.12);
+  border-radius: 14px;
+  background: var(--white);
+  box-shadow: 0 10px 20px rgba(10, 30, 24, 0.06);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 26px rgba(10, 30, 24, 0.12);
+}
+
+.card h3 {
+  margin-bottom: 0.35rem;
+  color: var(--gray-900);
+}
+
+.card p {
+  color: var(--gray-700);
+  margin-bottom: 0.35rem;
+}
+
+.card .btn {
+  margin-top: 0.55rem;
+}
+
+.error {
+  color: var(--status-high);
+  margin-bottom: 0.55rem;
+  font-weight: 600;
+}
+
+.ok {
+  color: var(--status-normal);
+  margin-bottom: 0.55rem;
+  font-weight: 600;
+}
+
+.hint {
+  margin-bottom: 0.75rem;
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 1100px) {
+  .field-name,
+  .field-price,
+  .field-type {
+    grid-column: span 6;
+  }
+
+  .field-description,
+  .field-submit {
+    grid-column: span 12;
+  }
+}

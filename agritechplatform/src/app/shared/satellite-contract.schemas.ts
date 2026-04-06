@@ -158,7 +158,10 @@ export const growerGptBlockSummarySchema = satelliteContractSchema.extend({
     water_needed_mm: z.number().nullable().default(null),
     water_needed_liters: z.number().nullable().default(null),
     reason: z.string().nullable().default(null),
-    confidence: z.number().nullable().default(null)
+    confidence: z.number().nullable().default(null),
+    rental_recommendations: z.array(z.string()).default([]),
+    rental_reason: z.string().nullable().default(null),
+    rental_weather_guardrail: z.string().nullable().default(null)
   }).nullable().default(null),
   weather: z.object({
     temp_avg: z.number().nullable().default(null),

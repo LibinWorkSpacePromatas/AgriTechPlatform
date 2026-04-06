@@ -1,0 +1,26 @@
+<section class="rental-shell">
+  <h1>Rental Marketplace</h1>
+  <nav class="tabs">
+    <button class="tab-btn" [class.active]="activeTab === 'overview'" (click)="activeTab = 'overview'">Overview</button>
+    <button class="tab-btn" [class.active]="activeTab === 'my-listings'" (click)="activeTab = 'my-listings'">My Listings</button>
+    <button class="tab-btn" [class.active]="activeTab === 'rent-equipment'" (click)="activeTab = 'rent-equipment'">Rent Equipment</button>
+    <button class="tab-btn" [class.active]="activeTab === 'my-bookings'" (click)="activeTab = 'my-bookings'">My Bookings</button>
+    <button class="tab-btn" [class.active]="activeTab === 'requests'" (click)="activeTab = 'requests'">Requests</button>
+  </nav>
+
+  <section class="tab-content" *ngIf="activeTab === 'overview'">
+    <app-rental-dashboard></app-rental-dashboard>
+  </section>
+  <section class="tab-content" *ngIf="activeTab === 'my-listings'">
+    <app-my-listings></app-my-listings>
+  </section>
+  <section class="tab-content" *ngIf="activeTab === 'rent-equipment'">
+    <app-rent-equipment></app-rent-equipment>
+  </section>
+  <section class="tab-content" *ngIf="activeTab === 'my-bookings'">
+    <app-my-bookings></app-my-bookings>
+  </section>
+  <section class="tab-content" *ngIf="activeTab === 'requests'">
+    <app-requests></app-requests>
+  </section>
+</section>

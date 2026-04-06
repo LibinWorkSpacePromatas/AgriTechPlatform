@@ -132,6 +132,7 @@ def ensure_satellite_support_tables() -> None:
             SatelliteTimeseries.__table__,
         ],
     )
+    ensure_equipment_marketplace_tables()
     _ensure_satellite_timeseries_schema()
     ensure_blocks_timezone_column()
     _ensure_sensor_support_tables()
@@ -140,6 +141,140 @@ def ensure_satellite_support_tables() -> None:
     ensure_soil_reference_table()
     ensure_unified_farm_state_view()
     ensure_weather_timeseries_tables()
+
+
+def ensure_equipment_marketplace_tables() -> None:
+    with engine.begin() as connection:
+        connection.execute(text("CREATE EXTENSION IF NOT EXISTS pgcrypto"))
+        connection.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS equipment_listings (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    block_id UUID REFERENCES blocks(id) ON DELETE SET NULL,
+                    equipment_name TEXT NOT NULL,
+                    description TEXT,
+                    price DOUBLE PRECISION NOT NULL,
+                    price_type VARCHAR(10) NOT NULL CHECK (price_type IN ('hourly', 'daily')),
+                    latitude DOUBLE PRECISION,
+                    longitude DOUBLE PRECISION,
+                    is_active BOOLEAN DEFAULT true,
+                    created_at TIMESTAMPTZ DEFAULT now()
+                )
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS equipment_bookings (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    listing_id UUID NOT NULL REFERENCES equipment_listings(id) ON DELETE CASCADE,
+                    renter_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    start_datetime TIMESTAMPTZ NOT NULL,
+                    end_datetime TIMESTAMPTZ NOT NULL,
+                    status VARCHAR(20) NOT NULL CHECK (
+                        status IN ('pending', 'approved', 'rejected', 'completed')
+                    ),
+                    total_price DOUBLE PRECISION,
+                    created_at TIMESTAMPTZ DEFAULT now(),
+                    CONSTRAINT ck_equipment_bookings_time_range CHECK (end_datetime > start_datetime)
+                )
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS equipment_payments (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    booking_id UUID NOT NULL REFERENCES equipment_bookings(id) ON DELETE CASCADE,
+                    amount DOUBLE PRECISION NOT NULL,
+                    status VARCHAR(20) DEFAULT 'pending' CHECK (
+                        status IN ('pending', 'paid')
+                    ),
+                    created_at TIMESTAMPTZ DEFAULT now()
+                )
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_equipment_listings_owner_id
+                ON equipment_listings (owner_id)
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_equipment_listings_block_id
+                ON equipment_listings (block_id)
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_equipment_bookings_listing_status_time
+                ON equipment_bookings (listing_id, status, start_datetime, end_datetime)
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_equipment_bookings_renter_id
+                ON equipment_bookings (renter_id)
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_equipment_bookings_owner_id
+                ON equipment_bookings (owner_id)
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS ix_equipment_payments_booking_id
+                ON equipment_payments (booking_id)
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE OR REPLACE FUNCTION equipment_booking_conflict_exists(
+                    p_listing_id UUID,
+                    p_start TIMESTAMPTZ,
+                    p_end TIMESTAMPTZ
+                )
+                RETURNS BOOLEAN
+                LANGUAGE sql
+                STABLE
+                AS $$
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM equipment_bookings
+                        WHERE listing_id = p_listing_id
+                          AND status IN ('pending', 'approved')
+                          AND (
+                              p_start < (end_datetime + interval '1 hour')
+                              AND p_end > start_datetime
+                          )
+                        LIMIT 1
+                    );
+                $$;
+                """
+            )
+        )
 
 
 def ensure_crop_config_table() -> None:

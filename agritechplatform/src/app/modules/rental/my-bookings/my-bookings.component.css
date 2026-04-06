@@ -1,0 +1,84 @@
+.section {
+  padding: 1rem 0 0.6rem;
+}
+
+h2 {
+  margin-bottom: 0.75rem;
+  color: var(--gray-900);
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.day-cell {
+  padding: 0.65rem 0.5rem;
+  border-radius: var(--radius-sm);
+  text-align: center;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  font-size: 0.8rem;
+  color: var(--gray-700);
+}
+
+.booked {
+  background: linear-gradient(135deg, #26734d 0%, #2f855a 100%);
+  border-color: #26734d;
+  color: #fff;
+}
+
+.buffer {
+  box-shadow: inset 0 0 0 2px #f87171;
+}
+
+.cards {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.card {
+  padding: 0.95rem;
+  border: 1px solid rgba(3, 71, 68, 0.12);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  box-shadow: 0 10px 20px rgba(10, 30, 24, 0.06);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 26px rgba(10, 30, 24, 0.12);
+}
+
+.card h3 {
+  margin-bottom: 0.3rem;
+}
+
+.card p {
+  margin-bottom: 0.28rem;
+  color: var(--gray-700);
+}
+
+.error {
+  color: var(--status-high);
+  font-weight: 600;
+}
+
+.status-pending {
+  color: #a16207;
+}
+
+.status-approved {
+  color: #1d4ed8;
+}
+
+.status-rejected {
+  color: #b91c1c;
+}
+
+.status-completed {
+  color: #15803d;
+}

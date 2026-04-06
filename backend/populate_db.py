@@ -1,16 +1,24 @@
 import psycopg2
 from uuid import UUID
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 def populate():
     try:
-        conn = psycopg2.connect('postgresql://postgres:1234@localhost:5432/postgres')
+        db_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/agritech")
+        conn = psycopg2.connect(db_url)
         cur = conn.cursor()
 
         users = [
             ('22222222-1111-1111-1111-111111111111', 'Sarah Thompson', 'Barossa Valley', 'THE BAROSSA COUNCIL', 'Barossa Estate', 'Tanunda, SA', 'Grenache', 'Clay'),
             ('33333333-1111-1111-1111-111111111111', 'Michael Chen', 'McLaren Vale', 'CITY OF ONKAPARINGA', 'McLaren Vineyards', 'Willunga, SA', 'Cabernet Sauvignon', 'Sandy'),
             ('44444444-1111-1111-1111-111111111111', 'Emma Williams', 'Riverland', 'MID MURRAY COUNCIL', 'Sunridge Estate', 'Waikerie, SA', 'Chardonnay', 'Loamy'),
-            ('55555555-1111-1111-1111-111111111111', 'David Anderson', 'Barossa Valley', 'THE BAROSSA COUNCIL', 'Heritage Wines', 'Nuriootpa, SA', 'Riesling', 'Silty')
+            ('55555555-1111-1111-1111-111111111111', 'David Anderson', 'Barossa Valley', 'THE BAROSSA COUNCIL', 'Heritage Wines', 'Nuriootpa, SA', 'Riesling', 'Silty'),
+            ('66666666-2222-2222-2222-222222222222', 'Olivia Parker', 'Clare Valley', 'CLARE AND GILBERT VALLEYS COUNCIL', 'Valley Crest Farm', 'Clare, SA', 'Shiraz', 'Loam')
         ]
 
         for u in users:
@@ -32,7 +40,10 @@ def populate():
             ('bbbbbbbb-1111-1111-1111-111111111111', '44444444-1111-1111-1111-111111111111', 'EUVJLp', 'D4', 'D4', 'Gradational clay loam', 10, 'Pinot Grigio'),
             # Blocks for David Anderson
             ('cccccccc-1111-1111-1111-111111111111', '55555555-1111-1111-1111-111111111111', 'BCPKFI', 'A4', 'A4', 'Silty loam over clay', 7, 'Riesling'),
-            ('dddddddd-1111-1111-1111-111111111111', '55555555-1111-1111-1111-111111111111', 'EUVKFB', 'A6', 'A6', 'Fine sandy loam', 8, 'Semillon')
+            ('dddddddd-1111-1111-1111-111111111111', '55555555-1111-1111-1111-111111111111', 'EUVKFB', 'A6', 'A6', 'Fine sandy loam', 8, 'Semillon'),
+            # Blocks for Olivia Parker
+            ('eeeeeeee-2222-2222-2222-222222222222', '66666666-2222-2222-2222-222222222222', 'CLARE1', 'D4', 'D4', 'Red-brown earth with loamy topsoil', 11, 'Shiraz'),
+            ('ffffffff-2222-2222-2222-222222222222', '66666666-2222-2222-2222-222222222222', 'CLARE2', 'A6', 'A6', 'Sandy loam with good drainage', 6, 'Cabernet Sauvignon')
         ]
 
         for b in blocks:

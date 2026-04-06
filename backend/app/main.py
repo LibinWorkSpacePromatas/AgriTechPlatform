@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
-from app.api import gpt, profit_risk, water
+from app.api import gpt, profit_risk, rental, water
 from app.core.config import get_settings
 from app.db.bootstrap import ensure_satellite_support_tables
 from app.services.profit_risk import get_profit_risk_service
@@ -58,3 +58,4 @@ app.include_router(router)
 app.include_router(gpt.router, prefix="/api")
 app.include_router(profit_risk.router, prefix="/api")
 app.include_router(water.router, prefix="/api/water")
+app.include_router(rental.router, prefix="/api/rental")
