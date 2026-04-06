@@ -9,8 +9,11 @@ export type BookingStatus = 'pending' | 'approved' | 'rejected' | 'completed';
 export interface RentalDashboardResponse {
   total_listings: number;
   active_listings: number;
+  inactive_listings: number;
   bookings_given: number;
   bookings_taken: number;
+  pending_requests: number;
+  upcoming_bookings: number;
   revenue: number;
 }
 
@@ -27,6 +30,9 @@ export interface RentalListing {
   is_active: boolean;
   created_at: string;
   distance_m?: number | null;
+  owner_name?: string | null;
+  location_label?: string | null;
+  bookings_count?: number | null;
 }
 
 export interface CreateListingPayload {
@@ -51,6 +57,8 @@ export interface RentalBooking {
   created_at: string;
   equipment_name?: string;
   listing_is_active?: boolean;
+  owner_name?: string;
+  renter_name?: string;
 }
 
 export interface CheckAvailabilityPayload {
@@ -63,6 +71,7 @@ export interface CheckAvailabilityResponse {
   listing_id: string;
   available: boolean;
   conflict: boolean;
+  reason?: string | null;
 }
 
 export interface CreateBookingPayload {

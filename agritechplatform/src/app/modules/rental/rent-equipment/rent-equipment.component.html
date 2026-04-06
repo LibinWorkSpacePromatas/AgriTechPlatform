@@ -24,7 +24,7 @@
       (keyup.enter)="applyMachineSearch()"
       placeholder="Search machine (e.g., pump, tractor)">
     <label>Distance (km): {{ radiusKm }}</label>
-    <input type="range" min="1" max="100" [(ngModel)]="radiusKm">
+    <input type="range" min="5" max="50" [(ngModel)]="radiusKm">
     <input type="number" [(ngModel)]="minPrice" placeholder="Min price">
     <input type="number" [(ngModel)]="maxPrice" placeholder="Max price">
     <select [(ngModel)]="typeFilter">
@@ -43,20 +43,45 @@
   <div class="cards">
     <article class="card" *ngFor="let listing of filteredListings">
       <h3>{{ listing.equipment_name }}</h3>
+      <p>Owner: {{ listing.owner_name || 'Farmer' }}</p>
       <p>{{ listing.price | currency:'USD':'symbol':'1.0-2' }} / {{ listing.price_type }}</p>
       <p>Distance: {{ (listing.distance_m || 0) / 1000 | number:'1.1-1' }} km</p>
+      <p>Location: {{ listing.location_label || 'Unknown' }}</p>
 
       <div class="booking-panel">
-        <label>Start</label>
-        <input type="datetime-local" [(ngModel)]="bookingStart" (change)="onTimeChange(listing.id)">
-        <label>End</label>
-        <input type="datetime-local" [(ngModel)]="bookingEnd" (change)="onTimeChange(listing.id)">
+        <ng-container *ngIf="listing.price_type === 'hourly'; else dailyBooking">
+          <label>Start Date & Time</label>
+          <input type="datetime-local" [(ngModel)]="bookingStart" (change)="onTimeChange(listing)">
+          <label>End Date & Time</label>
+          <input type="datetime-local" [(ngModel)]="bookingEnd" (change)="onTimeChange(listing)">
+        </ng-container>
+        <ng-template #dailyBooking>
+          <label>Start Date</label>
+          <input type="date" [(ngModel)]="bookingStartDate" (change)="onTimeChange(listing)">
+          <label>End Date</label>
+          <input type="date" [(ngModel)]="bookingEndDate" (change)="onTimeChange(listing)">
+        </ng-template>
       </div>
 
       <p *ngIf="selectedListingId === listing.id && availability?.available" class="ok">Available</p>
-      <p *ngIf="selectedListingId === listing.id && availability && !availability.available" class="error">Not Available (Overlapping / Buffer)</p>
+      <p *ngIf="selectedListingId === listing.id && availability && !availability.available" class="error">
+        Not Available ({{ availability.reason || 'Overlapping / Buffer' }})
+      </p>
+
+      <div class="booking-summary" *ngIf="selectedListingId === listing.id && getBookingSummary(listing) as summary">
+        <h4>Booking Summary</h4>
+        <p>Equipment: {{ listing.equipment_name }}</p>
+        <p>Start: {{ summary.start | date:'medium' }}</p>
+        <p>End: {{ summary.end | date:'medium' }}</p>
+        <p>Duration: {{ summary.duration }}</p>
+        <p>Total Price: {{ summary.total | currency:'USD':'symbol':'1.0-2' }}</p>
+        <p>Owner: {{ listing.owner_name || 'Farmer' }}</p>
+        <p>Location: {{ listing.location_label || 'Unknown' }}</p>
+        <p class="summary-note">1-hour buffer is automatically applied after booking.</p>
+      </div>
 
       <div class="slot-strip" *ngIf="selectedListingId === listing.id && calendarSlots.length">
+        <p *ngIf="nextAvailableSlot" class="next-slot">Next available: {{ nextAvailableSlot }}</p>
         <div class="slot-pill" *ngFor="let slot of calendarSlots" [class.booked]="slot.status === 'booked'" [class.buffer]="slot.status === 'buffer'" [class.available]="slot.status === 'available'">
           {{ slot.start_datetime | date:'HH:mm' }}-{{ slot.end_datetime | date:'HH:mm' }} -> {{ slot.status | uppercase }}
         </div>

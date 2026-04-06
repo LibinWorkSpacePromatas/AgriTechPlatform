@@ -96,13 +96,18 @@ def toggle_listing(
 @router.post("/check-availability", response_model=CheckAvailabilityResponse)
 def check_availability(payload: CheckAvailabilityRequest, db: Session = Depends(get_db)):
     try:
-        available = rental_service.check_availability(
+        availability = rental_service.check_availability_with_reason(
             db,
             payload.listing_id,
             payload.start_datetime,
             payload.end_datetime,
         )
-        return {"listing_id": payload.listing_id, "available": available, "conflict": not available}
+        return {
+            "listing_id": payload.listing_id,
+            "available": availability["available"],
+            "conflict": not availability["available"],
+            "reason": availability["reason"],
+        }
     except RentalServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
     except SQLAlchemyError as exc:

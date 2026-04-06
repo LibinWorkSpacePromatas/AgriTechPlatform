@@ -14,8 +14,11 @@ export class RentalDashboardComponent implements OnInit {
   metrics: RentalDashboardResponse = {
     total_listings: 0,
     active_listings: 0,
+    inactive_listings: 0,
     bookings_given: 0,
     bookings_taken: 0,
+    pending_requests: 0,
+    upcoming_bookings: 0,
     revenue: 0,
   };
   error: string | null = null;

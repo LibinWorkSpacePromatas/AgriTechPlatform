@@ -6,6 +6,7 @@
   <div class="cards">
     <article class="card" *ngFor="let booking of requests">
       <h3>{{ booking.equipment_name || booking.listing_id }}</h3>
+      <p>Renter: {{ booking.renter_name || booking.renter_id }}</p>
       <p>{{ booking.start_datetime | date:'short' }} - {{ booking.end_datetime | date:'short' }}</p>
       <p>Status: <strong [ngClass]="getStatusClass(booking.status)">{{ booking.status }}</strong></p>
       <div class="actions" *ngIf="booking.status === 'pending'">

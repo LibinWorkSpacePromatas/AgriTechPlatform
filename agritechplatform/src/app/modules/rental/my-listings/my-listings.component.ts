@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
 import { BlockService } from '../../../shared/services/block.service';
-import { CreateListingPayload, RentalListing, RentalPriceType, RentalService } from '../../../services/rental/rental.service';
+import { CreateListingPayload, RentalCalendarSlot, RentalListing, RentalPriceType, RentalService } from '../../../services/rental/rental.service';
 
 @Component({
   selector: 'app-my-listings',
@@ -18,6 +18,10 @@ export class MyListingsComponent implements OnInit {
   error: string | null = null;
   createError: string | null = null;
   createSuccess: string | null = null;
+  selectedCalendarListingId: string | null = null;
+  calendarDate = new Date().toISOString().slice(0, 10);
+  calendarSlots: RentalCalendarSlot[] = [];
+  nextAvailableSlot: string | null = null;
 
   form: CreateListingPayload = {
     equipment_name: '',
@@ -116,6 +120,22 @@ export class MyListingsComponent implements OnInit {
         listing.is_active = updated.is_active;
       },
       error: err => this.error = err.message || 'Toggle failed',
+    });
+  }
+
+  viewCalendar(listing: RentalListing): void {
+    this.selectedCalendarListingId = listing.id;
+    this.rentalService.getListingCalendar(listing.id, this.calendarDate).subscribe({
+      next: response => {
+        this.calendarSlots = response.slots;
+        const nextSlot = response.slots.find(slot => slot.status === 'available');
+        this.nextAvailableSlot = nextSlot ? `${new Date(nextSlot.start_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : null;
+      },
+      error: err => {
+        this.error = err.message || 'Unable to load calendar';
+        this.calendarSlots = [];
+        this.nextAvailableSlot = null;
+      },
     });
   }
 }

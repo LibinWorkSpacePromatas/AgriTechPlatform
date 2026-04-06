@@ -118,6 +118,35 @@ h2 {
   padding: 0.35rem;
 }
 
+.booking-summary {
+  border: 1px solid rgba(3, 71, 68, 0.12);
+  border-radius: var(--radius-md);
+  padding: 0.55rem 0.65rem;
+  margin-bottom: 0.65rem;
+  background: #f8fbf9;
+}
+
+.booking-summary h4 {
+  margin-bottom: 0.35rem;
+}
+
+.booking-summary p {
+  margin-bottom: 0.2rem;
+  font-size: 0.82rem;
+}
+
+.summary-note {
+  color: #0f766e;
+  font-weight: 600;
+}
+
+.next-slot {
+  margin-bottom: 0.35rem;
+  color: #166534;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
 .slot-pill {
   padding: 0.22rem 0.4rem;
   margin-bottom: 0.28rem;

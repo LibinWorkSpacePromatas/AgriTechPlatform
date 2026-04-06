@@ -37,6 +37,9 @@ class ListingResponse(BaseModel):
     is_active: bool
     created_at: datetime
     distance_m: float | None = None
+    owner_name: str | None = None
+    location_label: str | None = None
+    bookings_count: int | None = None
 
 
 class ToggleListingResponse(BaseModel):
@@ -59,6 +62,7 @@ class CheckAvailabilityResponse(BaseModel):
     listing_id: UUID
     available: bool
     conflict: bool
+    reason: str | None = None
 
 
 class CreateBookingRequest(BaseModel):
@@ -100,6 +104,8 @@ class BookingPaymentResponse(BaseModel):
 class BookingListItem(BookingResponse):
     equipment_name: str
     listing_is_active: bool
+    owner_name: str | None = None
+    renter_name: str | None = None
 
 
 class ListingListItem(ListingResponse):

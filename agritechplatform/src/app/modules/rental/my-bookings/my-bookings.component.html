@@ -17,6 +17,7 @@
   <div class="cards">
     <article class="card" *ngFor="let booking of bookings">
       <h3>{{ booking.equipment_name || booking.listing_id }}</h3>
+      <p>Owner: {{ booking.owner_name || booking.owner_id }}</p>
       <p>{{ booking.start_datetime | date:'medium' }} - {{ booking.end_datetime | date:'medium' }}</p>
       <p>Status: <strong [ngClass]="getStatusClass(booking.status)">{{ booking.status }}</strong></p>
       <p>Total: {{ booking.total_price || 0 | currency:'USD':'symbol':'1.0-2' }}</p>

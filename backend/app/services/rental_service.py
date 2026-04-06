@@ -24,8 +24,11 @@ def get_dashboard(db: Session, user_id: UUID) -> dict:
         return {
             "total_listings": 0,
             "active_listings": 0,
+            "inactive_listings": 0,
             "bookings_given": 0,
             "bookings_taken": 0,
+            "pending_requests": 0,
+            "upcoming_bookings": 0,
             "revenue": 0,
         }
     return dict(row)
@@ -147,23 +150,46 @@ def check_availability(
     *,
     exclude_booking_id: UUID | None = None,
 ) -> bool:
+    result = check_availability_with_reason(
+        db,
+        listing_id,
+        start,
+        end,
+        exclude_booking_id=exclude_booking_id,
+    )
+    return bool(result["available"])
+
+
+def check_availability_with_reason(
+    db: Session,
+    listing_id: UUID,
+    start: datetime,
+    end: datetime,
+    *,
+    exclude_booking_id: UUID | None = None,
+) -> dict:
     if start >= end:
         raise RentalServiceError("start_datetime must be earlier than end_datetime", status_code=400)
 
     listing = _get_listing_or_404(db, listing_id)
     if not listing.get("is_active", False):
-        return False
+        return {"available": False, "reason": "Listing is inactive"}
 
-    conflict = db.execute(
-        queries.BOOKING_CONFLICT_SQL,
+    detail = db.execute(
+        queries.BOOKING_CONFLICT_DETAIL_SQL,
         {
             "listing_id": str(listing_id),
             "start_datetime": start,
             "end_datetime": end,
             "exclude_booking_id": str(exclude_booking_id) if exclude_booking_id else None,
         },
-    ).first()
-    return conflict is None
+    ).mappings().first()
+    reason = detail["conflict_reason"] if detail else None
+    if reason == "overlap":
+        return {"available": False, "reason": "Overlapping booking"}
+    if reason == "buffer":
+        return {"available": False, "reason": "Buffer period conflict"}
+    return {"available": True, "reason": None}
 
 
 def create_booking(db: Session, user_id: UUID, payload: CreateBookingRequest) -> dict:
