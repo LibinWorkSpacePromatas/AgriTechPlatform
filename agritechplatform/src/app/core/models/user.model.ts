@@ -4,12 +4,13 @@ export interface PrimarySoilType {
 }
 
 export interface UserBlock {
+    id?: string;
     lanslu: string;
     soilSubgroup: string;
     primarySoilClass: string;
     description: string;
     crop?: string;
-    area: number; // in hectares
+    area: number;
     latitude: number;
     longitude: number;
     polygon?: {

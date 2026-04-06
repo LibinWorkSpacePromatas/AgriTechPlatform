@@ -8,6 +8,10 @@ export interface IrrigationStatus {
   status: 'Well-watered' | 'Mild stress' | 'Moderate stress' | 'Severe stress' | 'No data';
   ndwi: number | null;
   recommendation: string;
+  urgency?: 'HIGH' | 'MEDIUM' | 'LOW';
+  waterNeeded?: number;
+  waterNeededLiters?: number;
+  confidence?: number;
   date: string | null;
   dataQuality: 'good' | 'degraded' | 'no_data';
   blockId: string;
@@ -38,6 +42,15 @@ export class WaterIrrigationService {
 
   refreshData(blockId: string, refresh: boolean = false): Observable<IrrigationStatus> {
     return this.getIrrigationStatus(blockId, refresh);
+  }
+
+  getDecision(blockId: string): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/api/blocks/${blockId}/decision`).pipe(
+      catchError(error => {
+        console.error('WaterIrrigationService decision error:', error);
+        return of(null);
+      })
+    );
   }
 
   private mapResponse(data: WaterMinimalResponseContract): IrrigationStatus {

@@ -28,6 +28,9 @@ export interface WeatherData {
         time: string[];
         temperature_2m_max: number[];
         temperature_2m_min: number[];
+        precipitation_sum: number[];
+        precipitation_probability_max: number[];
+        weather_code: number[];
     };
 }
 
@@ -51,10 +54,10 @@ export class WeatherService {
             `longitude=${longitude}`,
             'current=temperature_2m,apparent_temperature,is_day,rain,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m,cloud_cover',
             'hourly=temperature_2m,apparent_temperature,relative_humidity_2m,rain,cloud_cover,wind_speed_10m',
-            'daily=temperature_2m_max,temperature_2m_min',
+            'daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code',
             'timezone=auto',
             'past_days=7',
-            'forecast_days=1'
+            'forecast_days=7'
         ].join('&');
 
         const fullUrl = `${this.API_URL}?${params}`;
@@ -86,7 +89,10 @@ export class WeatherService {
                 daily: {
                     time: response.daily.time,
                     temperature_2m_max: response.daily.temperature_2m_max,
-                    temperature_2m_min: response.daily.temperature_2m_min
+                    temperature_2m_min: response.daily.temperature_2m_min,
+                    precipitation_sum: response.daily.precipitation_sum,
+                    precipitation_probability_max: response.daily.precipitation_probability_max,
+                    weather_code: response.daily.weather_code
                 }
             }))
         );

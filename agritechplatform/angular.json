@@ -22,7 +22,12 @@
                         "tsConfig": "tsconfig.json",
                         "assets": [
                             "src/favicon.ico",
-                            "src/assets"
+                            "src/assets",
+                            {
+                                "glob": "_redirects",
+                                "input": "src",
+                                "output": "/"
+                            }
                         ],
                         "styles": [
                             "node_modules/leaflet/dist/leaflet.css",
@@ -33,16 +38,22 @@
                     },
                     "configurations": {
                         "production": {
+                            "fileReplacements": [
+                                {
+                                    "replace": "src/environments/environment.ts",
+                                    "with": "src/environments/environment.prod.ts"
+                                }
+                            ],
                             "budgets": [
                                 {
                                     "type": "initial",
-                                    "maximumWarning": "2mb",
-                                    "maximumError": "4mb"
+                                    "maximumWarning": "4MB",
+                                    "maximumError": "8MB"
                                 },
                                 {
                                     "type": "anyComponentStyle",
-                                    "maximumWarning": "20kb",
-                                    "maximumError": "40kb"
+                                    "maximumWarning": "100kB",
+                                    "maximumError": "150kB"
                                 }
                             ],
                             "outputHashing": "all"

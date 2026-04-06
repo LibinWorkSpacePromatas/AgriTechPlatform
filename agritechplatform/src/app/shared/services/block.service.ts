@@ -92,7 +92,7 @@ export class BlockService {
       const blockNumber = index + 1;
 
       return {
-        id: block.lanslu,
+        id: block.id || block.lanslu,
         name: `BLOCK ${blockNumber} - ${block.crop || user.primaryCropName}`,
         location: this.getBlockLocation(user.farmLocation, block.latitude, block.longitude),
         coordinates: block.latitude && block.longitude ? `${Math.abs(block.latitude).toFixed(4)}°S, ${Math.abs(block.longitude).toFixed(4)}°E` : '',

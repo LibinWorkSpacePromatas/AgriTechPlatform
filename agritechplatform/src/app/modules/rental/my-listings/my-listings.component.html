@@ -1,0 +1,43 @@
+<section class="section">
+  <h2>My Listings</h2>
+  <p *ngIf="error" class="error">{{ error }}</p>
+
+  <form class="form" (ngSubmit)="createListing()">
+    <input class="field field-name" [(ngModel)]="form.equipment_name" name="equipment_name" placeholder="Equipment name" required>
+    <input class="field field-price" [(ngModel)]="form.price" name="price" type="number" min="1" placeholder="Price" required>
+    <select class="field field-type" [(ngModel)]="form.price_type" name="price_type">
+      <option *ngFor="let type of priceTypes" [value]="type">{{ type }}</option>
+    </select>
+    <textarea class="field field-description" [(ngModel)]="form.description" name="description" rows="2" placeholder="Description"></textarea>
+    <button type="submit" class="btn btn-primary field-submit">Create Listing</button>
+  </form>
+  <p class="hint">Location is auto-filled from the selected block.</p>
+
+  <p *ngIf="createError" class="error">{{ createError }}</p>
+  <p *ngIf="createSuccess" class="ok">{{ createSuccess }}</p>
+  <p *ngIf="loading">Loading listings...</p>
+
+  <div class="cards">
+    <article class="card" *ngFor="let listing of listings">
+      <h3>{{ listing.equipment_name }}</h3>
+      <p>{{ listing.price | currency:'USD':'symbol':'1.0-2' }} / {{ listing.price_type }}</p>
+      <p>Location: {{ listing.location_label || 'Unknown' }}</p>
+      <p>Bookings: {{ listing.bookings_count || 0 }}</p>
+      <p>Status: <strong>{{ listing.is_active ? 'Active' : 'Inactive' }}</strong></p>
+      <button class="btn btn-outline" (click)="toggleListing(listing)">
+        {{ listing.is_active ? 'Deactivate' : 'Activate' }}
+      </button>
+      <button class="btn btn-secondary" (click)="viewCalendar(listing)">View Calendar</button>
+    </article>
+  </div>
+
+  <div class="calendar-box" *ngIf="selectedCalendarListingId && calendarSlots.length">
+    <h3>Farmer Calendar View</h3>
+    <p *ngIf="nextAvailableSlot">Next available: {{ nextAvailableSlot }}</p>
+    <div class="slot-grid">
+      <div class="slot-item" *ngFor="let slot of calendarSlots" [class.booked]="slot.status === 'booked'" [class.buffer]="slot.status === 'buffer'" [class.available]="slot.status === 'available'">
+        {{ slot.start_datetime | date:'HH:mm' }}-{{ slot.end_datetime | date:'HH:mm' }} {{ slot.status | uppercase }}
+      </div>
+    </div>
+  </div>
+</section>

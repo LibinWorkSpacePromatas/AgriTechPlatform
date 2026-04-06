@@ -16,6 +16,18 @@
     </div>
   </div>
 
+  <div class="recommended-chips quick-actions-panel" *ngIf="chatHistory.length <= 1 && !hasUserMessages()">
+    <div class="chips-head">
+      <div class="chips-label">Quick Actions</div>
+      <span class="chips-hint">Tap a question to get instant guidance</span>
+    </div>
+    <div class="chips-grid">
+      <button *ngFor="let q of recommendedQuestions" (click)="sendMessage(q)" class="chip">
+        {{ q }}
+      </button>
+    </div>
+  </div>
+
   <div class="gpt-layout">
     <div class="chat-main">
       <div class="chat-container" #chatContainer>
@@ -24,14 +36,7 @@
             <span class="status-dot"></span>
             AI Agronomist Online
           </div>
-          <h3>Block Analysis: {{ blockService.getSelectedBlock().name }}</h3>
-        </div>
-
-        <div class="recommended-chips" *ngIf="chatHistory.length <= 1">
-          <div class="chips-label">Quick Actions:</div>
-          <button *ngFor="let q of recommendedQuestions" (click)="sendMessage(q)" class="chip">
-            {{ q }}
-          </button>
+          <h3>Block Analysis: {{ getSelectedBlockName() }}<span *ngIf="getSelectedBlockCrop()"> - {{ getSelectedBlockCrop() }}</span></h3>
         </div>
 
         <div class="messages-viewport">
@@ -76,53 +81,95 @@
         <i-lucide [img]="SparklesIcon" class="badge-icon"></i-lucide>
         <span>Satellite Context</span>
       </div>
+
       <div class="insight-list" *ngIf="blockSummary; else noLiveInsights">
-        <div class="insight-item">
-          <div class="insight-icon info">
-            <i-lucide [img]="SparklesIcon" class="icon-sm"></i-lucide>
-          </div>
-          <div class="insight-content">
-            <h4>Satellite Summary</h4>
-            <p>{{ blockSummary.message || 'No summary available yet.' }}</p>
-          </div>
-        </div>
+        <section class="context-section overview-card">
+          <div class="section-heading">Block Overview</div>
+          <div class="overview-grid">
+            <div class="overview-tile" *ngIf="blockSummary.decision">
+              <div class="tile-top">
+                <span class="tile-label">Irrigation</span>
+                <span class="status-pill" [ngClass]="blockSummary.decision.irrigation === 'ON' ? 'warn' : 'info'">
+                  {{ blockSummary.decision.irrigation || 'N/A' }}
+                </span>
+              </div>
+              <strong>{{ blockSummary.decision.urgency || 'No urgency' }}</strong>
+              <div class="rich-text compact" [innerHTML]="renderMarkdown(blockSummary.decision.reason || 'No decision reason available yet.')"></div>
+            </div>
 
-        <div class="insight-item">
-          <div class="insight-icon info">
-            <i-lucide [img]="MessageIcon" class="icon-sm"></i-lucide>
+            <div class="overview-tile" *ngIf="blockSummary.weather">
+              <div class="tile-top">
+                <span class="tile-label">Weather</span>
+                <span class="status-pill info">{{ formatMetric(blockSummary.weather.temp_avg, '1.0-1', 'C') }}</span>
+              </div>
+              <strong>Rain 24h: {{ formatMetric(blockSummary.weather.rain_24h, '1.0-1', 'mm') }}</strong>
+              <p>Next 48h: {{ formatMetric(blockSummary.weather.rain_next_48h, '1.0-1', 'mm') }}</p>
+            </div>
           </div>
-          <div class="insight-content">
-            <h4>Real Indices</h4>
-            <p>
-              NDVI (Vegetation Health): {{ blockSummary.ndvi ?? 'N/A' }}<br>
-              NDWI (Water Stress): {{ blockSummary.ndwi ?? 'N/A' }}<br>
-              NDRE (Nutrient Status): {{ blockSummary.ndre ?? 'N/A' }}<br>
-              EVI (Canopy Density): {{ blockSummary.evi ?? 'N/A' }}<br>
-              LAI (Yield Potential): {{ blockSummary.lai ?? 'N/A' }}
-            </p>
-          </div>
-        </div>
+        </section>
 
-        <div class="insight-item" *ngIf="blockSummary.limitations.length">
-          <div class="insight-icon warn">
-            <i-lucide [img]="MessageIcon" class="icon-sm"></i-lucide>
-          </div>
-          <div class="insight-content">
-            <h4>Scientific Limitations</h4>
-            <p *ngFor="let limitation of blockSummary.limitations">{{ limitation }}</p>
-          </div>
-        </div>
+        <section class="context-section summary-card">
+          <div class="section-heading">Satellite Summary</div>
+          <div class="summary-text rich-text" [innerHTML]="renderMarkdown(blockSummary.message || 'No summary available yet.')"></div>
+        </section>
 
-        <div class="insight-item" *ngFor="let insight of blockSummary.insights">
-          <div class="insight-icon" [ngClass]="insight.severity === 'critical' ? 'warn' : 'info'">
-            <i-lucide [img]="MessageIcon" class="icon-sm"></i-lucide>
+        <section class="context-section">
+          <div class="section-heading">Real Indices</div>
+          <div class="metric-grid">
+            <div class="metric-card">
+              <span>NDVI</span>
+              <strong>{{ blockSummary.ndvi ?? 'N/A' }}</strong>
+            </div>
+            <div class="metric-card">
+              <span>NDWI</span>
+              <strong>{{ blockSummary.ndwi ?? 'N/A' }}</strong>
+            </div>
+            <div class="metric-card">
+              <span>NDRE</span>
+              <strong>{{ blockSummary.ndre ?? 'N/A' }}</strong>
+            </div>
+            <div class="metric-card">
+              <span>EVI</span>
+              <strong>{{ blockSummary.evi ?? 'N/A' }}</strong>
+            </div>
+            <div class="metric-card metric-card-wide">
+              <span>LAI</span>
+              <strong>{{ blockSummary.lai ?? 'N/A' }}</strong>
+            </div>
           </div>
-          <div class="insight-content">
-            <h4>{{ insight.type.toUpperCase() }} ({{ insight.severity }})</h4>
-            <p>{{ insight.message }}</p>
-            <p>{{ insight.action_window }} — {{ insight.reason }}</p>
+        </section>
+
+        <section class="context-section" *ngIf="blockSummary.insights.length">
+          <div class="section-heading">Priority Insights</div>
+          <div class="stack-list">
+            <article class="stack-card" *ngFor="let insight of blockSummary.insights">
+              <div class="stack-title-row">
+                <strong>{{ insight.type.toUpperCase() }}</strong>
+                <span class="mini-severity" [ngClass]="insight.severity">{{ insight.severity }}</span>
+              </div>
+              <p>{{ insight.message }}</p>
+              <span>{{ insight.action_window }} - {{ insight.reason }}</span>
+            </article>
           </div>
-        </div>
+        </section>
+
+        <section class="context-section" *ngIf="blockSummary.limitations.length">
+          <div class="section-heading">Scientific Limitations</div>
+          <div class="stack-list compact-scroll">
+            <p class="stack-note" *ngFor="let limitation of blockSummary.limitations">{{ limitation }}</p>
+          </div>
+        </section>
+
+        <section class="context-section" *ngIf="blockSummary.weather?.forecast_7_days?.length">
+          <div class="section-heading">Forecast Preview</div>
+          <div class="stack-list compact-scroll">
+            <article class="stack-card forecast-card" *ngFor="let forecast of blockSummary.weather?.forecast_7_days?.slice(0, 4)">
+              <strong>{{ forecast.observed_at_local || forecast.observed_at || 'Unknown time' }}</strong>
+              <span>{{ forecast.temperature ?? 'N/A' }} C</span>
+              <span>Rain {{ forecast.precipitation ?? 'N/A' }} mm</span>
+            </article>
+          </div>
+        </section>
       </div>
 
       <ng-template #noLiveInsights>

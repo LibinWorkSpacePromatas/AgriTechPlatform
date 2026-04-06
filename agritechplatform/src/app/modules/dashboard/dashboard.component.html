@@ -47,28 +47,83 @@
 
     <!-- OVERVIEW TAB CONTENT -->
     <div *ngIf="activeTab === 'overview'" class="fade-in">
-        <div class="overview-intro-card card-box">
-            <div>
-                <div class="overview-kicker">Simple farm view</div>
-                <h3 class="overview-intro-title">The dashboard is organized to highlight the primary crop condition first, with supporting charts and history presented in a consistent section below for easier field review.</h3>
-            </div>
-            <div class="overview-intro-status">
-                <div class="overview-status-label">Satellite status</div>
-                <div class="overview-status-value">{{ insightsStatusLabel }}</div>
-                <div class="overview-status-meta">{{ insightsLatencyLabel }}</div>
-            </div>
-        </div>
-
-        <div class="advisor-section card-box overview-warning-card" *ngIf="showNoRealDataState">
+        <div class="advisor-section card-box rental-alert-card" *ngIf="rentalRecommendation as recommendation">
             <div class="section-title warning-title">
                 <i-lucide [img]="AlertTriangleIcon" size="20" class="icon-orange"></i-lucide>
-                {{ dataStatusTitle }}
+                Smart Rental Alert
             </div>
-            <p class="warning-text">{{ dataStatusMessage }}</p>
-            <p class="warning-text">This screen will automatically fill with the main crop condition, supporting checks, and history once a usable real satellite composite is available.</p>
+            <p class="warning-text" *ngIf="recommendation.recommendations.includes('irrigation_pump')">
+                Your crop needs irrigation. Equipment is recommended for this block.
+            </p>
+            <p class="warning-text" *ngIf="!recommendation.recommendations.includes('irrigation_pump')">
+                {{ recommendation.reason }}
+            </p>
+        </div>
+
+        <div class="iot-sensors-section card-box">
+            <div class="iot-sensors-header">
+                <div class="iot-sensors-copy">
+                    <div class="section-title iot-section-title">
+                        <span class="iot-section-icon">
+                            <i-lucide [img]="CpuIcon" size="18" class="icon-green"></i-lucide>
+                        </span>
+                        <span>IoT Sensor Readings</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="iot-sensor-inline-error" *ngIf="iotSensorErrorMessage">{{ iotSensorErrorMessage }}</div>
+
+            <div class="iot-sensors-grid" *ngIf="iotSensors.length; else iotSensorEmptyState">
+                <button
+                    *ngFor="let sensor of iotSensors"
+                    type="button"
+                    class="iot-sensor-card"
+                    [ngClass]="getStatusToneClass(sensor.status)"
+                    [title]="getIotSensorTooltip(sensor.observedAt)"
+                    (click)="openIotSensorHistory(sensor)">
+                    <div class="iot-card-topbar">
+                        <span class="iot-status-indicator" [ngClass]="getStatusToneClass(sensor.status)"></span>
+                        <span class="iot-card-status-text" [ngClass]="getStatusToneClass(sensor.status)">{{ sensor.status }}</span>
+                    </div>
+
+                    <div class="iot-card-main">
+                        <i-lucide [img]="sensor.icon" size="22" class="iot-card-icon"></i-lucide>
+                        <div class="iot-card-copy">
+                            <div class="iot-card-label" [title]="sensor.label">{{ sensor.label }}</div>
+                        </div>
+                    </div>
+
+                    <div class="iot-card-reading-row">
+                        <div class="iot-card-value" [title]="(sensor.value | number:'1.1-1') + sensor.displayUnit">
+                            {{ sensor.value | number:'1.1-1' }}
+                            <span class="unit" *ngIf="sensor.displayUnit">{{ sensor.displayUnit }}</span>
+                        </div>
+                    </div>
+
+                    <div class="iot-card-footer">
+                        <span class="iot-card-action">View history</span>
+                    </div>
+                </button>
+            </div>
+
+            <ng-template #iotSensorEmptyState>
+                <div class="trend-empty-state">
+                    {{ isIotSensorsLoading ? 'Loading IoT sensor readings for this block.' : 'IoT sensor readings are not available for this block yet.' }}
+                </div>
+            </ng-template>
         </div>
 
         <ng-container *ngIf="!showNoRealDataState">
+        <div class="advisor-section card-box overview-warning-card" *ngIf="showDegradedDataWarning">
+            <div class="section-title warning-title">
+                <i-lucide [img]="AlertTriangleIcon" size="20" class="icon-orange"></i-lucide>
+                Data Quality Warning
+            </div>
+            <p class="warning-text">{{ degradedDataWarningMessage }}</p>
+            <p class="warning-text">{{ dashboardFreshnessLabel }}</p>
+        </div>
+
         <div class="overview-main-grid" *ngIf="primarySensor as ndviSensor">
             <div class="overview-primary-card card-box">
                 <div class="overview-kicker">Today's main crop condition</div>
@@ -102,7 +157,7 @@
                     </div>
 
                     <div class="reading-tile">
-                        <div class="reading-label">Latest update</div>
+                        <div class="reading-label">Data from</div>
                         <div class="reading-text">{{ satelliteTrendLastUpdated }}</div>
                         <div class="reading-help">Most recent satellite observation</div>
                     </div>
@@ -141,63 +196,6 @@
                         </div>
                     </div>
                 </div>
-                <div class="overview-side-status">
-                    <div class="overview-status-label">Backend Status Notice</div>
-                    <div class="overview-status-text">{{ dataStatusMessage }}</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="data-quality-card card-box" *ngIf="latestInsights as insights">
-            <div class="trend-card-header">
-                <div>
-                    <div class="section-label trend-section-label">
-                        <i-lucide [img]="CpuIcon" size="16"></i-lucide>
-                        Satellite Data Quality
-                    </div>
-                    <p class="trend-card-subtitle">These values describe which Sentinel-2 composite the dashboard is using and how reliable the current block reading is.</p>
-                </div>
-                <span class="trend-chip" [ngClass]="getDataQualityBadgeClass()">
-                    {{ insights.dataQuality | titlecase }} data
-                </span>
-            </div>
-
-            <div class="data-quality-grid">
-                <div class="reading-tile">
-                    <div class="reading-label">Search window</div>
-                    <div class="reading-text">{{ getSearchWindowSummary() }}</div>
-                    <div class="reading-help">The 14-day Sentinel-2 fetch window requested by the backend</div>
-                </div>
-
-                <div class="reading-tile">
-                    <div class="reading-label">Acquisition span</div>
-                    <div class="reading-text">{{ getAcquisitionSpanSummary() }}</div>
-                    <div class="reading-help">Earliest to latest usable observation date in the current composite</div>
-                </div>
-
-                <div class="reading-tile">
-                    <div class="reading-label">Cloud cover</div>
-                    <div class="reading-text">{{ formatCloudCoverLabel(insights.cloudCoverPct) }}</div>
-                    <div class="reading-help">Values above 50% reduce reliability</div>
-                </div>
-
-                <div class="reading-tile">
-                    <div class="reading-label">Images used</div>
-                    <div class="reading-text">{{ insights.acquisitionMetadata.imageCount }}</div>
-                    <div class="reading-help">Sentinel-2 scenes inside the current composite window</div>
-                </div>
-
-                <div class="reading-tile">
-                    <div class="reading-label">Usable pixels</div>
-                    <div class="reading-text">{{ insights.pixelCount }}</div>
-                    <div class="reading-help">Block pixels contributing to the index mean</div>
-                </div>
-
-                <div class="reading-tile wide">
-                    <div class="reading-label">Acquisition dates</div>
-                    <div class="reading-text">{{ acquisitionDatesSummary }}</div>
-                    <div class="reading-help">Distinct Sentinel-2 observation dates used by the backend</div>
-                </div>
             </div>
         </div>
 
@@ -210,8 +208,88 @@
                     </div>
                     <p class="supporting-text">These cards help explain why the main crop condition is strong, weak, or changing.</p>
                 </div>
-                <div class="supporting-hint">Open one card at a time</div>
+                <div class="supporting-header-actions" *ngIf="latestInsights as insights; else supportingHintOnly" (click)="$event.stopPropagation()">
+                    <div class="supporting-hint">Open one card at a time</div>
+                    <button
+                        type="button"
+                        class="data-quality-info-button supporting-info-button"
+                        aria-label="Show satellite data details"
+                        [attr.aria-expanded]="isSatelliteDataPopoverOpen"
+                        (click)="toggleSatelliteDataPopover($event)">
+                        <span>i</span>
+                    </button>
+
+                    <div class="data-quality-popover supporting-data-popover" *ngIf="isSatelliteDataPopoverOpen" (click)="$event.stopPropagation()">
+                        <div class="data-quality-popover-header">
+                            <div>
+                                <div class="data-quality-popover-title">Satellite Data</div>
+                                <p class="data-quality-popover-subtitle">Current Sentinel-2 composite summary.</p>
+                            </div>
+                            <button
+                                type="button"
+                                class="data-quality-close-button"
+                                aria-label="Close satellite data details"
+                                (click)="closeSatelliteDataPopover($event)">
+                                &times;
+                            </button>
+                        </div>
+
+                        <div class="data-quality-popover-meta">
+                            <span class="trend-chip" [ngClass]="getDataQualityBadgeClass()">
+                                {{ insights.dataQuality | titlecase }} data
+                            </span>
+                        </div>
+
+                        <div class="data-quality-popover-sheet">
+                            <div class="data-quality-row">
+                                <div class="data-quality-row-label">Search window</div>
+                                <div class="data-quality-row-value">{{ getSearchWindowSummary() }}</div>
+                                <div class="data-quality-row-detail">Backend 14-day fetch range.</div>
+                            </div>
+
+                            <div class="data-quality-row">
+                                <div class="data-quality-row-label">Acquisition span</div>
+                                <div class="data-quality-row-value">{{ getAcquisitionSpanSummary() }}</div>
+                                <div class="data-quality-row-detail">Usable observation dates in this composite.</div>
+                            </div>
+
+                            <div class="data-quality-row data-quality-row-inline">
+                                <div>
+                                    <div class="data-quality-row-label">Cloud cover</div>
+                                    <div class="data-quality-row-value">{{ formatCloudCoverLabel(insights.cloudCoverPct) }}</div>
+                                </div>
+                                <div class="data-quality-row-side-detail">Reliability falls after 50%.</div>
+                            </div>
+
+                            <div class="data-quality-row data-quality-row-inline">
+                                <div>
+                                    <div class="data-quality-row-label">Images used</div>
+                                    <div class="data-quality-row-value">{{ insights.acquisitionMetadata.imageCount }}</div>
+                                </div>
+                                <div class="data-quality-row-side-detail">Scenes used in this composite.</div>
+                            </div>
+
+                            <div class="data-quality-row data-quality-row-inline">
+                                <div>
+                                    <div class="data-quality-row-label">Usable pixels</div>
+                                    <div class="data-quality-row-value">{{ insights.pixelCount }}</div>
+                                </div>
+                                <div class="data-quality-row-side-detail">Pixels included in the index mean.</div>
+                            </div>
+
+                            <div class="data-quality-row">
+                                <div class="data-quality-row-label">Acquisition dates</div>
+                                <div class="data-quality-row-value">{{ acquisitionDatesSummary }}</div>
+                                <div class="data-quality-row-detail">Observation dates included.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
+
+            <ng-template #supportingHintOnly>
+                <div class="supporting-hint">Open one card at a time</div>
+            </ng-template>
 
             <div class="supporting-grid">
                 <article *ngFor="let sensor of secondarySensors" class="supporting-sensor-card"
@@ -240,129 +318,151 @@
                     </button>
                 </article>
             </div>
+            <div #detailPanel class="supporting-detail-shell" *ngIf="activeDetailSensor as activeSensor">
+                <div class="detail-panel">
+                    <div class="detail-panel-header">
+                        <div>
+                            <div class="section-title">
+                                <i-lucide [img]="activeSensor.icon" size="20" class="icon-green"></i-lucide>
+                                Trend Detail
+                            </div>
+                            <h3 class="detail-panel-title">{{ getFriendlySensorName(activeSensor.id) }}</h3>
+                            <p class="detail-panel-text">{{ getSensorTrendSummary(activeSensor) }}</p>
+                        </div>
+
+                        <button *ngIf="lockedSensor" type="button" class="detail-close-btn" (click)="closePopup($event)">
+                            Back To Main Signal
+                        </button>
+                    </div>
+
+                    <div class="detail-summary-row">
+                        <div class="detail-summary-grid">
+                            <div class="detail-summary-card">
+                                <div class="detail-summary-label">Current reading</div>
+                                <div class="detail-summary-value" [ngClass]="getDetailValueToneClass(activeSensor, activeSensor.raw)">
+                                    {{ activeSensor.value }}<span class="unit">{{ activeSensor.unit }}</span>
+                                </div>
+                            </div>
+                            <div class="detail-summary-card">
+                                <div class="detail-summary-label">Current status</div>
+                                <div class="detail-summary-value" [ngClass]="getDetailStatusToneClass(activeSensor)">{{ activeSensor.summaryLabel }}</div>
+                            </div>
+                            <div class="detail-summary-card">
+                                <div class="detail-summary-label">Average</div>
+                                <div class="detail-summary-value" [ngClass]="getDetailValueToneClass(activeSensor, getAverage(currentSensorData))">
+                                    {{ getAverage(currentSensorData) | number:'1.1-1' }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="detail-summary-meta" (click)="$event.stopPropagation()">
+                            <button
+                                type="button"
+                                class="detail-summary-info-btn detail-summary-info-btn-large"
+                                aria-label="Show data source time"
+                                [attr.aria-expanded]="isTrendDataFromPopoverOpen"
+                                (click)="toggleTrendDataFromPopover($event)">
+                                <span>i</span>
+                            </button>
+
+                            <div class="detail-summary-popover detail-summary-meta-popover" *ngIf="isTrendDataFromPopoverOpen" (click)="$event.stopPropagation()">
+                                <div class="detail-summary-popover-title">Data from</div>
+                                <div class="detail-summary-popover-value">{{ satelliteTrendLastUpdated }}</div>
+                                <div class="detail-summary-popover-help">Most recent satellite observation used in this trend view.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="popup-tabs detail-tabs">
+                        <button class="popup-tab" [class.active]="activeSensorTab === 'recent'"
+                            (click)="setSensorTab('recent')">Recent</button>
+                        <button class="popup-tab" [class.active]="activeSensorTab === 'daily'"
+                            (click)="setSensorTab('daily')">Daily</button>
+                        <button class="popup-tab" [class.active]="activeSensorTab === 'weekly'"
+                            (click)="setSensorTab('weekly')">Weekly Avg</button>
+                    </div>
+
+                    <div class="detail-chart-shell">
+                        <app-line-chart *ngIf="currentSensorHasData; else noDetailHistory"
+                            [data]="currentSensorData" [labels]="currentSensorLabels" [pointColors]="currentSensorPointColors" [height]="190" color="#15803d"
+                            [showAxes]="true">
+                        </app-line-chart>
+                        <ng-template #noDetailHistory>
+                            <div class="trend-empty-state">
+                                Historical samples are not available for this metric yet.
+                            </div>
+                        </ng-template>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div #detailPanel class="detail-panel card-box" *ngIf="activeDetailSensor as activeSensor">
-            <div class="detail-panel-header">
-                <div>
-                    <div class="section-title">
-                        <i-lucide [img]="activeSensor.icon" size="20" class="icon-green"></i-lucide>
-                        Trend Detail
+        <div class="satellite-insights-row">
+            <div class="satellite-trend-card satellite-insight-panel">
+                <div class="trend-card-header">
+                    <div>
+                        <div class="section-label trend-section-label">
+                            <i-lucide [img]="LeafIcon" size="16"></i-lucide>
+                            Block History
+                        </div>
+                        <p class="trend-card-subtitle">This chart groups satellite observations by day. The green line is the main plant-health signal, and the blue, purple, and amber lines add supporting context.</p>
                     </div>
-                    <h3 class="detail-panel-title">{{ getFriendlySensorName(activeSensor.id) }}</h3>
-                    <p class="detail-panel-text">{{ getSensorTrendSummary(activeSensor) }}</p>
+                    <div class="trend-card-meta">{{ dashboardFreshnessLabel }}</div>
                 </div>
 
-                <button *ngIf="lockedSensor" type="button" class="detail-close-btn" (click)="closePopup($event)">
-                    Back To Main Signal
-                </button>
-            </div>
+                <div class="trend-chip-row" *ngIf="satelliteTrendSummary as summary">
+                    <span class="trend-chip" [ngClass]="getTrendBadgeClass(summary.ndvi.direction)">
+                        NDVI {{ getTrendLabel(summary.ndvi.direction) }}
+                    </span>
+                    <span class="trend-chip neutral" *ngIf="summary.anomalyMessage">{{ summary.anomalyMessage }}</span>
+                </div>
 
-            <div class="detail-summary-grid">
-                <div class="detail-summary-card">
-                    <div class="detail-summary-label">Current reading</div>
-                    <div class="detail-summary-value">{{ activeSensor.value }}<span class="unit">{{ activeSensor.unit }}</span></div>
+                <div class="trend-summary-grid" *ngIf="satelliteTrendSummary as summary">
+                    <div class="trend-summary-item">
+                        <div class="trend-summary-label">Main signal trend</div>
+                        <div class="trend-summary-text">{{ summary.ndvi.message }}</div>
+                    </div>
+                    <div class="trend-summary-item">
+                        <div class="trend-summary-label">How to use it</div>
+                        <div class="trend-summary-text">Use this history for change over time. Use the cards above for a simpler daily reading.</div>
+                    </div>
                 </div>
-                <div class="detail-summary-card">
-                    <div class="detail-summary-label">Current status</div>
-                    <div class="detail-summary-value">{{ activeSensor.summaryLabel }}</div>
-                </div>
-                <div class="detail-summary-card">
-                    <div class="detail-summary-label">Average</div>
-                    <div class="detail-summary-value">{{ getAverage(currentSensorData) | number:'1.1-1' }}</div>
-                </div>
-                <div class="detail-summary-card">
-                    <div class="detail-summary-label">Latest update</div>
-                    <div class="detail-summary-value">{{ satelliteTrendLastUpdated }}</div>
-                </div>
-            </div>
 
-            <div class="popup-tabs detail-tabs">
-                <button class="popup-tab" [class.active]="activeSensorTab === 'recent'"
-                    (click)="setSensorTab('recent')">Recent</button>
-                <button class="popup-tab" [class.active]="activeSensorTab === 'daily'"
-                    (click)="setSensorTab('daily')">Daily</button>
-                <button class="popup-tab" [class.active]="activeSensorTab === 'weekly'"
-                    (click)="setSensorTab('weekly')">Weekly Avg</button>
-            </div>
+                <div class="trend-chart-shell" *ngIf="hasSatelliteTrendData; else emptyTrendState">
+                    <app-line-chart [series]="satelliteTrendSeries" [labels]="satelliteTrendLabels" [height]="240"
+                        [showAxes]="true" [minY]="-1" [maxY]="1">
+                    </app-line-chart>
+                </div>
 
-            <div class="detail-chart-shell">
-                <app-line-chart *ngIf="currentSensorHasData; else noDetailHistory"
-                    [data]="currentSensorData" [labels]="currentSensorLabels" [height]="190" color="#15803d"
-                    [showAxes]="true">
-                </app-line-chart>
-                <ng-template #noDetailHistory>
+                <ng-template #emptyTrendState>
                     <div class="trend-empty-state">
-                        Historical samples are not available for this metric yet.
+                        Historical block data is still being collected. The full trend chart will appear once at least two refresh cycles are available.
                     </div>
                 </ng-template>
             </div>
-        </div>
 
-        <div class="satellite-trend-card">
-            <div class="trend-card-header">
-                <div>
-                    <div class="section-label trend-section-label">
-                        <i-lucide [img]="LeafIcon" size="16"></i-lucide>
-                        Block History
+            <div class="ndvi-map-card card-box satellite-insight-panel" *ngIf="currentBlock">
+                <div class="trend-card-header">
+                    <div>
+                        <div class="section-label trend-section-label">
+                            <i-lucide [img]="LayersIcon" size="16"></i-lucide>
+                            NDVI Map
+                        </div>
+                        <p class="trend-card-subtitle">This block map uses the latest NDVI overlay from the satellite pipeline when imagery is available. If tiles are unavailable, the dashboard still shows the block outline for spatial context.</p>
                     </div>
-                    <p class="trend-card-subtitle">This chart groups satellite observations by day. The green line is the main plant-health signal, and the blue, purple, and amber lines add supporting context.</p>
-                </div>
-                <div class="trend-card-meta">Latest satellite observation: {{ satelliteTrendLastUpdated }}</div>
-            </div>
-
-            <div class="trend-chip-row" *ngIf="satelliteTrendSummary as summary">
-                <span class="trend-chip" [ngClass]="getTrendBadgeClass(summary.ndvi.direction)">
-                    NDVI {{ getTrendLabel(summary.ndvi.direction) }}
-                </span>
-                <span class="trend-chip neutral" *ngIf="summary.anomalyMessage">{{ summary.anomalyMessage }}</span>
-            </div>
-
-            <div class="trend-summary-grid" *ngIf="satelliteTrendSummary as summary">
-                <div class="trend-summary-item">
-                    <div class="trend-summary-label">Main signal trend</div>
-                    <div class="trend-summary-text">{{ summary.ndvi.message }}</div>
-                </div>
-                <div class="trend-summary-item">
-                    <div class="trend-summary-label">How to use it</div>
-                    <div class="trend-summary-text">Use this history for change over time. Use the cards above for a simpler daily reading.</div>
-                </div>
-            </div>
-
-            <div class="trend-chart-shell" *ngIf="hasSatelliteTrendData; else emptyTrendState">
-                <app-line-chart [series]="satelliteTrendSeries" [labels]="satelliteTrendLabels" [height]="240"
-                    [showAxes]="true" [minY]="-1" [maxY]="1">
-                </app-line-chart>
-            </div>
-
-            <ng-template #emptyTrendState>
-                <div class="trend-empty-state">
-                    Historical block data is still being collected. The full trend chart will appear once at least two refresh cycles are available.
-                </div>
-            </ng-template>
-        </div>
-
-        <div class="ndvi-map-card card-box" *ngIf="currentBlock">
-            <div class="trend-card-header">
-                <div>
-                    <div class="section-label trend-section-label">
-                        <i-lucide [img]="LayersIcon" size="16"></i-lucide>
-                        NDVI Map
+                    <div class="ndvi-map-meta">
+                        <span class="trend-chip" [ngClass]="isNdviMapAvailable ? 'good' : 'neutral'">
+                            {{ mapAvailabilityLabel }}
+                        </span>
+                        <span class="trend-chip neutral">{{ mapOverlayLabel }}</span>
                     </div>
-                    <p class="trend-card-subtitle">This block map uses the NDVI tile when imagery is available. If tiles are unavailable, the dashboard still shows the block outline for spatial context.</p>
                 </div>
-                <div class="ndvi-map-meta">
-                    <span class="trend-chip" [ngClass]="isNdviMapAvailable ? 'good' : 'neutral'">
-                        {{ isNdviMapAvailable ? 'NDVI overlay available' : 'Block outline only' }}
-                    </span>
-                    <span class="trend-chip neutral">10 m resolution</span>
-                </div>
-            </div>
 
-            <div class="ndvi-map-shell">
-                <div #ndviMapContainer class="ndvi-map-canvas"></div>
-                <div class="ndvi-map-overlay" *ngIf="!isNdviMapAvailable">
-                    NDVI tiles are not available for this block yet. The dashboard is showing the block footprint until the backend tile URL is available.
+                <div class="ndvi-map-shell">
+                    <div #ndviMapContainer class="ndvi-map-canvas"></div>
+                    <div class="ndvi-map-overlay" *ngIf="!isNdviMapAvailable">
+                        {{ mapEmptyStateMessage }}
+                    </div>
                 </div>
             </div>
         </div>
@@ -390,7 +490,6 @@
                         <h3>Current Weather <span class="location">&mdash; {{ currentBlock?.location?.name || 'Loading...' }}</span>
                         </h3>
                     </div>
-                    <p class="weather-summary-text">{{ getWeatherSummary() }}</p>
                 </div>
                 <button class="btn btn-sm btn-light" (click)="refreshWeather()" [disabled]="isLoading">
                     <i-lucide [img]="RefreshCwIcon" size="14" [class.spin]="isLoading"></i-lucide>
@@ -457,13 +556,24 @@
                 <div class="toggle-bar">
                     <span [class.active]="chartMode === 'hourly'" (click)="toggleChart('hourly')">Last 24h</span>
                     <span [class.active]="chartMode === 'daily'" (click)="toggleChart('daily')">Last 7 days</span>
+                    <span [class.active]="chartMode === 'forecast'" (click)="toggleChart('forecast')">Forecast</span>
                 </div>
             </div>
 
             <!-- Weather Graph -->
             <div class="weather-graph-container" *ngIf="weatherData">
-                <app-line-chart [series]="chartDataSeries" [labels]="chartLabels" [height]="150" [showAxes]="true">
+                <app-line-chart
+                    [series]="chartDataSeries"
+                    [labels]="chartLabels"
+                    [height]="150"
+                    [showAxes]="true"
+                    [forceAllLabels]="chartMode === 'forecast'"
+                    [labelStep]="chartMode === 'hourly' ? 3 : null">
                 </app-line-chart>
+            </div>
+
+            <div class="weather-forecast-summary" *ngIf="weatherData && chartMode === 'forecast'">
+                {{ forecastSummaryText }}
             </div>
 
             <!-- Climate Outlook -->
@@ -486,8 +596,8 @@
             <div class="advisor-breadcrumbs">
                 <span class="brand">PromaSecure</span> |
                 <span class="block-ref">{{ currentBlock?.name }}</span> |
-                <span class="page-title">INTERPRETATION REFERENCE</span> |
-                <span class="date">Last updated: {{ advisorData.lastUpdated }}</span>
+                <span class="page-title">LIVE CROP ADVICE</span> |
+                <span class="date">{{ dashboardFreshnessLabel }}</span>
                 <div class="sub-text">
                     Powered by backend block insights -
                     <span class="refresh-indicator">
@@ -497,102 +607,216 @@
                     <span class="refresh-indicator"> {{ insightsLatencyLabel }} </span>
                 </div>
             </div>
-        </div>
-
-        <div class="advisor-section card-box" *ngIf="showNoRealDataState">
-            <div class="section-title warning-title">
-                <i-lucide [img]="AlertTriangleIcon" size="20" class="icon-orange"></i-lucide>
-                {{ dataStatusTitle }}
-            </div>
-            <p class="warning-text">{{ dataStatusMessage }}</p>
-            <p class="warning-text">Primary and supporting interpretations will appear here once real satellite intelligence is available.</p>
-        </div>
-
-        <ng-container *ngIf="!showNoRealDataState">
-
-        <div class="advisor-section card-box">
-            <div class="section-title">
-                <i-lucide [img]="SproutIcon" size="20" class="icon-green"></i-lucide>
-                PRIMARY SIGNAL
-            </div>
-
-            <div class="advisor-grid" *ngIf="advisorData.sensorAnalysis.length">
-                <div class="analysis-card" [ngClass]="advisorData.sensorAnalysis[0].colorClass">
-                    <div class="card-header">
-                        <i-lucide [img]="SproutIcon" size="14"></i-lucide> {{ advisorData.sensorAnalysis[0].label }}
-                    </div>
-                    <div class="card-value">{{ advisorData.sensorAnalysis[0].value }}</div>
-                    <div class="card-status">
-                        <i-lucide [img]="CheckCircleIcon" size="12" *ngIf="advisorData.sensorAnalysis[0].colorClass === 'good'"></i-lucide>
-                        <i-lucide [img]="AlertTriangleIcon" size="12" *ngIf="advisorData.sensorAnalysis[0].colorClass !== 'good'"></i-lucide>
-                        <span>{{ advisorData.sensorAnalysis[0].status }}: {{ advisorData.sensorAnalysis[0].message }}</span>
-                    </div>
-                </div>
+            <div class="advisor-toolbar" *ngIf="farmerAdvisory as advisory">
+                <button type="button" class="advisor-download-btn" (click)="downloadPdf()">
+                    <i-lucide [img]="DownloadIcon" size="16"></i-lucide>
+                    Download PDF
+                </button>
             </div>
         </div>
 
-        <div class="advisor-section card-box action-plan">
-            <div class="section-title">
-                <i-lucide [img]="LayersIcon" size="20" class="icon-green"></i-lucide>
-                SECONDARY INSIGHTS / SUPPORTING DATA
-            </div>
+        <ng-container *ngIf="!showNoRealDataState && farmerAdvisory as advisory; else advisorPendingState">
+            <section class="advisor-section card-box interpretation-hero-card">
+                <div class="interpretation-hero-grid">
+                    <div class="interpretation-hero-copy">
+                        <div class="interpretation-kicker">Interpretation based on sensors, satellite, and forecast</div>
+                        <h2 class="interpretation-hero-title">{{ advisory.headline }}</h2>
+                        <p class="interpretation-hero-text">{{ advisory.summary }}</p>
 
-            <div class="actions-horizontal-grid">
-                <div *ngFor="let item of advisorData.sensorAnalysis.slice(1)" class="action-card-horizontal premium-action-card"
-                    [ngClass]="item.colorClass">
-                    <div class="action-card-header">
-                        <div class="priority-badge-horizontal">
-                            SUPPORTING
+                        <div class="interpretation-reason-list">
+                            <div class="interpretation-reason-item" *ngFor="let reason of advisory.reasons">
+                                <span class="reason-dot"></span>
+                                <span>{{ reason }}</span>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="action-period-horizontal">{{ item.label }}</div>
+                    <div class="interpretation-hero-side">
+                        <div class="hero-profit-card">
+                            <div class="hero-profit-label">Estimated profit now</div>
+                            <div class="hero-profit-value">{{ formatCompactCurrency(advisory.financial.estimatedCurrentProfit) }}</div>
+                            <div class="hero-profit-note">For {{ currentBlock?.area }} ha of {{ currentBlock?.crop }}</div>
+                        </div>
 
-                    <div class="action-items-horizontal">
-                        <div class="action-item-horizontal">
-                            <span class="item-number">1</span>
-                            <span class="item-text">{{ item.message }}</span>
+                        <div class="hero-score-card" [ngClass]="getRecommendationScoreClass(advisory.currentCropScore)">
+                            <div class="hero-score-label">Current crop fit</div>
+                            <div class="hero-score-value" [ngClass]="getInterpretationMetricTone('yield', advisory)">{{ advisory.currentCropScore }} / 100</div>
+                            <div class="hero-score-note">{{ advisory.financial.confidenceLabel }}</div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
+            </section>
 
-        <div class="advisor-section card-box decision-section">
-            <div class="section-title warning-title">
-                <i-lucide [img]="AlertTriangleIcon" size="20" class="icon-orange"></i-lucide>
-                BACKEND ALERTS AND LIMITATIONS
-            </div>
-            <div class="actions-horizontal-grid">
-                <div *ngFor="let action of advisorData.actions" class="action-card-horizontal premium-action-card"
-                    [ngClass]="'severity-' + action.severity">
-                    <div class="action-card-header">
-                        <div class="priority-badge-horizontal" [ngClass]="'priority-' + action.priority">
-                            ITEM {{ action.priority }}
+            <section class="interpretation-financial-grid">
+                <article class="interpretation-metric-card" [ngClass]="getInterpretationMetricTone('currentProfit', advisory)">
+                    <div class="metric-card-label">Current annual profit</div>
+                    <div class="metric-card-value" [ngClass]="getInterpretationMetricTone('currentProfit', advisory)">{{ formatCompactCurrency(advisory.financial.estimatedCurrentProfit) }}</div>
+                    <div class="metric-card-help">Estimated from current block conditions</div>
+                </article>
+
+                <article class="interpretation-metric-card" [ngClass]="getInterpretationMetricTone('potentialProfit', advisory)">
+                    <div class="metric-card-label">Profit if block recovers</div>
+                    <div class="metric-card-value" [ngClass]="getInterpretationMetricTone('potentialProfit', advisory)">{{ formatCompactCurrency(advisory.financial.potentialProfit) }}</div>
+                    <div class="metric-card-help">Best case with better field performance</div>
+                </article>
+
+                <article class="interpretation-metric-card" [ngClass]="getInterpretationMetricTone('upside', advisory)">
+                    <div class="metric-card-label">Upside still available</div>
+                    <div class="metric-card-value" [ngClass]="getInterpretationMetricTone('upside', advisory)">{{ formatCompactCurrency(advisory.financial.profitOpportunity) }}</div>
+                    <div class="metric-card-help">Margin still recoverable without migration</div>
+                </article>
+
+                <article class="interpretation-metric-card" [ngClass]="getInterpretationMetricTone('yield', advisory)">
+                    <div class="metric-card-label">Current yield position</div>
+                    <div class="metric-card-value" [ngClass]="getInterpretationMetricTone('yield', advisory)">{{ advisory.financial.currentYieldPercent }}%</div>
+                    <div class="metric-card-help">Estimated production strength now</div>
+                </article>
+            </section>
+
+            <section class="advisor-section card-box">
+                <div class="section-title">
+                    <i-lucide [img]="LayersIcon" size="20" class="icon-green"></i-lucide>
+                    What The Data Is Saying
+                </div>
+
+                <div class="interpretation-signal-grid">
+                    <article *ngFor="let signal of advisory.signalCards" class="interpretation-signal-card" [ngClass]="getAdvisoryToneClass(signal.tone)">
+                        <div class="signal-card-top">
+                            <span class="signal-source" [ngClass]="getAdvisoryToneClass(signal.tone)">{{ signal.source }}</span>
+                            <span class="signal-value" [ngClass]="getAdvisoryToneClass(signal.tone)">{{ signal.value }}</span>
                         </div>
-                        <div class="severity-badge-horizontal" [ngClass]="'severity-' + action.severity">
-                            <i-lucide [img]="action.severity === 'critical' ? AlertTriangleIcon : CheckCircleIcon"
-                                size="12"></i-lucide>
-                            {{ action.severity | uppercase }}
+                        <div class="signal-label" [ngClass]="getAdvisoryToneClass(signal.tone)">{{ signal.label }}</div>
+                        <p class="signal-summary">{{ signal.summary }}</p>
+                    </article>
+                </div>
+            </section>
+
+            <section class="advisor-section card-box migration-summary-card">
+                <div class="section-title">
+                    <i-lucide [img]="SproutIcon" size="20" class="icon-green"></i-lucide>
+                    Crop Advice And Migration
+                </div>
+
+                <div class="migration-summary-grid">
+                    <div class="migration-summary-main">
+                        <div class="migration-summary-title">{{ advisory.migrationSummary.title }}</div>
+                        <p class="migration-summary-text">{{ advisory.migrationSummary.summary }}</p>
+
+                        <div class="migration-summary-reason">
+                            <div class="migration-summary-label">Reason for migration</div>
+                            <div class="migration-summary-value">{{ advisory.migrationSummary.reason }}</div>
                         </div>
                     </div>
 
-                    <div class="action-period-horizontal">{{ action.label }}</div>
-
-                    <div class="action-items-horizontal">
-                        <div *ngFor="let item of action.items; let i = index" class="action-item-horizontal">
-                            <span class="item-number">{{ i + 1 }}</span>
-                            <span class="item-text">{{ item }}</span>
+                    <div class="migration-summary-side">
+                        <div class="migration-summary-stat">
+                            <span class="migration-stat-label">Recommended crop</span>
+                            <span class="migration-stat-value" [ngClass]="getMigrationSummaryStatTone('crop', advisory)">{{ advisory.migrationSummary.recommendedCrop || currentBlock?.crop }}</span>
+                        </div>
+                        <div class="migration-summary-stat">
+                            <span class="migration-stat-label">Suggested migration share</span>
+                            <span class="migration-stat-value" [ngClass]="getMigrationSummaryStatTone('share', advisory)">{{ advisory.migrationSummary.suggestedSharePct }}%</span>
+                        </div>
+                        <div class="migration-summary-stat">
+                            <span class="migration-stat-label">Projected profit after plan</span>
+                            <span class="migration-stat-value" [ngClass]="getMigrationSummaryStatTone('projectedProfit', advisory)">{{ formatCompactCurrency(advisory.migrationSummary.projectedProfitAfterMigration) }}</span>
+                        </div>
+                        <div class="migration-summary-stat">
+                            <span class="migration-stat-label">Gain vs current</span>
+                            <span class="migration-stat-value" [ngClass]="getMigrationSummaryStatTone('gain', advisory)">{{ formatCompactCurrency(advisory.migrationSummary.gainVsCurrent) }}</span>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
 
-        <div class="disclaimer-footer">
-            Data Sources: backend block insights, selected block metadata, and live weather observations. Supporting indices remain visible, but NDVI is the primary dashboard signal.
-        </div>
+                <div class="migration-benefits-grid">
+                    <div class="migration-benefit-card" *ngFor="let benefit of advisory.migrationSummary.benefits">
+                        <i-lucide [img]="CheckCircleIcon" size="18" class="icon-green"></i-lucide>
+                        <span>{{ benefit }}</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="advisor-section card-box">
+                <div class="section-title">
+                    <i-lucide [img]="LeafIcon" size="20" class="icon-green"></i-lucide>
+                    Migration Options
+                </div>
+
+                <div class="migration-options-grid">
+                    <article *ngFor="let option of advisory.migrationOptions" class="migration-option-card" [ngClass]="getAdvisoryToneClass(option.tone)">
+                        <div class="migration-option-top">
+                            <div>
+                                <div class="migration-option-name">{{ option.cropName }}</div>
+                                <div class="migration-option-tag">{{ option.recommendation }}</div>
+                            </div>
+                            <div class="migration-option-score" [ngClass]="getRecommendationScoreClass(option.suitabilityScore)">
+                                {{ option.suitabilityScore }}/100
+                            </div>
+                        </div>
+
+                        <div class="migration-option-stats">
+                            <div class="migration-option-stat">
+                                <span class="option-stat-label">Full-block annual profit</span>
+                                <span class="option-stat-value" [ngClass]="getMigrationOptionStatTone('profit', option)">{{ formatCompactCurrency(option.expectedAnnualProfit) }}</span>
+                                <span class="option-stat-note">{{ getMigrationOptionProfitCaption(option) }}</span>
+                            </div>
+                            <div class="migration-option-stat">
+                                <span class="option-stat-label">Full-block profit lift</span>
+                                <span class="option-stat-value" [ngClass]="getMigrationOptionStatTone('lift', option)">{{ formatCompactCurrency(option.profitDelta) }}</span>
+                            </div>
+                            <div class="migration-option-stat">
+                                <span class="option-stat-label">Water need</span>
+                                <span class="option-stat-value" [ngClass]="getMigrationOptionStatTone('water', option)">{{ option.waterRequirement | number:'1.1-1' }} ML/ha</span>
+                            </div>
+                            <div class="migration-option-stat">
+                                <span class="option-stat-label">Suggested trial size</span>
+                                <span class="option-stat-value" [ngClass]="getMigrationOptionStatTone('share', option)">{{ option.suggestedSharePct }}%</span>
+                            </div>
+                        </div>
+
+                        <p class="migration-option-why">{{ option.whyItFits }}</p>
+
+                        <div class="migration-option-list">
+                            <div class="migration-option-list-item" *ngFor="let benefit of option.benefits">
+                                <span class="list-bullet"></span>
+                                <span>{{ benefit }}</span>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+            </section>
+
+            <section class="advisor-section card-box">
+                <div class="section-title">
+                    <i-lucide [img]="CloudRainIcon" size="20" class="icon-green"></i-lucide>
+                    Next Actions
+                </div>
+
+                <div class="farmer-action-list">
+                    <article class="farmer-action-card" *ngFor="let action of advisory.actions; let i = index">
+                        <div class="farmer-action-number">{{ i + 1 }}</div>
+                        <div class="farmer-action-content">
+                            <div class="farmer-action-timing">{{ action.timing }}</div>
+                            <div class="farmer-action-title">{{ action.title }}</div>
+                            <p class="farmer-action-detail">{{ action.detail }}</p>
+                            <div class="farmer-action-reason">Why: {{ action.reason }}</div>
+                        </div>
+                    </article>
+                </div>
+            </section>
         </ng-container>
+
+        <ng-template #advisorPendingState>
+            <div class="advisor-section card-box interpretation-empty-state">
+                <div class="section-title">
+                    <i-lucide [img]="AlertTriangleIcon" size="20" class="icon-orange"></i-lucide>
+                    Interpretation Waiting For Live Data
+                </div>
+                <p class="interpretation-empty-copy">
+                    The farmer advisory will appear once the dashboard has usable satellite intelligence for this block. Sensor and weather data will then be combined into the crop advice and PDF export automatically.
+                </p>
+            </div>
+        </ng-template>
     </div>
     <!-- END CROP ADVISOR TAB -->
 
@@ -628,11 +852,39 @@
     </div>
 </app-modal>
 
-<!-- Footer Prototype Notice -->
-<div class="prototype-notice">
-    <div class="notice-icon">i</div>
-    <div class="notice-text">
-        <strong>{{ dataStatusTitle }}</strong><br>
-        {{ dataStatusMessage }}
+<app-modal [isOpen]="isIotSensorModalOpen" [title]="selectedIotSensor?.label + ' History'" (close)="closeIotSensorModal()">
+    <div *ngIf="selectedIotSensor as sensor">
+        <div class="popup-tabs detail-tabs iot-modal-tabs">
+            <button class="popup-tab" [class.active]="activeIotSensorTab === 'recent'"
+                (click)="setIotSensorTab('recent')">Recent</button>
+            <button class="popup-tab" [class.active]="activeIotSensorTab === 'daily'"
+                (click)="setIotSensorTab('daily')">Daily</button>
+            <button class="popup-tab" [class.active]="activeIotSensorTab === 'weekly'"
+                (click)="setIotSensorTab('weekly')">Weekly Avg</button>
+        </div>
+
+        <div class="modal-chart-wrapper" *ngIf="currentIotSensorHasData; else noIotModalHistory">
+            <app-line-chart [data]="currentIotSensorData" [labels]="currentIotSensorLabels" color="#15803d"
+                [height]="250" [showAxes]="true">
+            </app-line-chart>
+        </div>
+        <ng-template #noIotModalHistory>
+            <div class="trend-empty-state">Historical samples are not available for this sensor yet.</div>
+        </ng-template>
+
+        <div class="modal-stats">
+            <div class="stat-box">
+                <span class="label">Current</span>
+                <span class="value">{{ sensor.value | number:'1.1-1' }}{{ sensor.displayUnit }}</span>
+            </div>
+            <div class="stat-box">
+                <span class="label">Average</span>
+                <span class="value">{{ getAverage(currentIotSensorData) | number:'1.1-1' }}{{ sensor.displayUnit }}</span>
+            </div>
+            <div class="stat-box">
+                <span class="label">Max</span>
+                <span class="value">{{ getMax(currentIotSensorData) | number:'1.1-1' }}{{ sensor.displayUnit }}</span>
+            </div>
+        </div>
     </div>
-</div>
+</app-modal>

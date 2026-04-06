@@ -40,7 +40,7 @@ class SatelliteRefreshEnqueueResult:
 class SatelliteRefreshScheduler:
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings or get_settings()
-        self._scheduler = BackgroundScheduler(timezone="UTC")
+        self._scheduler = BackgroundScheduler(timezone="Australia/Sydney")
         self._started = False
         self._stop_event = Event()
         self._workers: list[Thread] = []
@@ -422,6 +422,13 @@ class SatelliteRefreshScheduler:
         job.last_duration_ms = int((perf_counter() - started_at) * 1000)
         db.add(job)
         db.commit()
+
+        # Trigger Decision Engine
+        try:
+            from app.services.decision_engine import trigger_block_decision
+            trigger_block_decision(db, block_id)
+        except Exception as exc:
+            logger.error("event=decision_trigger_failed block_id=%s error=%s", block_id, exc)
 
     def _mark_job_failed(self, db: Session, block_id: Any, error: str, started_at: float) -> None:
         job = db.get(SatelliteRefreshJob, block_id)

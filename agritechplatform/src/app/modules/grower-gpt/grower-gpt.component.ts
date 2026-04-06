@@ -23,6 +23,7 @@ import { Block } from '../../shared/models';
 export class GrowerGptComponent implements OnInit, AfterViewChecked, OnDestroy {
   @ViewChild('chatContainer') private chatContainer!: ElementRef;
   private readonly destroy$ = new Subject<void>();
+  private lastRenderedMessageCount = 0;
 
   BotIcon = Bot;
   SendIcon = Send;
@@ -48,6 +49,43 @@ export class GrowerGptComponent implements OnInit, AfterViewChecked, OnDestroy {
     private authService: AuthService,
     private sanitizer: DomSanitizer
   ) { }
+
+  getSelectedBlockName(): string {
+    return this.blockService.getSelectedBlock()?.name || 'Unknown Block';
+  }
+
+  getSelectedBlockCrop(): string {
+    const block = this.blockService.getSelectedBlock();
+    const crop = block?.crop || '';
+    const name = block?.name || '';
+    if (!crop) {
+      return '';
+    }
+    if (name.toLowerCase().includes(crop.toLowerCase())) {
+      return '';
+    }
+    return crop;
+  }
+
+  formatMetric(value: number | null | undefined, digits: string = '1.0-1', unit: string = ''): string {
+    if (value === null || value === undefined) {
+      return 'N/A';
+    }
+    const maxDigits = digits.includes('-') ? Number(digits.split('-')[1]) : 1;
+    const minDigits = digits.includes('.') ? Number(digits.split('.')[1].split('-')[0]) : 0;
+    const formatted = new Intl.NumberFormat('en-AU', {
+      minimumFractionDigits: Number.isNaN(minDigits) ? 0 : minDigits,
+      maximumFractionDigits: Number.isNaN(maxDigits) ? 1 : maxDigits
+    }).format(value);
+    if (!formatted || formatted === 'NaN') {
+      return 'N/A';
+    }
+    return unit ? `${formatted} ${unit}` : formatted;
+  }
+
+  hasUserMessages(): boolean {
+    return this.chatHistory.some(message => message.role === 'user');
+  }
 
   renderMarkdown(content: string): SafeHtml {
     const renderer = new marked.Renderer();
@@ -85,7 +123,15 @@ export class GrowerGptComponent implements OnInit, AfterViewChecked, OnDestroy {
   }
 
   ngAfterViewChecked() {
-    this.scrollToBottom();
+    if (this.chatHistory.length === this.lastRenderedMessageCount) {
+      return;
+    }
+    if (this.hasUserMessages()) {
+      this.scrollToBottom();
+    } else {
+      this.scrollToTop();
+    }
+    this.lastRenderedMessageCount = this.chatHistory.length;
   }
 
   ngOnDestroy(): void {
@@ -97,6 +143,13 @@ export class GrowerGptComponent implements OnInit, AfterViewChecked, OnDestroy {
     try {
       const element = this.chatContainer.nativeElement.querySelector('.messages-viewport') || this.chatContainer.nativeElement;
       element.scrollTop = element.scrollHeight;
+    } catch (err) { }
+  }
+
+  private scrollToTop(): void {
+    try {
+      const element = this.chatContainer.nativeElement.querySelector('.messages-viewport') || this.chatContainer.nativeElement;
+      element.scrollTop = 0;
     } catch (err) { }
   }
 
@@ -189,6 +242,7 @@ export class GrowerGptComponent implements OnInit, AfterViewChecked, OnDestroy {
   private loadBlockSummary(block: Block): void {
     this.blockSummary = null;
     this.chatHistory = [];
+    this.lastRenderedMessageCount = 0;
 
     this.growerGptService.getRuleBasedInsights(block.lan || block.id)
       .pipe(take(1))

@@ -5,17 +5,12 @@ export const APP_CONSTANTS = {
     APP_SUBTITLE: 'Riverland AgriTech',
     APP_VERSION: '1.0.0',
 
-    // Time Zone
     TIMEZONE: 'Australia/Adelaide',
-
-    // API Configuration (placeholder - update with actual endpoints)
     API_BASE_URL: 'https://api.agritech.example.com/v1',
 
-    // Model Versions
     ML_MODEL_VERSION: 'v2.3.1',
     PREDICTION_MODEL: 'VineyardYield-ML-v2.3.1',
 
-    // Data Sources
     DATA_SOURCES: {
         WEATHER: 'BOM Weather Station - Adelaide Hills',
         SOIL: 'IoT Soil Sensors - Network A',
@@ -23,18 +18,16 @@ export const APP_CONSTANTS = {
         MANUAL: 'Manual Field Observations'
     },
 
-    // Risk Levels
     RISK_LEVELS: {
         LOW: 'low',
         MEDIUM: 'medium',
         HIGH: 'high'
     },
 
-    // Refresh Intervals (in milliseconds)
     REFRESH_INTERVALS: {
-        DASHBOARD: 300000, // 5 minutes
-        REAL_TIME_METRICS: 60000, // 1 minute
-        PREDICTIONS: 900000 // 15 minutes
+        DASHBOARD: 300000,
+        REAL_TIME_METRICS: 60000,
+        PREDICTIONS: 900000
     }
 };
 
@@ -68,23 +61,26 @@ export const NAVIGATION_ITEMS = [
         label: 'Auctions',
         route: '/auctions',
         icon: 'store'
+    },
+    {
+        label: 'Rental',
+        route: '/rental',
+        icon: 'tractor'
     }
 ];
 
-// Mock user profile data
 export const MOCK_USER = {
     name: 'John Grower',
     company: 'Vineyard Estates',
     initials: 'JG'
 };
 
-// Mock block data
 export const MOCK_BLOCKS = [
     {
         id: 'block-1-shiraz',
         name: 'Block 1 - Shiraz',
         location: 'Renmark, SA',
-        coordinates: '34.1747°S, 140.7472°E',
+        coordinates: '34.1747Â°S, 140.7472Â°E',
         size: 8,
         sizeUnit: 'hectares',
         grapeVariety: 'Shiraz',
@@ -99,7 +95,7 @@ export const MOCK_BLOCKS = [
         id: 'block-2-cabernet',
         name: 'Block 2 - Cabernet',
         location: 'Tanunda, SA',
-        coordinates: '34.5267°S, 138.9600°E',
+        coordinates: '34.5267Â°S, 138.9600Â°E',
         size: 12,
         sizeUnit: 'hectares',
         grapeVariety: 'Cabernet Sauvignon',
@@ -114,7 +110,7 @@ export const MOCK_BLOCKS = [
         id: 'block-3-chardonnay',
         name: 'Block 3 - Chardonnay',
         location: 'Willunga, SA',
-        coordinates: '35.2733°S, 138.5500°E',
+        coordinates: '35.2733Â°S, 138.5500Â°E',
         size: 6,
         sizeUnit: 'hectares',
         grapeVariety: 'Chardonnay',
@@ -129,7 +125,7 @@ export const MOCK_BLOCKS = [
         id: 'block-4-merlot',
         name: 'Block 4 - Merlot',
         location: 'Waikerie, SA',
-        coordinates: '34.1833°S, 139.9833°E',
+        coordinates: '34.1833Â°S, 139.9833Â°E',
         size: 10,
         sizeUnit: 'hectares',
         grapeVariety: 'Merlot',
@@ -141,4 +137,3 @@ export const MOCK_BLOCKS = [
         polygon: null
     }
 ];
-

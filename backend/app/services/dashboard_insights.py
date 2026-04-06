@@ -35,6 +35,7 @@ def build_block_insights(block: Block, overrides: dict[str, Any] | None = None) 
         block_area_ha=block.area_ha,
         ndvi=overrides.get("ndvi"),
         lai=overrides.get("lai"),
+        block_name=block.lanslu,
     )
     metrics = {
         metric: _build_metric(metric, overrides[metric], interpretations[metric]["status"])
@@ -42,8 +43,8 @@ def build_block_insights(block: Block, overrides: dict[str, Any] | None = None) 
     }
 
     sensor_analysis = [
-        _analysis_item("Primary Signal - NDVI", metrics["ndvi"]),
-        _analysis_item("Secondary Insight - NDWI", metrics["ndwi"]),
+        _analysis_item("Primary Signal - NDWI", metrics["ndwi"]),
+        _analysis_item("Secondary Insight - NDVI", metrics["ndvi"]),
         _analysis_item("Secondary Insight - NDRE", metrics["ndre"]),
         _analysis_item("Secondary Insight - EVI", metrics["evi"]),
         _analysis_item("Secondary Insight - LAI", metrics["lai"]),

@@ -117,6 +117,7 @@ export class UserDataService {
     private mapBlocks(apiBlocks: ApiBlockResponse[], userId: string): UserBlock[] {
         return apiBlocks.map((apiBlock) => {
             return {
+                id: apiBlock.id,
                 lanslu: apiBlock.lanslu,
                 soilSubgroup: apiBlock.soil_subgroup || '',
                 primarySoilClass: apiBlock.soil_class || apiBlock.soil_subgroup || '',

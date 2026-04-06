@@ -6,7 +6,6 @@ export const routes: Routes = [
         path: 'select-user',
         loadComponent: () => import('./modules/user-selection/user-selection.component').then(m => m.UserSelectionComponent)
     },
-    // ── Farmer routes ──────────────────────────────────────────────────────
     {
         path: '',
         loadComponent: () => import('./core/layout/layout.component').then(m => m.LayoutComponent),
@@ -41,9 +40,12 @@ export const routes: Routes = [
                 path: 'auctions/:id',
                 loadComponent: () => import('./modules/auction-detail/auction-detail.component').then(m => m.AuctionDetailComponent)
             },
+            {
+                path: 'rental',
+                loadComponent: () => import('./modules/rental/rental.component').then(m => m.RentalComponent)
+            },
         ]
     },
-    // ── Bidder routes ──────────────────────────────────────────────────────
     {
         path: 'bidder',
         loadComponent: () => import('./core/layout/layout.component').then(m => m.LayoutComponent),
@@ -62,4 +64,3 @@ export const routes: Routes = [
     },
     { path: '**', redirectTo: '/select-user' }
 ];
-

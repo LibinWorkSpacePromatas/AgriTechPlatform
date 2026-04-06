@@ -56,6 +56,8 @@ class SatelliteComputation:
     data_quality: str
     composite_date_from: date | None
     composite_date_to: date | None
+    ndvi_tile_url: str | None
+    ndwi_tile_url: str | None
     map_tile_url: str | None
     image_count: int
     actual_dates: list[date]
@@ -69,6 +71,13 @@ class AcquisitionMetadataComputation:
     composite_date_from: date | None
     composite_date_to: date | None
     execution_ms: int
+
+
+@dataclass(slots=True)
+class TileUrlComputation:
+    ndvi_tile_url: str | None
+    ndwi_tile_url: str | None
+    map_tile_url: str | None
 
 
 class EarthEngineClient:
@@ -192,6 +201,33 @@ class EarthEngineClient:
     def shutdown(self) -> None:
         self._executor.shutdown(wait=False, cancel_futures=True)
 
+    def build_block_tile_urls(
+        self,
+        geometry_geojson: dict[str, Any],
+        *,
+        date_from: date,
+        date_to: date,
+    ) -> TileUrlComputation:
+        self.initialize()
+        ee = self._ee
+        assert ee is not None
+
+        try:
+            geometry = ee.Geometry(geometry_geojson)
+            collection = self._build_collection(geometry, date_from=date_from, date_to=date_to)
+            prepared_collection = collection.map(self._prepare_image)
+            composite = prepared_collection.select(SPECTRAL_BANDS).median().clip(geometry)
+            indices = self._build_indices(composite).clip(geometry)
+            ndvi_tile_url = self._build_tile_url(indices.select("ndvi").clip(geometry))
+            ndwi_tile_url = self._build_ndwi_tile_url(indices.select("ndwi").clip(geometry))
+            return TileUrlComputation(
+                ndvi_tile_url=ndvi_tile_url,
+                ndwi_tile_url=ndwi_tile_url,
+                map_tile_url=ndwi_tile_url,
+            )
+        except Exception as exc:
+            raise EarthEngineExecutionError(f"Earth Engine tile generation failed: {exc}") from exc
+
     def _compute_block_insights_impl(
         self,
         geometry_geojson: dict[str, Any],
@@ -234,6 +270,8 @@ class EarthEngineClient:
                     data_quality="no_data",
                     composite_date_from=date_from_candidate,
                     composite_date_to=date_to,
+                    ndvi_tile_url=None,
+                    ndwi_tile_url=None,
                     map_tile_url=None,
                     image_count=0,
                     actual_dates=[],
@@ -247,17 +285,27 @@ class EarthEngineClient:
             stats = summary.get("stats", {})
             pixel_count = int(stats.get("ndwi_count") or stats.get("ndvi_count") or 0)
             cloud_cover_pct = self._maybe_round(metadata_summary.get("cloud_cover_pct"), 2)
+            ndwi_min = self._maybe_round(stats.get("ndwi_min"))
+            ndwi_max = self._maybe_round(stats.get("ndwi_max"))
             data_quality = self._classify_quality(
                 pixel_count=pixel_count,
                 cloud_cover_pct=cloud_cover_pct,
                 image_count=image_count,
             )
-            map_tile_url = None
+            ndvi_tile_url = None
+            ndwi_tile_url = None
 
             if generate_tile_url or (generate_tile_url is None and self._settings.satellite_enable_tile_urls):
-                # PDF Requirement: NDWI zone map (spatial visualization)
-                # min=-0.5, max=0.5, palette=["red", "orange", "yellow", "green"]
-                map_tile_url = self._build_ndwi_tile_url(indices.select("ndwi").clip(geometry))
+                logger.info(
+                    "event=ndwi_visualization_stats ndwi_mean=%s ndwi_min=%s ndwi_max=%s pixel_count=%s",
+                    self._validate_ratio_index(stats.get("ndwi_mean"), index_name="ndwi"),
+                    ndwi_min,
+                    ndwi_max,
+                    pixel_count,
+                )
+                ndvi_tile_url = self._build_tile_url(indices.select("ndvi").clip(geometry))
+                # Water screen keeps using the NDWI zone map.
+                ndwi_tile_url = self._build_ndwi_tile_url(indices.select("ndwi").clip(geometry))
 
             return SatelliteComputation(
                 ndvi=self._validate_ratio_index(stats.get("ndvi_mean"), index_name="ndvi"),
@@ -270,7 +318,9 @@ class EarthEngineClient:
                 data_quality="no_data" if pixel_count == 0 else data_quality,
                 composite_date_from=self._parse_iso_date(metadata_summary.get("composite_date_from")) or date_from_candidate,
                 composite_date_to=self._parse_iso_date(metadata_summary.get("composite_date_to")) or date_to,
-                map_tile_url=map_tile_url,
+                ndvi_tile_url=ndvi_tile_url,
+                ndwi_tile_url=ndwi_tile_url,
+                map_tile_url=ndwi_tile_url,
                 image_count=image_count,
                 actual_dates=actual_dates,
                 execution_ms=int((perf_counter() - started_at) * 1000),
@@ -357,7 +407,9 @@ class EarthEngineClient:
         assert ee is not None
 
         stats = indices.reduceRegion(
-            reducer=ee.Reducer.mean().combine(ee.Reducer.count(), sharedInputs=True),
+            reducer=ee.Reducer.mean()
+            .combine(ee.Reducer.count(), sharedInputs=True)
+            .combine(ee.Reducer.minMax(), sharedInputs=True),
             geometry=geometry,
             scale=self._settings.satellite_reduction_scale_meters,
             bestEffort=False,

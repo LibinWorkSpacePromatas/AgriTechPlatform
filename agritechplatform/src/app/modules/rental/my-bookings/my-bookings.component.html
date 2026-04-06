@@ -1,0 +1,33 @@
+<section class="section">
+  <h2>My Bookings</h2>
+  <p *ngIf="loading">Loading bookings...</p>
+  <p *ngIf="error" class="error">{{ error }}</p>
+
+  <div class="calendar-grid">
+    <div
+      *ngFor="let day of calendarDays"
+      class="day-cell"
+      [class.booked]="day.hasBooking"
+      [class.buffer]="day.hasBuffer"
+    >
+      {{ day.date | date:'EEE dd' }}
+    </div>
+  </div>
+
+  <div class="cards">
+    <article class="card" *ngFor="let booking of bookings">
+      <h3>{{ booking.equipment_name || booking.listing_id }}</h3>
+      <p>Owner: {{ booking.owner_name || booking.owner_id }}</p>
+      <p>{{ booking.start_datetime | date:'medium' }} - {{ booking.end_datetime | date:'medium' }}</p>
+      <p>Status: <strong [ngClass]="getStatusClass(booking.status)">{{ booking.status }}</strong></p>
+      <p>Total: {{ booking.total_price || 0 | currency:'USD':'symbol':'1.0-2' }}</p>
+      <button
+        *ngIf="booking.status === 'approved'"
+        class="btn btn-primary"
+        (click)="pay(booking)"
+      >
+        Pay Now
+      </button>
+    </article>
+  </div>
+</section>

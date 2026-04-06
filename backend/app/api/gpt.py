@@ -1,19 +1,47 @@
 from __future__ import annotations
 
 import json
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from app.services.utils import build_satellite_contract_payload, calculate_data_age, calculate_confidence
 from app.services.llm_service import llm_service
 from app.services.satellite_access import satellite_access_service
 from app.services.satellite_insights import SatelliteInsightsUnavailableError
+from app.services.weather_ingest import build_weather_summary, query_weather_ranges
 
 from pydantic import BaseModel
 from typing import Optional
-from app.schemas.insights import GrowerGPTInsight, GrowerGPTResponse, MetricInsight, UserGPTInsight, UserGPTResponse
+from app.schemas.insights import (
+    GrowerGPTDecision,
+    GrowerGPTInsight,
+    GrowerGPTResponse,
+    GrowerGPTSensorData,
+    GrowerGPTWeather,
+    MetricInsight,
+    UserGPTInsight,
+    UserGPTResponse,
+)
+from app.db.session import SessionLocal
 
 router = APIRouter()
+
+PRIORITY_ORDER = {
+    "ndwi": 1,
+    "ndvi": 2,
+    "ndre": 3,
+    "evi": 4,
+    "lai": 5,
+}
+INSIGHT_TYPE_BY_METRIC = {
+    "ndwi": "water",
+    "ndvi": "health",
+    "ndre": "nutrient",
+    "evi": "canopy",
+    "lai": "yield",
+}
 
 
 class ChatRequest(BaseModel):
@@ -24,6 +52,14 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     response: str
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 @router.post("/gpt/chat", response_model=ChatResponse)
@@ -41,7 +77,7 @@ async def chat_with_grower_gpt(request: ChatRequest):
 
 
 @router.get("/gpt/{block_id}", response_model=GrowerGPTResponse)
-async def get_gpt(block_id: str):
+async def get_gpt(block_id: str, db: Session = Depends(get_db)):
     """
     Main GPT endpoint for a single block.
     Matches PDF requirements for insights, data age, and confidence.
@@ -53,6 +89,9 @@ async def get_gpt(block_id: str):
         is_fresh = satellite_response.freshness_status == "fresh"
         insights = _build_action_insights(satellite_response)
         confidence = calculate_confidence(satellite_response)
+        decision = _get_latest_block_decision(db, snapshot.block_id)
+        weather = _get_block_weather_context(db, snapshot.block_id)
+        sensor_data = _get_block_sensor_context(db, snapshot.block_id)
 
         reason = insights[0].reason if insights else None
         if not is_fresh:
@@ -93,6 +132,9 @@ async def get_gpt(block_id: str):
             insights=insights,
             message=ai_message,
             reason=reason,
+            decision=decision,
+            weather=weather,
+            sensor_data=sensor_data,
         )
     except SatelliteInsightsUnavailableError as exc:
         raise HTTPException(status_code=503, detail=f"Satellite insights are temporarily unavailable: {exc}") from exc
@@ -158,10 +200,10 @@ async def user_gpt(user_id: str):
             all_insights,
             key=lambda item: (
                 item.freshness_status != "fresh",
+                PRIORITY_ORDER.get(item.insight.metric, 999),
                 item.block_name,
-                item.insight.metric,
             ),
-        )[:5]
+        )[:3]
 
         return UserGPTResponse(
             user_id=user_id,
@@ -192,117 +234,165 @@ def _build_metric_insights(satellite_response) -> list[MetricInsight]:
 
 def _build_metric_insights_for_user(satellite_response) -> list[MetricInsight]:
     insights = _build_metric_insights(satellite_response)
-    priority = {"ndwi": 0, "ndre": 1, "ndvi": 2, "evi": 3, "lai": 4}
-    return sorted(insights, key=lambda insight: priority.get(insight.metric, 999))[:3]
+    alert_metrics = {
+        alert.metric
+        for alert in satellite_response.alerts
+        if alert.metric in PRIORITY_ORDER
+    }
+    if alert_metrics:
+        insights = [insight for insight in insights if insight.metric in alert_metrics]
+    return sorted(insights, key=lambda insight: PRIORITY_ORDER.get(insight.metric, 999))[:3]
 
 
 def _build_action_insights(satellite_response) -> list[GrowerGPTInsight]:
-    ndwi = satellite_response.ndwi
-    ndre = satellite_response.ndre
-    ndvi = satellite_response.ndvi
-    evi = satellite_response.evi
-    lai = satellite_response.lai
+    actionable_metrics = {"ndwi", "ndvi", "ndre", "evi", "lai"}
+    prioritized_alerts = sorted(
+        [alert for alert in satellite_response.alerts if alert.metric in actionable_metrics],
+        key=lambda alert: PRIORITY_ORDER.get(alert.metric, 999),
+    )[:3]
 
-    insights: list[GrowerGPTInsight] = []
-
-    irrigation_insight = _build_irrigation_insight(ndwi)
-    if irrigation_insight is not None:
-        insights.append(irrigation_insight)
-
-    nutrient_insight = _build_nutrient_insight(ndre)
-    if nutrient_insight is not None:
-        insights.append(nutrient_insight)
-
-    health_insight = _build_health_insight(ndvi, evi, lai)
-    if health_insight is not None:
-        insights.append(health_insight)
-
-    priority = {"irrigation": 0, "nutrient": 1, "health": 2}
-    return sorted(insights, key=lambda insight: priority[insight.type])[:3]
-
-
-def _build_irrigation_insight(ndwi: float | None) -> GrowerGPTInsight | None:
-    if ndwi is None:
-        return None
-    if ndwi < -0.30:
-        return GrowerGPTInsight(
-            type="irrigation",
-            severity="critical",
-            message="Severe water stress. Irrigate immediately.",
-            action_window="today",
-            reason=f"NDWI = {round(ndwi, 4)} (< -0.30)",
+    return [
+        GrowerGPTInsight(
+            type=INSIGHT_TYPE_BY_METRIC[alert.metric],
+            severity=alert.severity,
+            message=alert.message,
+            action_window=_action_window_for_alert(alert.metric, alert.severity),
+            reason=f"{alert.metric.upper()} = {alert.value} ({alert.threshold})",
         )
-    if ndwi < -0.15:
-        return GrowerGPTInsight(
-            type="irrigation",
-            severity="warning",
-            message="Water stress detected. Irrigate today.",
-            action_window="today",
-            reason=f"NDWI = {round(ndwi, 4)} (< -0.15)",
-        )
-    return None
+        for alert in prioritized_alerts
+    ]
 
 
-def _build_nutrient_insight(ndre: float | None) -> GrowerGPTInsight | None:
-    if ndre is None:
-        return None
-    if ndre < 0.12:
-        return GrowerGPTInsight(
-            type="nutrient",
-            severity="critical",
-            message="Severe nutrient stress likely. Prioritise foliar nutrient review.",
-            action_window="this week",
-            reason=f"NDRE = {round(ndre, 4)} (< 0.12)",
-        )
-    if ndre < 0.25:
-        return GrowerGPTInsight(
-            type="nutrient",
-            severity="warning",
-            message="Nutrient deficiency likely. Plan a foliar nutrient check.",
-            action_window="this week",
-            reason=f"NDRE = {round(ndre, 4)} (< 0.25)",
-        )
-    return None
-
-
-def _build_health_insight(ndvi: float | None, evi: float | None, lai: float | None) -> GrowerGPTInsight | None:
-    if ndvi is not None:
-        if ndvi < 0.20:
-            return GrowerGPTInsight(
-                type="health",
-                severity="critical",
-                message="Critical vine stress. Inspect immediately.",
-                action_window="today",
-                reason=f"NDVI = {round(ndvi, 4)} (< 0.20)",
-            )
-        if ndvi < 0.35:
-            return GrowerGPTInsight(
-                type="health",
-                severity="warning",
-                message="Vine health declining. Inspect soon.",
-                action_window="this week",
-                reason=f"NDVI = {round(ndvi, 4)} (< 0.35)",
-            )
-
-    if evi is not None and evi > 0.50:
-        return GrowerGPTInsight(
-            type="health",
-            severity="warning",
-            message="Dense canopy detected. Review leaf removal and airflow.",
-            action_window="this week",
-            reason=f"EVI = {round(evi, 4)} (> 0.50)",
-        )
-
-    if lai is not None and lai < 2.0:
-        return GrowerGPTInsight(
-            type="health",
-            severity="warning",
-            message="Low yield potential signal. Review block constraints and stress drivers.",
-            action_window="this week",
-            reason=f"LAI = {round(lai, 4)} (< 2.0)",
-        )
-
-    return None
+def _action_window_for_alert(metric: str, severity: str) -> str:
+    if metric == "ndwi":
+        return "today" if severity == "critical" else "2-3 days"
+    if metric == "ndvi":
+        return "today" if severity == "critical" else "this week"
+    if metric == "ndre":
+        return "this week"
+    if metric == "evi":
+        return "this week"
+    if metric == "lai":
+        return "this week"
+    return "this week"
 
 def _build_alert_summaries(satellite_response) -> list[str]:
     return [f"{alert.metric.upper()}: {alert.message}" for alert in satellite_response.alerts]
+
+
+def _get_latest_block_decision(db: Session, block_id: str) -> GrowerGPTDecision | None:
+    row = db.execute(
+        text(
+            """
+            SELECT decision_payload
+            FROM block_decisions
+            WHERE block_id = :block_id
+            """
+        ),
+        {"block_id": str(block_id)},
+    ).first()
+
+    if not row or not row[0]:
+        return None
+
+    payload = row[0]
+    return GrowerGPTDecision(
+        irrigation=payload.get("irrigation"),
+        urgency=payload.get("urgency"),
+        water_needed_mm=payload.get("water_needed_mm"),
+        water_needed_liters=payload.get("water_needed_liters"),
+        reason=payload.get("reason"),
+        confidence=payload.get("confidence"),
+        rental_recommendations=payload.get("rental_recommendations") or [],
+        rental_reason=payload.get("rental_reason"),
+        rental_weather_guardrail=payload.get("rental_weather_guardrail"),
+    )
+
+
+def _get_block_weather_context(db: Session, block_id: str) -> GrowerGPTWeather | None:
+    weather_ranges = query_weather_ranges(db, block_id)
+    summary = build_weather_summary(weather_ranges)
+    forecast_7_days = weather_ranges.get("next_7d") or []
+
+    rain_next_48h = 0.0
+    for index, point in enumerate(forecast_7_days):
+        observed_at = point.get("observed_at")
+        if not observed_at:
+            continue
+        try:
+            # The rows are already sorted ascending, so the first 48 hours can be
+            # approximated by taking the first 48 hourly points when available.
+            if len(forecast_7_days) <= 48 or index < 48:
+                rain_next_48h += float(point.get("precipitation") or 0.0)
+        except (TypeError, ValueError):
+            continue
+
+    return GrowerGPTWeather(
+        temp_avg=summary.get("avg_temp_last_24h"),
+        rain_24h=summary.get("rain_last_24h"),
+        rain_next_48h=rain_next_48h,
+        forecast_7_days=forecast_7_days,
+    )
+
+
+def _get_block_sensor_context(db: Session, block_id: str) -> GrowerGPTSensorData | None:
+    row = db.execute(
+        text(
+            """
+            SELECT
+                ufs.soil_moisture,
+                ufs.soil_temperature,
+                ufs.air_temperature,
+                ufs.humidity,
+                ufs.ph_level
+            FROM unified_farm_state ufs
+            WHERE ufs.block_id = :block_id
+            """
+        ),
+        {"block_id": str(block_id)},
+    ).mappings().first()
+
+    if not row:
+        return None
+
+    latest_updated = db.execute(
+        text(
+            """
+            SELECT MAX(sl.observed_at) AS last_updated
+            FROM sensor_definitions sd
+            LEFT JOIN sensor_latest sl ON sl.sensor_id = sd.id
+            WHERE sd.block_id = :block_id
+            """
+        ),
+        {"block_id": str(block_id)},
+    ).scalar()
+
+    air_temperature = row.get("air_temperature")
+    soil_temperature = row.get("soil_temperature")
+    chosen_temperature = air_temperature if air_temperature is not None else soil_temperature
+
+    if (
+        row.get("soil_moisture") is None
+        and chosen_temperature is None
+        and row.get("humidity") is None
+        and row.get("ph_level") is None
+        and latest_updated is None
+    ):
+        return None
+
+    return GrowerGPTSensorData(
+        soil_moisture=_to_float(row.get("soil_moisture")),
+        temperature=_to_float(chosen_temperature),
+        humidity=_to_float(row.get("humidity")),
+        ph_level=_to_float(row.get("ph_level")),
+        last_updated=latest_updated.isoformat() if latest_updated is not None else None,
+    )
+
+
+def _to_float(value: object) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None

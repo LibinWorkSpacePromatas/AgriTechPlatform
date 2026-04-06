@@ -40,7 +40,7 @@ def _validate_not_blank(value: str, *, field_name: str) -> str:
 
 
 class SatelliteAlert(BaseModel):
-    metric: Literal["ndvi", "ndwi", "ndre", "evi", "lai"]
+    metric: Literal["ndvi", "ndwi", "ndre", "evi", "lai", "cloud_cover"]
     code: str
     severity: Literal["info", "warning", "critical"]
     message: str
@@ -58,6 +58,9 @@ class SatelliteAlert(BaseModel):
             _validate_ratio_index_range(self.value, field_name=self.metric)
         elif self.metric == "lai":
             _validate_non_negative(self.value, field_name=self.metric)
+        elif self.metric == "cloud_cover":
+            if not 0.0 <= self.value <= 100.0:
+                raise ValueError("cloud_cover must be between 0 and 100.")
         return self
 
 

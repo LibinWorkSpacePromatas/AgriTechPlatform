@@ -5,7 +5,7 @@ const eviSchema = z.number().nullable();
 const laiSchema = z.number().nonnegative().nullable();
 const isoDateSchema = z.string().min(1).nullable();
 
-export const metricKeySchema = z.enum(['ndvi', 'ndwi', 'ndre', 'evi', 'lai']);
+export const metricKeySchema = z.enum(['ndvi', 'ndwi', 'ndre', 'evi', 'lai', 'cloud_cover']);
 export const freshnessStatusSchema = z.enum(['fresh', 'stale', 'updating']);
 export const sourceSchema = z.enum(['real', 'simulated']);
 export const dataQualitySchema = z.enum(['good', 'degraded', 'no_data']);
@@ -53,6 +53,8 @@ export const satelliteContractSchema = z.object({
   lai: laiSchema.default(null),
   cloud_cover_pct: z.number().min(0).max(100).nullable().default(null),
   pixel_count: z.number().int().nonnegative().default(0),
+  ndvi_tile_url: z.string().nullable().default(null),
+  ndwi_tile_url: z.string().nullable().default(null),
   map_tile_url: z.string().nullable().default(null),
   map_tile_type: z.enum(['ndvi', 'ndwi']).nullable().default(null),
   data_quality: dataQualitySchema,
@@ -141,7 +143,7 @@ export const growerGptBlockSummarySchema = satelliteContractSchema.extend({
   confidence: z.string().min(1).default('low'),
   insights: z.array(
     z.object({
-      type: z.enum(['irrigation', 'nutrient', 'health']),
+      type: z.enum(['water', 'health', 'nutrient', 'canopy', 'yield']),
       severity: z.enum(['critical', 'warning', 'info', 'positive']),
       message: z.string().min(1),
       action_window: z.string().min(1),
@@ -149,7 +151,38 @@ export const growerGptBlockSummarySchema = satelliteContractSchema.extend({
     })
   ).default([]),
   message: z.string().nullable().default(null),
-  reason: z.string().nullable().default(null)
+  reason: z.string().nullable().default(null),
+  decision: z.object({
+    irrigation: z.string().nullable().default(null),
+    urgency: z.string().nullable().default(null),
+    water_needed_mm: z.number().nullable().default(null),
+    water_needed_liters: z.number().nullable().default(null),
+    reason: z.string().nullable().default(null),
+    confidence: z.number().nullable().default(null),
+    rental_recommendations: z.array(z.string()).default([]),
+    rental_reason: z.string().nullable().default(null),
+    rental_weather_guardrail: z.string().nullable().default(null)
+  }).nullable().default(null),
+  weather: z.object({
+    temp_avg: z.number().nullable().default(null),
+    rain_24h: z.number().nullable().default(null),
+    rain_next_48h: z.number().nullable().default(null),
+    forecast_7_days: z.array(z.object({
+      observed_at: z.string().nullable().default(null),
+      observed_at_local: z.string().nullable().default(null),
+      timezone: z.string().nullable().default(null),
+      temperature: z.number().nullable().default(null),
+      humidity: z.number().nullable().default(null),
+      precipitation: z.number().nullable().default(null)
+    })).default([])
+  }).nullable().default(null),
+  sensor_data: z.object({
+    soil_moisture: z.number().nullable().default(null),
+    temperature: z.number().nullable().default(null),
+    humidity: z.number().nullable().default(null),
+    ph_level: z.number().nullable().default(null),
+    last_updated: z.string().nullable().default(null)
+  }).nullable().default(null)
 });
 
 export type SatelliteContract = z.infer<typeof satelliteContractSchema>;

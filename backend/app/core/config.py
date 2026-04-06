@@ -79,6 +79,7 @@ class Settings(BaseSettings):
     cloudinary_cloud_name: str | None = Field(default=None, alias="CLOUDINARY_CLOUD_NAME")
     cloudinary_api_key: str | None = Field(default=None, alias="CLOUDINARY_API_KEY")
     cloudinary_api_secret: str | None = Field(default=None, alias="CLOUDINARY_API_SECRET")
+    newsdata_api_key: str | None = Field(default=None, alias="NEWSDATA_API_KEY")
     profit_risk_dataset_path: str = Field(
         default=str(Path(__file__).resolve().parents[2] / "Dataset" / "SA_Farmgate_Prices_Final.xlsx"),
         alias="PROFIT_RISK_DATASET_PATH",

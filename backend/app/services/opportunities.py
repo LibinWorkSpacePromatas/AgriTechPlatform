@@ -77,12 +77,15 @@ def build_opportunities_response(block: Block, satellite_response: BlockInsights
 
 
 def _build_cards(block: Block, satellite_response: BlockInsightsResponse) -> list[OpportunityCard]:
-    ndre = satellite_response.ndre or 0.0
-    evi = satellite_response.evi or 0.0
+    ndre = satellite_response.ndre
+    evi = satellite_response.evi
     cards: list[OpportunityCard] = []
 
     ndre_status = _interpretation_status(satellite_response, "ndre")
     evi_status = _interpretation_status(satellite_response, "evi")
+
+    def _fmt(val: float | None) -> str:
+        return f"{val:.3f}" if val is not None else "N/A"
 
     if ndre_status in {"Low", "Critical"}:
         cards.append(
@@ -91,12 +94,12 @@ def _build_cards(block: Block, satellite_response: BlockInsightsResponse) -> lis
                 title="Nutrient Recovery Opportunity",
                 description="NDRE indicates reduced chlorophyll strength, so the strongest opportunity is to restore nutrient performance before pushing growth.",
                 full_description=(
-                    f"Block {block.lanslu or block.id} is returning NDRE {ndre:.3f} with an interpretation of {ndre_status}. "
+                    f"Block {block.lanslu or block.id} is returning NDRE {_fmt(ndre)} with an interpretation of {ndre_status}. "
                     "Correcting nutrient constraints first gives the block a better platform for later canopy and yield improvements."
                 ),
                 key_points=[
-                    f"NDRE is {ndre:.3f} ({ndre_status}).",
-                    f"EVI is {evi:.3f} ({evi_status}), which shows the current canopy response to that nutrient state.",
+                    f"NDRE is {_fmt(ndre)} ({ndre_status}).",
+                    f"EVI is {_fmt(evi)} ({evi_status}), which shows the current canopy response to that nutrient state.",
                     "Use this cycle to target tissue testing, fertigation timing, and weaker chlorophyll zones.",
                 ],
                 tags=["ndre", "nutrients", "recovery"],
@@ -111,11 +114,11 @@ def _build_cards(block: Block, satellite_response: BlockInsightsResponse) -> lis
                 title="Quality Lift Opportunity",
                 description="NDRE is holding in a supportive range, which supports targeted quality programs and premium fruit management.",
                 full_description=(
-                    f"Block {block.lanslu or block.id} is returning NDRE {ndre:.3f} with an interpretation of {ndre_status}. "
+                    f"Block {block.lanslu or block.id} is returning NDRE {_fmt(ndre)} with an interpretation of {ndre_status}. "
                     "That keeps nutrient activity supportive for quality-focused canopy and fruit decisions."
                 ),
                 key_points=[
-                    f"NDRE is {ndre:.3f} ({ndre_status}).",
+                    f"NDRE is {_fmt(ndre)} ({ndre_status}).",
                     "Use the next refresh cycle to confirm stability before committing more aggressively.",
                     "This is the right state for selective premium-management or varietal trial planning.",
                 ],
@@ -132,11 +135,11 @@ def _build_cards(block: Block, satellite_response: BlockInsightsResponse) -> lis
                 title="Canopy Reset Opportunity",
                 description="EVI indicates dense canopy growth, creating an opportunity to rebalance vigour and improve light and air movement.",
                 full_description=(
-                    f"EVI is {evi:.3f} with an interpretation of {evi_status}. "
+                    f"EVI is {_fmt(evi)} with an interpretation of {evi_status}. "
                     "Reducing excess canopy pressure can improve fruit exposure, spray penetration, and block uniformity."
                 ),
                 key_points=[
-                    f"EVI is {evi:.3f} ({evi_status}).",
+                    f"EVI is {_fmt(evi)} ({evi_status}).",
                     "Review shoot density, hedging, and canopy airflow in the strongest zones first.",
                     "Pair canopy action with the current NDRE result so the block is not pushed into nutrient imbalance.",
                 ],
@@ -152,11 +155,11 @@ def _build_cards(block: Block, satellite_response: BlockInsightsResponse) -> lis
                 title="Canopy Efficiency Opportunity",
                 description="EVI does not indicate dense canopy pressure, which supports steady growth programs without corrective pruning pressure.",
                 full_description=(
-                    f"EVI is {evi:.3f} with an interpretation of {evi_status}. "
+                    f"EVI is {_fmt(evi)} with an interpretation of {evi_status}. "
                     "That makes it easier to focus on efficiency gains rather than corrective canopy reduction."
                 ),
                 key_points=[
-                    f"EVI is {evi:.3f} ({evi_status}).",
+                    f"EVI is {_fmt(evi)} ({evi_status}).",
                     "Use this state to protect uniform canopy development across the next composite cycle.",
                     "Combine canopy stability with NDRE strength when prioritizing blocks for premium management.",
                 ],
@@ -172,7 +175,7 @@ def _build_cards(block: Block, satellite_response: BlockInsightsResponse) -> lis
             title="Next Refresh Planning Opportunity",
             description="NDRE and EVI together can be used as the block-level watchlist for the next five-day Sentinel refresh.",
             full_description=(
-                f"This block is currently reading NDRE {ndre:.3f} and EVI {evi:.3f}. "
+                f"This block is currently reading NDRE {_fmt(ndre)} and EVI {_fmt(evi)}. "
                 "Use those two indices together to decide whether the next cycle should focus on nutrient uplift, canopy control, or premium quality tracking."
             ),
             key_points=[

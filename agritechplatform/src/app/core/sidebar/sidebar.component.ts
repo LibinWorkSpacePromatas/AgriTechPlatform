@@ -5,7 +5,7 @@ import { NAVIGATION_ITEMS, MOCK_USER } from '../../shared/constants';
 import { BlockSelectorComponent } from '../../shared/components/block-selector.component';
 import { Block } from '../../shared/models';
 import { BlockService } from '../../shared/services/block.service';
-import { LucideAngularModule, Leaf, LayoutDashboard, Droplet, TrendingUp, Sprout, MessageCircle, LogOut, Store, X, ShoppingBag } from 'lucide-angular';
+import { LucideAngularModule, Leaf, LayoutDashboard, Droplet, TrendingUp, Sprout, MessageCircle, Tractor, LogOut, Store, X, ShoppingBag } from 'lucide-angular';
 import { AuthService } from '../services/auth.service';
 
 const BIDDER_NAV = [
@@ -148,6 +148,7 @@ export class SidebarComponent {
     'trending-up': TrendingUp,
     'sprout': Sprout,
     'message-circle': MessageCircle,
+    'tractor': Tractor,
     'store': Store,
     'shopping-bag': ShoppingBag,
   };
@@ -167,4 +168,3 @@ export class SidebarComponent {
     this.router.navigate(['/select-user']);
   }
 }
-

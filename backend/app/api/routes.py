@@ -6,15 +6,16 @@ from time import sleep
 from uuid import UUID, uuid4
 from typing import Any
 
+import logging
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.api import auth, scan
+from app.api import auth, scan, sensors
 from app.db.session import SessionLocal
-from app.db.models import Block, User
+from app.db.models import Block, User, BlockDecision
 from fastapi import Query
 from pydantic import BaseModel
 from app.schemas.opportunities import OpportunitiesResponse
@@ -24,6 +25,7 @@ from app.schemas.growing_opportunities import (
     GrowingOpportunityFeedbackRequest,
     GrowingOpportunityFeedbackResponse,
 )
+from app.schemas.insights import DashboardBlockInsightsResponse
 from app.schemas.satellite import BlockInsightsResponse as GEEInsightsResponse, SatelliteTimeseriesPoint
 from app.services.satellite_events import satellite_event_broker
 from app.services.satellite_access import satellite_access_service
@@ -32,11 +34,21 @@ from app.services.block_lookup import resolve_block
 from app.services.cloudinary_uploads import CloudinaryUploadError, cloudinary_upload_service
 from app.services.opportunities import build_opportunities_response
 from app.services.growing_opportunities import growing_opportunities_service
+from app.services.weather_ingest import (
+    build_weather_summary,
+    fetch_weather,
+    get_block_centroid_lat_lon,
+    is_weather_fresh,
+    query_weather_ranges,
+    store_weather,
+)
 
 router = APIRouter()
 router.include_router(auth.router, prefix="/auth", tags=["auth"])
 router.include_router(scan.router, prefix="/scan", tags=["scan"])
+router.include_router(sensors.router, prefix="/api", tags=["sensors"])
 
+logger = logging.getLogger(__name__)
 
 class BlockUpsertRequest(BaseModel):
     user_id: str
@@ -73,18 +85,40 @@ def _analyze_block_geometry(db: Session, geojson_str: str) -> dict[str, Any]:
         text(
             """
             WITH prepared AS (
-                SELECT ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326)) AS g
+                SELECT ST_RemoveRepeatedPoints(ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326))) AS raw_geom
+            ),
+            normalized AS (
+                SELECT
+                    raw_geom,
+                    CASE
+                        WHEN GeometryType(raw_geom) IN ('POLYGON', 'ST_Polygon') THEN raw_geom
+                        ELSE COALESCE(
+                            (
+                                SELECT dumped.geom
+                                FROM ST_Dump(ST_CollectionExtract(ST_UnaryUnion(raw_geom), 3)) AS dumped
+                                ORDER BY ST_Area(dumped.geom::geography) DESC
+                                LIMIT 1
+                            ),
+                            (
+                                SELECT dumped.geom
+                                FROM ST_Dump(ST_CollectionExtract(raw_geom, 3)) AS dumped
+                                ORDER BY ST_Area(dumped.geom::geography) DESC
+                                LIMIT 1
+                            )
+                        )
+                    END AS g
+                FROM prepared
             )
             SELECT
                 ST_IsValid(g) AS is_valid,
                 ST_IsEmpty(g) AS is_empty,
                 GeometryType(g) AS geometry_type,
                 ST_Dimension(g) AS geometry_dimension,
-                ST_Area(ST_Transform(g, 3857)) / 10000.0 AS area_ha,
+                ST_Area(g::geography) / 10000.0 AS area_ha,
                 ST_AsGeoJSON(g) AS block_polygon,
                 ST_Y(ST_Centroid(g)) AS centroid_lat,
                 ST_X(ST_Centroid(g)) AS centroid_lon
-            FROM prepared
+            FROM normalized
             """
         ),
         {"geojson": geojson_str},
@@ -131,12 +165,37 @@ def _upsert_block_geometry(
         db.execute(
             text(
                 """
+                WITH prepared AS (
+                    SELECT ST_RemoveRepeatedPoints(ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326))) AS raw_geom
+                ),
+                normalized AS (
+                    SELECT
+                        CASE
+                            WHEN GeometryType(raw_geom) IN ('POLYGON', 'ST_Polygon') THEN raw_geom
+                            ELSE COALESCE(
+                                (
+                                    SELECT dumped.geom
+                                    FROM ST_Dump(ST_CollectionExtract(ST_UnaryUnion(raw_geom), 3)) AS dumped
+                                    ORDER BY ST_Area(dumped.geom::geography) DESC
+                                    LIMIT 1
+                                ),
+                                (
+                                    SELECT dumped.geom
+                                    FROM ST_Dump(ST_CollectionExtract(raw_geom, 3)) AS dumped
+                                    ORDER BY ST_Area(dumped.geom::geography) DESC
+                                    LIMIT 1
+                                )
+                            )
+                        END AS geom
+                    FROM prepared
+                )
                 UPDATE blocks
                 SET
                     crop = COALESCE(:crop, crop),
                     description = COALESCE(:description, description),
                     area_ha = :area_ha,
-                    geom = ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326))
+                    geom = normalized.geom
+                FROM normalized
                 WHERE id = :block_id
                 """
             ),
@@ -154,6 +213,30 @@ def _upsert_block_geometry(
         db.execute(
             text(
                 """
+                WITH prepared AS (
+                    SELECT ST_RemoveRepeatedPoints(ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326))) AS raw_geom
+                ),
+                normalized AS (
+                    SELECT
+                        CASE
+                            WHEN GeometryType(raw_geom) IN ('POLYGON', 'ST_Polygon') THEN raw_geom
+                            ELSE COALESCE(
+                                (
+                                    SELECT dumped.geom
+                                    FROM ST_Dump(ST_CollectionExtract(ST_UnaryUnion(raw_geom), 3)) AS dumped
+                                    ORDER BY ST_Area(dumped.geom::geography) DESC
+                                    LIMIT 1
+                                ),
+                                (
+                                    SELECT dumped.geom
+                                    FROM ST_Dump(ST_CollectionExtract(raw_geom, 3)) AS dumped
+                                    ORDER BY ST_Area(dumped.geom::geography) DESC
+                                    LIMIT 1
+                                )
+                            )
+                        END AS geom
+                    FROM prepared
+                )
                 INSERT INTO blocks (id, user_id, lanslu, crop, description, area_ha, geom)
                 VALUES (
                     :block_id,
@@ -162,7 +245,7 @@ def _upsert_block_geometry(
                     :crop,
                     :description,
                     :area_ha,
-                    ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326))
+                    (SELECT geom FROM normalized)
                 )
                 """
             ),
@@ -177,7 +260,38 @@ def _upsert_block_geometry(
             },
         )
 
+    from app.services.weather_ingest import fetch_weather, store_weather, get_block_info
     db.commit()
+
+    try:
+        info = get_block_info(db, block_id)
+        lat, lon, tz = info["lat"], info["lon"], info["timezone"]
+        if lat is not None and lon is not None:
+            data = fetch_weather(lat, lon, timezone=tz)
+            store_weather(db, block_id, data, timezone_str=tz)
+
+            # Update decision state for weather
+            decision = db.get(BlockDecision, block_id)
+            if not decision:
+                decision = BlockDecision(block_id=block_id)
+                db.add(decision)
+            decision.weather_ready = True
+            db.commit()
+    except Exception as exc:
+        logger.warning("Weather refresh failed for block %s: %s", block_id, exc)
+
+    # Trigger async satellite job immediately after geometry update
+    try:
+        from app.services.satellite_scheduler import satellite_refresh_scheduler
+        satellite_refresh_scheduler.enqueue_block_refresh(
+            db,
+            block_id,
+            reason="block_upsert",
+            priority=10, # High priority for user interaction
+            force=True
+        )
+    except Exception as exc:
+        logger.warning("Satellite enqueue failed for block %s: %s", block_id, exc)
 
     return {
         "status": "created" if existing is None else "updated",
@@ -267,6 +381,32 @@ def get_db():
         db.close()
 
 
+@router.post("/api/uploads/images", tags=["uploads"])
+async def upload_image(file: UploadFile = File(...)):
+    if not (file.content_type or "").startswith("image/"):
+        raise HTTPException(status_code=400, detail="Only image uploads are supported.")
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Image size must be 10 MB or smaller.")
+
+    try:
+        uploaded = cloudinary_upload_service.upload_image(
+            file_name=file.filename or "auction-image",
+            content=content,
+            content_type=file.content_type,
+        )
+    except CloudinaryUploadError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return {
+        "secure_url": uploaded.secure_url,
+        "public_id": uploaded.public_id,
+    }
+
+
 @router.get("/users")
 def get_users(db: Session = Depends(get_db)):
     try:
@@ -304,6 +444,7 @@ def get_blocks(user_id: UUID, db: Session = Depends(get_db)):
                     description,
                     area_ha,
                     crop,
+                    timezone,
                     CASE
                         WHEN geom IS NULL OR ST_IsEmpty(geom) THEN NULL
                         ELSE ST_AsGeoJSON(ST_MakeValid(geom))
@@ -334,6 +475,7 @@ def get_blocks(user_id: UUID, db: Session = Depends(get_db)):
                 "description": block["description"],
                 "area_ha": block["area_ha"],
                 "crop": block["crop"],
+                "timezone": block["timezone"],
                 "block_polygon": json.loads(block["block_polygon"]) if block["block_polygon"] else None,
                 "centroid_lat": float(block["centroid_lat"]) if block["centroid_lat"] is not None else None,
                 "centroid_lon": float(block["centroid_lon"]) if block["centroid_lon"] is not None else None,
@@ -342,32 +484,6 @@ def get_blocks(user_id: UUID, db: Session = Depends(get_db)):
         ]
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=500, detail=f"Database error while fetching blocks: {exc}") from exc
-
-
-@router.post("/api/uploads/images", tags=["uploads"])
-async def upload_image(file: UploadFile = File(...)):
-    if not (file.content_type or "").startswith("image/"):
-        raise HTTPException(status_code=400, detail="Only image uploads are supported.")
-
-    content = await file.read()
-    if not content:
-        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
-    if len(content) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="Image size must be 10 MB or smaller.")
-
-    try:
-        uploaded = cloudinary_upload_service.upload_image(
-            file_name=file.filename or "auction-image",
-            content=content,
-            content_type=file.content_type,
-        )
-    except CloudinaryUploadError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
-
-    return {
-        "secure_url": uploaded.secure_url,
-        "public_id": uploaded.public_id,
-    }
 
 
 @router.post("/api/blocks", tags=["blocks"])
@@ -484,10 +600,10 @@ def set_block_location(request: BlockLocationRequest, db: Session = Depends(get_
                 SELECT ST_Transform(ST_Buffer(ST_Transform(p, 3857), 20.0), 4326) AS g FROM pt
             )
             SELECT
-                ST_Area(ST_Transform(g, 3857)) / 10000.0 AS area_ha,
-                ST_AsGeoJSON(ST_MakeValid(g)) AS block_polygon,
-                ST_Y(ST_Centroid(ST_MakeValid(g))) AS centroid_lat,
-                ST_X(ST_Centroid(ST_MakeValid(g))) AS centroid_lon
+                ST_Area(g::geography) / 10000.0 AS area_ha,
+                ST_AsGeoJSON(ST_RemoveRepeatedPoints(ST_MakeValid(g))) AS block_polygon,
+                ST_Y(ST_Centroid(ST_RemoveRepeatedPoints(ST_MakeValid(g)))) AS centroid_lat,
+                ST_X(ST_Centroid(ST_RemoveRepeatedPoints(ST_MakeValid(g)))) AS centroid_lon
             FROM buf
             """
         ),
@@ -506,7 +622,7 @@ def set_block_location(request: BlockLocationRequest, db: Session = Depends(get_
                 UPDATE blocks
                 SET
                     area_ha = :area_ha,
-                    geom = ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326))
+                    geom = ST_RemoveRepeatedPoints(ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326)))
                 WHERE id = :block_id
                 """
             ),
@@ -517,6 +633,36 @@ def set_block_location(request: BlockLocationRequest, db: Session = Depends(get_
         db.commit()
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=500, detail=f"Database error while setting block location: {exc}") from exc
+
+    try:
+        info = get_block_info(db, existing.id)
+        lat, lon, tz = info["lat"], info["lon"], info["timezone"]
+        if lat is not None and lon is not None:
+            data = fetch_weather(lat, lon, timezone=tz)
+            store_weather(db, existing.id, data, timezone_str=tz)
+
+            # Update decision state for weather
+            decision = db.get(BlockDecision, existing.id)
+            if not decision:
+                decision = BlockDecision(block_id=existing.id)
+                db.add(decision)
+            decision.weather_ready = True
+            db.commit()
+    except Exception as exc:
+        logger.warning("Weather refresh failed for block %s: %s", existing.id, exc)
+
+    # Trigger async satellite job
+    try:
+        from app.services.satellite_scheduler import satellite_refresh_scheduler
+        satellite_refresh_scheduler.enqueue_block_refresh(
+            db,
+            existing.id,
+            reason="location_update",
+            priority=10,
+            force=True
+        )
+    except Exception as exc:
+        logger.warning("Satellite enqueue failed for block %s: %s", existing.id, exc)
 
     return {
         "status": "updated",
@@ -582,8 +728,8 @@ def clear_block_geometry(
                 SELECT ST_Transform(ST_Buffer(ST_Transform(p, 3857), 20.0), 4326) AS g FROM pt
             )
             SELECT
-                ST_Area(ST_Transform(g, 3857)) / 10000.0 AS area_ha,
-                ST_AsGeoJSON(ST_MakeValid(g)) AS block_polygon
+                ST_Area(g::geography) / 10000.0 AS area_ha,
+                ST_AsGeoJSON(ST_RemoveRepeatedPoints(ST_MakeValid(g))) AS block_polygon
             FROM buf
             """
         ),
@@ -599,7 +745,7 @@ def clear_block_geometry(
                 UPDATE blocks
                 SET
                     area_ha = :area_ha,
-                    geom = ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326))
+                    geom = ST_RemoveRepeatedPoints(ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326)))
                 WHERE id = :block_id
                 """
             ),
@@ -610,6 +756,15 @@ def clear_block_geometry(
         db.commit()
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=500, detail=f"Database error while clearing block geometry: {exc}") from exc
+
+    try:
+        info = get_block_info(db, block.id)
+        lat2, lon2, tz = info["lat"], info["lon"], info["timezone"]
+        if lat2 is not None and lon2 is not None:
+            data = fetch_weather(lat2, lon2, timezone=tz)
+            store_weather(db, block.id, data, timezone_str=tz)
+    except Exception as exc:
+        logger.warning("Weather refresh failed for block %s: %s", block.id, exc)
 
     return {
         "status": "geometry_cleared",
@@ -644,7 +799,7 @@ def get_block_timeseries(block_identifier: str):
         raise HTTPException(status_code=500, detail=f"Database error while fetching block time series: {exc}") from exc
 
 
-@router.get("/api/blocks/{block_id}/insights", response_model=GEEInsightsResponse, tags=["satellite-insights"])
+@router.get("/api/blocks/{block_id}/insights", response_model=DashboardBlockInsightsResponse, tags=["satellite-insights"])
 def get_block_dashboard_insights(block_id: str, refresh: bool = Query(default=False)):
     try:
         snapshot = satellite_access_service.get_block_snapshot(block_id, force_refresh=refresh)
@@ -655,38 +810,204 @@ def get_block_dashboard_insights(block_id: str, refresh: bool = Query(default=Fa
         raise HTTPException(status_code=500, detail=f"Database error while fetching dashboard block insights: {exc}") from exc
 
 
-@router.get("/api/blocks/{block_id}/events", tags=["satellite-events"])
-def stream_block_satellite_events(block_id: str):
+@router.get("/api/weather/latest", tags=["weather"])
+def get_latest_weather(
+    lat: float = Query(..., description="Latitude"),
+    lon: float = Query(..., description="Longitude"),
+    timezone: str = Query("Australia/Sydney", description="Timezone for the request")
+):
+    """
+    Backend proxy for Open-Meteo API.
+    Provides weather data for the dashboard.
+    """
+    import httpx
+    
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "current": "temperature_2m,apparent_temperature,is_day,rain,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m,cloud_cover",
+        "hourly": "temperature_2m,apparent_temperature,relative_humidity_2m,rain,cloud_cover,wind_speed_10m",
+        "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code",
+        "timezone": timezone,
+        "past_days": 7,
+        "forecast_days": 7
+    }
+    
     try:
+        # Using a longer timeout and verified client
+        with httpx.Client(timeout=20.0, follow_redirects=True) as client:
+            response = client.get("https://api.open-meteo.com/v1/forecast", params=params)
+            
+            if response.status_code != 200:
+                logger.error("Open-Meteo API returned error %s: %s", response.status_code, response.text)
+                raise HTTPException(status_code=502, detail=f"Weather API error: {response.status_code}")
+                
+            return response.json()
+    except httpx.TimeoutException:
+        logger.error("Weather proxy timeout for lat=%s, lon=%s", lat, lon)
+        raise HTTPException(status_code=504, detail="Weather service timed out")
+    except Exception as exc:
+        logger.error("Failed to proxy weather request: %s", str(exc))
+        # Return more detail in development
+        raise HTTPException(status_code=502, detail=f"Weather service error: {str(exc)}")
+
+
+@router.get("/api/blocks/{block_id}/decision", tags=["blocks"])
+def get_block_decision(block_id: str, db: Session = Depends(get_db)):
+    """
+    Fetches the latest irrigation decision payload for a specific block.
+    Supports both UUID and human-readable identifiers.
+    """
+    try:
+        block = resolve_block(db, block_id)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Error resolving block: {exc}") from exc
+
+    row = db.execute(
+        text("""
+            SELECT decision_payload 
+            FROM block_decisions 
+            WHERE block_id = :block_id
+        """),
+        {"block_id": str(block.id)}
+    ).first()
+
+    if not row:
+        return None
+
+    return row[0]  # JSON payload from decision_payload column
+
+
+@router.get("/api/blocks/{block_id}/unified-state", tags=["blocks"])
+def get_block_unified_state(block_id: str, db: Session = Depends(get_db)):
+    try:
+        block = resolve_block(db, block_id)
+    except HTTPException:
+        raise
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail=f"Database error while resolving block: {exc}") from exc
+
+    try:
+        row = (
+            db.execute(
+                text(
+                    """
+                    SELECT *
+                    FROM unified_farm_state
+                    WHERE block_id = :block_id
+                    LIMIT 1
+                    """
+                ),
+                {"block_id": str(block.id)},
+            )
+            .mappings()
+            .first()
+        )
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail=f"Database error while fetching unified farm state: {exc}") from exc
+
+    if not row:
+        raise HTTPException(status_code=404, detail="No data found")
+
+    def _float(value: Any) -> float | None:
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    weather: dict[str, Any] | None = None
+    weather_summary: dict[str, Any] | None = None
+    try:
+        info = get_block_info(db, block.id)
+        lat, lon, tz = info["lat"], info["lon"], info["timezone"]
+        if lat is not None and lon is not None:
+            if not is_weather_fresh(db, block.id, freshness_minutes=60):
+                weather_data = fetch_weather(lat, lon, timezone=tz)
+                store_weather(db, block.id, weather_data, timezone_str=tz)
+            weather = query_weather_ranges(db, block.id)
+            weather_summary = build_weather_summary(weather)
+    except Exception:
+        weather = None
+        weather_summary = None
+
+    return {
+        "block_id": str(row.get("block_id") or block.id),
+        "sensors": {
+            "soil_moisture": _float(row.get("soil_moisture")),
+            "soil_temperature": _float(row.get("soil_temperature")),
+            "air_temperature": _float(row.get("air_temperature")),
+            "humidity": _float(row.get("humidity")),
+            "ph": _float(row.get("ph_level")),
+        },
+        "satellite": {
+            "ndvi": _float(row.get("ndvi")),
+            "ndwi": _float(row.get("ndwi")),
+            "evi": _float(row.get("evi")),
+            "lai": _float(row.get("lai")),
+        },
+        "weather": weather or {"last_24h": [], "last_7d": [], "next_7d": []},
+        "weather_summary": weather_summary,
+        "meta": {
+            "data_quality": row.get("data_quality"),
+            "date": row.get("composite_date_to").isoformat() if row.get("composite_date_to") else None,
+        },
+    }
+
+
+@router.get("/api/blocks/{block_id}/events", tags=["satellite-events"])
+async def stream_block_satellite_events(block_id: str):
+    """
+    Server-Sent Events (SSE) stream for satellite refresh progress.
+    """
+    import asyncio
+    from datetime import datetime, timezone
+    from app.services.satellite_access import satellite_access_service
+    from app.services.satellite_events import satellite_event_broker
+
+    try:
+        # Resolve block once at the start of the stream
         block_reference = satellite_access_service.resolve_block_reference(block_id)
     except SQLAlchemyError as exc:
-        raise HTTPException(status_code=500, detail=f"Database error while preparing satellite events: {exc}") from exc
+        logger.error("Database error resolving block for events: %s", exc)
+        raise HTTPException(status_code=500, detail="Database error while preparing satellite events") from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Unexpected error resolving block for events: %s", exc)
+        raise HTTPException(status_code=500, detail=f"Error resolving block: {exc}") from exc
 
-    def event_stream():
-        last_event_id: int | None = None
-        yield _format_sse_payload(
-            {
-                "block_id": block_reference.block_id,
-                "event": "connected",
-                "reason": "stream_opened",
-            }
-        )
+    async def event_generator():
+        last_event_id = None
+        
+        # Send initial connection event
+        yield _format_sse_payload({
+            "block_id": block_reference.block_id,
+            "event": "connected",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "reason": "stream_established",
+        })
 
-        while True:
-            refresh_events = satellite_event_broker.list_events(
-                block_id=block_reference.block_id,
-                after_id=last_event_id,
-            )
+        try:
+            while True:
+                # Check for new events since last poll
+                refresh_events = satellite_event_broker.list_events(
+                    block_id=block_reference.block_id,
+                    after_id=last_event_id,
+                )
 
-            if not refresh_events:
-                yield ": keep-alive\n\n"
-                sleep(1)
-                continue
+                if not refresh_events:
+                    # Keep connection alive with SSE comment
+                    yield ": keep-alive\n\n"
+                    await asyncio.sleep(2) # Poll every 2 seconds
+                    continue
 
-            for refresh_event in refresh_events:
-                last_event_id = refresh_event.id
-                yield _format_sse_payload(
-                    {
+                for refresh_event in refresh_events:
+                    last_event_id = refresh_event.id
+                    yield _format_sse_payload({
                         "block_id": refresh_event.block_id,
                         "event": refresh_event.event,
                         "timestamp": refresh_event.timestamp.isoformat(),
@@ -694,16 +1015,22 @@ def stream_block_satellite_events(block_id: str):
                         "data_quality": refresh_event.data_quality,
                         "error": refresh_event.error,
                         "latency_ms": refresh_event.latency_ms,
-                    }
-                )
+                    })
+                
+                await asyncio.sleep(1)
+        except asyncio.CancelledError:
+            logger.info("event=sse_stream_cancelled block_id=%s", block_reference.block_id)
+        except Exception as exc:
+            logger.error("event=sse_stream_error block_id=%s error=%s", block_reference.block_id, exc)
 
     return StreamingResponse(
-        event_stream(),
+        event_generator(),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
+        headers={ 
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache, no-transform",
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
+            "X-Accel-Buffering": "no", # Prevent Nginx from buffering the stream
         },
     )
 
@@ -741,7 +1068,7 @@ def get_growing_opportunities(block_id: str, db: Session = Depends(get_db)):
 def get_growing_opportunities_news(block_id: str, db: Session = Depends(get_db)):
     try:
         block = resolve_block(db, block_id)
-        return growing_opportunities_service.build_news_payload(block)
+        return growing_opportunities_service.build_news_payload(db, block)
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=500, detail=f"Database error while fetching growing opportunities: {exc}") from exc
 
