@@ -31,6 +31,7 @@ from app.services.satellite_events import satellite_event_broker
 from app.services.satellite_access import satellite_access_service
 from app.services.satellite_insights import SatelliteInsightsUnavailableError, satellite_insights_service
 from app.services.block_lookup import resolve_block
+from app.services.cloudinary_uploads import CloudinaryUploadError, cloudinary_upload_service
 from app.services.opportunities import build_opportunities_response
 from app.services.growing_opportunities import growing_opportunities_service
 from app.services.weather_ingest import (
@@ -380,6 +381,32 @@ def get_db():
         db.close()
 
 
+@router.post("/api/uploads/images", tags=["uploads"])
+async def upload_image(file: UploadFile = File(...)):
+    if not (file.content_type or "").startswith("image/"):
+        raise HTTPException(status_code=400, detail="Only image uploads are supported.")
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Image size must be 10 MB or smaller.")
+
+    try:
+        uploaded = cloudinary_upload_service.upload_image(
+            file_name=file.filename or "auction-image",
+            content=content,
+            content_type=file.content_type,
+        )
+    except CloudinaryUploadError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return {
+        "secure_url": uploaded.secure_url,
+        "public_id": uploaded.public_id,
+    }
+
+
 @router.get("/users")
 def get_users(db: Session = Depends(get_db)):
     try:
@@ -394,6 +421,7 @@ def get_users(db: Session = Depends(get_db)):
                 "farm_location": user.farm_location,
                 "primary_crop": user.primary_crop,
                 "primary_soil": user.primary_soil,
+                "role": getattr(user, "role", "farmer") or "farmer",
             }
             for user in users
         ]

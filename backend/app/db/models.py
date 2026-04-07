@@ -12,6 +12,7 @@ from sqlalchemy import (
     Identity,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -35,6 +36,7 @@ class User(Base):
     farm_location = Column(String)
     primary_crop = Column(String)
     primary_soil = Column(String)
+    role = Column(String, nullable=False, server_default=text("'farmer'"))
 
 
 class Block(Base):
@@ -231,3 +233,61 @@ class GrowingOpportunityNewsCache(Base):
     warning = Column(Text, nullable=True)
     refreshed_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), server_default=func.now())
     expires_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class AuctionProfile(Base):
+    __tablename__ = "auction_profiles"
+    __table_args__ = (
+        Index("idx_auction_profiles_user", "user_id"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
+    abn = Column(String(11), nullable=False, unique=True)
+    business_name = Column(Text, nullable=False)
+    gst_registered = Column(Boolean, nullable=False)
+    bsb = Column(String(6), nullable=False)
+    account_number_encrypted = Column(Text, nullable=False)
+    status = Column(Text, nullable=False, server_default=text("'active'"))
+    created_at = Column(DateTime(timezone=False), nullable=False, server_default=text("now()"))
+    updated_at = Column(DateTime(timezone=False), nullable=False, server_default=text("now()"))
+
+
+class Auction(Base):
+    __tablename__ = "auctions"
+    __table_args__ = (
+        CheckConstraint("base_price > 0", name="ck_auctions_base_price_positive"),
+        CheckConstraint("end_time > start_time", name="ck_auctions_end_after_start"),
+        Index("idx_auctions_seller", "seller_id"),
+        Index("idx_auctions_status", "status"),
+        Index("idx_auctions_time", "start_time", "end_time"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    seller_id = Column(UUID(as_uuid=True), ForeignKey("auction_profiles.id"), nullable=False)
+    produce_name = Column(Text, nullable=False)
+    quantity = Column(Numeric, nullable=False)
+    unit = Column(Text, nullable=False, server_default=text("'kg'"))
+    base_price = Column(Numeric, nullable=False)
+    status = Column(Text, nullable=False)
+    start_time = Column(DateTime(timezone=False), nullable=False)
+    end_time = Column(DateTime(timezone=False), nullable=False)
+    winner_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    final_price = Column(Numeric, nullable=True)
+    image_url = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=False), nullable=False, server_default=text("now()"))
+    updated_at = Column(DateTime(timezone=False), nullable=False, server_default=text("now()"))
+
+
+class AuctionBid(Base):
+    __tablename__ = "auction_bids"
+    __table_args__ = (
+        CheckConstraint("bid_amount > 0", name="ck_auction_bids_bid_amount_positive"),
+        Index("idx_bids_auction", "auction_id"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    auction_id = Column(UUID(as_uuid=True), ForeignKey("auctions.id", ondelete="CASCADE"), nullable=False)
+    bidder_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    bid_amount = Column(Numeric, nullable=False)
+    created_at = Column(DateTime(timezone=False), nullable=False, server_default=text("now()"))

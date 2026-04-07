@@ -109,6 +109,7 @@ export class UserDataService {
             farmLocation: apiUser.farm_location || 'Unknown Location',
             primaryCropName: apiUser.primary_crop || 'Unknown Crop',
             primarySoilType: apiUser.primary_soil || 'Unknown Soil',
+            role: (apiUser.role === 'bidder' ? 'bidder' : 'farmer') as 'farmer' | 'bidder',
             blocks: blocks.length > 0 ? blocks : []
         };
     }

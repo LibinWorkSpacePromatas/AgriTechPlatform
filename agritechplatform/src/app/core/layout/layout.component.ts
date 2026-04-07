@@ -66,7 +66,7 @@ import { SidebarComponent } from '../sidebar/sidebar.component';
       padding-top: var(--header-height);
       min-height: 100vh;
     }
-    
+
     .content-wrapper {
       padding: var(--content-padding);
       max-width: var(--content-max-width);
@@ -115,4 +115,5 @@ export class LayoutComponent {
       this.renderer.removeClass(this.document.body, 'scroll-lock');
     }
   }
+
 }

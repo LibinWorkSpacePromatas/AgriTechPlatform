@@ -10,6 +10,25 @@ export const authGuard: CanActivateFn = (route, state) => {
         return true;
     }
 
-    // Redirect to user selection if not authenticated
     return router.createUrlTree(['/select-user']);
+};
+
+export const farmerGuard: CanActivateFn = (route, state) => {
+    const authService = inject(AuthService);
+    const router = inject(Router);
+
+    const user = authService.getCurrentUser();
+    if (!user) return router.createUrlTree(['/select-user']);
+    if (user.role === 'bidder') return router.createUrlTree(['/bidder/dashboard']);
+    return true;
+};
+
+export const bidderGuard: CanActivateFn = (route, state) => {
+    const authService = inject(AuthService);
+    const router = inject(Router);
+
+    const user = authService.getCurrentUser();
+    if (!user) return router.createUrlTree(['/select-user']);
+    if (user.role !== 'bidder') return router.createUrlTree(['/dashboard']);
+    return true;
 };
