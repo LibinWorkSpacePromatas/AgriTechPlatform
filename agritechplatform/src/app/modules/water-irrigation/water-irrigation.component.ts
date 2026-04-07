@@ -706,8 +706,8 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     this.isLoading = true;
     this.error = null;
 
-    const blockId = this.currentLan;
     const blockUUID = this.selectedBlock?.id;
+    const blockId = blockUUID || this.currentLan;
 
     // 1. Get basic irrigation status (NDWI etc)
     this.waterIrrigationService.getIrrigationStatus(blockId).pipe(
@@ -769,8 +769,8 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
   }
 
   private refreshAfterGeometryChange(): void {
-    const blockId = this.currentLan;
     const blockUUID = this.selectedBlock?.id;
+    const blockId = blockUUID || this.currentLan;
 
     // 1. Trigger the refresh (minimal?refresh=true)
     this.waterIrrigationService.getIrrigationStatus(blockId, true).subscribe({
