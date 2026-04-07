@@ -23,6 +23,36 @@ import {
   styleUrl: './rent-equipment.component.css'
 })
 export class RentEquipmentComponent implements OnInit {
+  readonly baseToolOptions = [
+    'Tractor',
+    'Irrigation Pump',
+    'Sprayer',
+    'Seeder',
+    'Harvester',
+    'Cultivator',
+    'Rotavator',
+    'Plough',
+    'Trailer',
+    'Generator',
+    'Drone',
+    'Water Tanker',
+    'Power Tiller',
+    'Transplanter',
+    'Mulcher',
+    'Baler',
+    'Thresher',
+    'Excavator',
+    'Loader',
+    'Mini Tractor',
+  ] as const;
+
+  readonly sortOptions = [
+    { value: 'distance', label: 'Nearest First' },
+    { value: 'price_low', label: 'Price: Low to High' },
+    { value: 'price_high', label: 'Price: High to Low' },
+    { value: 'name', label: 'Name: A to Z' },
+  ] as const;
+
   listings: RentalListing[] = [];
   loading = false;
   error: string | null = null;
@@ -34,16 +64,29 @@ export class RentEquipmentComponent implements OnInit {
   minPrice = 0;
   maxPrice = 100000;
   typeFilter: '' | RentalPriceType = '';
+  categoryFilter = '';
+  locationFilter = '';
+  onlyWithImage = false;
+  sortBy: 'distance' | 'price_low' | 'price_high' | 'name' = 'distance';
   machineSearchTerm = '';
   appliedMachineSearchTerm = '';
+  showFilterPanel = false;
+  draftRadiusKm = 50;
+  draftMinPrice = 0;
+  draftMaxPrice = 100000;
+  draftTypeFilter: '' | RentalPriceType = '';
+  draftCategoryFilter = '';
+  draftLocationFilter = '';
+  draftOnlyWithImage = false;
+  draftSortBy: 'distance' | 'price_low' | 'price_high' | 'name' = 'distance';
+  detailsModalListing: RentalListing | null = null;
+  bookingModalListing: RentalListing | null = null;
 
   selectedListingId: string | null = null;
   bookingStart = '';
   bookingEnd = '';
   bookingStartDate = '';
   bookingEndDate = '';
-  bookingStartTime = '';
-  bookingEndTime = '';
   bookingQuantity = 1;
   availability: CheckAvailabilityResponse | null = null;
   calendarSlots: RentalCalendarSlot[] = [];
@@ -53,10 +96,6 @@ export class RentEquipmentComponent implements OnInit {
   recommendation: RentalRecommendationResponse | null = null;
   recommendationLoading = false;
   blockId: string | null = null;
-  toastVisible = false;
-  toastMessage = '';
-  toastType: 'success' | 'error' = 'success';
-  private toastTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private rentalService: RentalService,
@@ -76,6 +115,7 @@ export class RentEquipmentComponent implements OnInit {
     }
     this.loadMyBookings();
     this.loadListings();
+    this.syncDraftFilters();
   }
 
   loadListings(): void {
@@ -89,13 +129,11 @@ export class RentEquipmentComponent implements OnInit {
       currentUser?.userId
     ).subscribe({
       next: response => {
-        console.log('LISTINGS:', response);
         this.listings = response;
         this.loading = false;
       },
       error: err => {
         this.error = err.message || 'Unable to load listings';
-        this.notifyError(this.error ?? 'Unable to load listings');
         this.loading = false;
       },
     });
@@ -103,71 +141,151 @@ export class RentEquipmentComponent implements OnInit {
 
   get filteredListings(): RentalListing[] {
     const search = this.appliedMachineSearchTerm.trim().toLowerCase();
+    const locationSearch = this.locationFilter.trim().toLowerCase();
+    const categorySearch = this.categoryFilter.trim().toLowerCase();
+
     return this.listings.filter(listing => {
       const typeMatch = !this.typeFilter || listing.price_type === this.typeFilter;
       const priceMatch = listing.price >= this.minPrice && listing.price <= this.maxPrice;
       const machineMatch = !search
         || listing.equipment_name.toLowerCase().includes(search)
         || (listing.description || '').toLowerCase().includes(search);
-      return typeMatch && priceMatch && machineMatch;
+      const categoryMatch = !categorySearch || listing.equipment_name.toLowerCase() === categorySearch;
+      const locationMatch = !locationSearch || (listing.location_label || '').toLowerCase().includes(locationSearch);
+      const imageMatch = !this.onlyWithImage || !!listing.image_url;
+
+      return typeMatch && priceMatch && machineMatch && categoryMatch && locationMatch && imageMatch;
+    }).sort((left, right) => {
+      if (this.sortBy === 'price_low') {
+        return left.price - right.price;
+      }
+
+      if (this.sortBy === 'price_high') {
+        return right.price - left.price;
+      }
+
+      if (this.sortBy === 'name') {
+        return left.equipment_name.localeCompare(right.equipment_name);
+      }
+
+      return (left.distance_m ?? Number.MAX_SAFE_INTEGER) - (right.distance_m ?? Number.MAX_SAFE_INTEGER);
     });
   }
 
+  get equipmentTypeOptions(): string[] {
+    return [...new Set([...this.baseToolOptions, ...this.listings.map(listing => listing.equipment_name).filter(Boolean)])]
+      .sort((left, right) => left.localeCompare(right));
+  }
+
+  get quickToolOptions(): string[] {
+    return [
+      'All',
+      'Tractor',
+      'Irrigation Pump',
+      'Sprayer',
+      'Seeder',
+      'Harvester',
+      'Cultivator',
+      'Trailer',
+    ];
+  }
+
   applyMachineSearch(): void {
-    this.onPriceFilterChange();
     this.appliedMachineSearchTerm = this.machineSearchTerm;
   }
 
-  onPriceFilterChange(): void {
-    if (this.minPrice < 0) {
-      this.minPrice = 0;
+  toggleQuickCategory(option: string): void {
+    if (option === 'All') {
+      this.categoryFilter = '';
+    } else {
+      this.categoryFilter = this.categoryFilter === option ? '' : option;
     }
-    if (this.maxPrice < 0) {
-      this.maxPrice = 0;
-    }
-    if (this.maxPrice < this.minPrice) {
-      this.maxPrice = this.minPrice;
-    }
+    this.draftCategoryFilter = this.categoryFilter;
   }
 
-  getBookingValidationError(listing: RentalListing): string | null {
-    const now = new Date();
-    const minStart = new Date(now.getTime() + 30 * 60 * 1000);
-
-    if (listing.price_type === 'daily') {
-      if (!this.bookingStartDate || !this.bookingEndDate || !this.bookingStartTime || !this.bookingEndTime) {
-        return 'Select start/end date and time';
-      }
-      const start = new Date(`${this.bookingStartDate}T${this.bookingStartTime}:00`);
-      const end = new Date(`${this.bookingEndDate}T${this.bookingEndTime}:00`);
-      if (start < minStart) {
-        return 'Start time must be at least 30 minutes from now';
-      }
-      if (end <= start) {
-        return 'End date/time must be later than start';
-      }
-      return null;
-    }
-
-    if (!this.bookingStart || !this.bookingEnd) {
-      return 'Select start and end date/time';
-    }
-    const start = new Date(this.bookingStart);
-    const end = new Date(this.bookingEnd);
-    if (start < minStart) {
-      return 'Start time must be at least 30 minutes from now';
-    }
-    if (end <= start) {
-      return 'End time must be later than start time';
-    }
-    return null;
+  openFilterPanel(): void {
+    this.syncDraftFilters();
+    this.showFilterPanel = true;
   }
 
-  canBook(listing: RentalListing): boolean {
-    const hasValidWindow = !this.getBookingValidationError(listing);
-    const hasValidQuantity = this.bookingQuantity >= 1 && this.bookingQuantity <= this.getAvailableUnits(listing);
-    const hasAvailability = this.selectedListingId !== listing.id || this.availability?.available !== false;
-    return hasValidWindow && hasValidQuantity && hasAvailability;
+  closeFilterPanel(): void {
+    this.showFilterPanel = false;
+  }
+
+  applyFilters(): void {
+    this.radiusKm = this.draftRadiusKm;
+    this.minPrice = this.draftMinPrice;
+    this.maxPrice = this.draftMaxPrice;
+    this.typeFilter = this.draftTypeFilter;
+    this.categoryFilter = this.draftCategoryFilter;
+    this.locationFilter = this.draftLocationFilter;
+    this.onlyWithImage = this.draftOnlyWithImage;
+    this.sortBy = this.draftSortBy;
+    this.showFilterPanel = false;
+    this.loadListings();
+  }
+
+  resetFilters(): void {
+    this.draftRadiusKm = 50;
+    this.draftMinPrice = 0;
+    this.draftMaxPrice = 100000;
+    this.draftTypeFilter = '';
+    this.draftCategoryFilter = '';
+    this.draftLocationFilter = '';
+    this.draftOnlyWithImage = false;
+    this.draftSortBy = 'distance';
+  }
+
+  resetAllFilters(): void {
+    this.machineSearchTerm = '';
+    this.appliedMachineSearchTerm = '';
+    this.radiusKm = 50;
+    this.minPrice = 0;
+    this.maxPrice = 100000;
+    this.typeFilter = '';
+    this.categoryFilter = '';
+    this.locationFilter = '';
+    this.onlyWithImage = false;
+    this.sortBy = 'distance';
+    this.resetFilters();
+    this.loadListings();
+  }
+
+  openDetails(listing: RentalListing): void {
+    this.detailsModalListing = listing;
+  }
+
+  closeDetailsModal(): void {
+    this.detailsModalListing = null;
+  }
+
+  openBooking(listing: RentalListing): void {
+    this.bookingModalListing = listing;
+    this.selectedListingId = listing.id;
+    this.availability = null;
+    this.info = null;
+    this.error = null;
+    this.bookingStart = '';
+    this.bookingEnd = '';
+    this.bookingStartDate = '';
+    this.bookingEndDate = '';
+    this.bookingQuantity = 1;
+    this.calendarDate = new Date().toISOString().slice(0, 10);
+    this.detailsModalListing = null;
+    this.loadCalendar(listing.id, this.calendarDate);
+  }
+
+  closeBookingModal(): void {
+    this.bookingModalListing = null;
+    this.selectedListingId = null;
+    this.availability = null;
+    this.calendarSlots = [];
+    this.nextAvailableSlot = null;
+    this.bookingStart = '';
+    this.bookingEnd = '';
+    this.bookingStartDate = '';
+    this.bookingEndDate = '';
+    this.bookingQuantity = 1;
   }
 
   onTimeChange(listing: RentalListing): void {
@@ -175,9 +293,8 @@ export class RentEquipmentComponent implements OnInit {
     if (!this.bookingQuantity || this.bookingQuantity < 1) {
       this.bookingQuantity = 1;
     }
-    const availableUnits = this.getAvailableUnits(listing);
-    if (this.bookingQuantity > availableUnits) {
-      this.bookingQuantity = availableUnits;
+    if (this.bookingQuantity > (listing.quantity_total || 1)) {
+      this.bookingQuantity = listing.quantity_total || 1;
     }
     this.availability = null;
     this.info = null;
@@ -198,94 +315,48 @@ export class RentEquipmentComponent implements OnInit {
 
     this.rentalService.checkAvailability(payload).subscribe({
       next: res => this.availability = res,
-      error: err => {
-        this.error = err.message || 'Availability check failed';
-        this.notifyError(this.error ?? 'Availability check failed');
-      },
+      error: err => this.error = err.message || 'Availability check failed',
     });
-  }
-
-  onBookingInputChange(listing: RentalListing): void {
-    // Recheck live stock whenever booking window/quantity changes.
-    this.onTimeChange(listing);
   }
 
   bookNow(listing: RentalListing): void {
     const user = this.authService.getCurrentUser();
     if (!user) {
       this.error = 'No active user selected';
-      this.notifyError(this.error ?? 'No active user selected');
-      return;
-    }
-
-    const validationError = this.getBookingValidationError(listing);
-    if (validationError) {
-      this.error = validationError;
-      this.notifyError(this.error ?? 'Invalid booking input');
       return;
     }
 
     const window = this.buildBookingWindow(listing);
     if (!window) {
-      this.error = 'Select valid start/end date and time';
-      this.notifyError(this.error ?? 'Select valid start/end date and time');
+      this.error = listing.price_type === 'daily' ? 'Select start and end date' : 'Select start and end time';
       return;
     }
 
-    const availabilityPayload: CheckAvailabilityPayload = {
+    const payload: CreateBookingPayload = {
       listing_id: listing.id,
       start_datetime: window.start,
       end_datetime: window.end,
       quantity_requested: this.bookingQuantity,
     };
-    this.rentalService.checkAvailability(availabilityPayload).subscribe({
-      next: availabilityRes => {
-        this.availability = availabilityRes;
-        if (!availabilityRes.available) {
-          this.error = `Not available: ${availabilityRes.reason || 'Overlapping / Buffer'}`;
-          this.notifyError(this.error ?? 'Not available');
-          return;
-        }
 
-        const payload: CreateBookingPayload = {
-          listing_id: listing.id,
-          start_datetime: window.start,
-          end_datetime: window.end,
-          quantity_requested: this.bookingQuantity,
-        };
-        this.rentalService.createBooking(user.userId, payload).subscribe({
-          next: res => {
-            this.info = `Booking requested (${res.booking.status}) - ${res.booking.quantity_requested} unit(s), total amount ${res.booking.total_price || 0}`;
-            this.notifySuccess(this.info);
-            this.availability = {
-              listing_id: listing.id,
-              available: true,
-              conflict: false,
-              reason: null,
-              available_quantity: availabilityRes.available_quantity,
-            };
-            this.myBookings.unshift(res.booking);
-            this.loadMyBookings();
-            this.calendarDate = new Date(window.start).toISOString().slice(0, 10);
-            this.loadCalendar(listing.id, this.calendarDate);
-            // Refresh live availability after successful booking so remaining stock is updated immediately.
-            this.onTimeChange(listing);
-          },
-          error: err => {
-            this.error = err.message || 'Booking failed';
-            this.notifyError(this.error ?? 'Booking failed');
-            this.availability = { listing_id: listing.id, available: false, conflict: true, reason: null };
-          },
-        });
+    this.rentalService.createBooking(user.userId, payload).subscribe({
+      next: res => {
+        this.info = `Booking requested (${res.booking.status})`;
+        this.availability = { listing_id: listing.id, available: true, conflict: false, reason: null };
+        this.myBookings.unshift(res.booking);
+        this.loadMyBookings();
+        this.calendarDate = new Date(window.start).toISOString().slice(0, 10);
+        this.loadCalendar(listing.id, this.calendarDate);
+        this.closeBookingModal();
       },
       error: err => {
-        this.error = err.message || 'Availability check failed';
-        this.notifyError(this.error ?? 'Availability check failed');
+        this.error = err.message || 'Booking failed';
+        this.availability = { listing_id: listing.id, available: false, conflict: true, reason: null };
       },
     });
   }
 
-  getBookingSummary(listing: RentalListing): { start: Date; end: Date; duration: string; total: number; billingLine: string; rateLabel: string } | null {
+  getBookingSummary(listing: RentalListing): { start: Date; end: Date; duration: string; total: number } | null {
     const window = this.buildBookingWindow(listing);
     if (!window) {
       return null;
@@ -293,55 +364,29 @@ export class RentEquipmentComponent implements OnInit {
     const start = new Date(window.start);
     const end = new Date(window.end);
     const hours = Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60 * 60));
-    const duration = `${hours.toFixed(2)} hour(s)`;
-    const effectiveHourlyRate = listing.price_type === 'daily' ? listing.price / 24 : listing.price;
-    const billedUnits = hours;
-    const baseTotal = billedUnits * effectiveHourlyRate;
-    const total = baseTotal * this.bookingQuantity;
-    const rateLabel = listing.price_type === 'daily'
-      ? `${effectiveHourlyRate.toFixed(2)} / hour (converted from ${listing.price.toFixed(2)} / day)`
-      : `${listing.price.toFixed(2)} / hour`;
-    const billingLine = `${billedUnits.toFixed(2)} hour(s) x ${this.bookingQuantity} unit(s) x ${effectiveHourlyRate.toFixed(2)}`;
-    return { start, end, duration, total, billingLine, rateLabel };
-  }
-
-  onQuantityChange(listing: RentalListing): void {
-    if (!this.bookingQuantity || this.bookingQuantity < 1) {
-      this.bookingQuantity = 1;
-    }
-    const availableUnits = this.getAvailableUnits(listing);
-    if (this.bookingQuantity > availableUnits) {
-      this.bookingQuantity = availableUnits;
-    }
-    if (this.selectedListingId === listing.id) {
-      this.onTimeChange(listing);
-    }
-  }
-
-  getAvailableUnits(listing: RentalListing): number {
-    if (this.selectedListingId === listing.id && this.availability?.available_quantity != null) {
-      return Math.max(0, this.availability.available_quantity);
-    }
-    return listing.quantity_total || 1;
-  }
-
-  hasLiveAvailability(listing: RentalListing): boolean {
-    return this.selectedListingId === listing.id && this.availability?.available_quantity != null;
+    const duration = listing.price_type === 'daily'
+      ? `${Math.ceil(hours / 24)} day(s)`
+      : `${hours.toFixed(1)} hour(s)`;
+    const total = (listing.price_type === 'daily'
+      ? Math.ceil(hours / 24) * listing.price
+      : hours * listing.price) * this.bookingQuantity;
+    return { start, end, duration, total };
   }
 
   private buildBookingWindow(listing: RentalListing): { start: string; end: string } | null {
     if (listing.price_type === 'daily') {
-      if (!this.bookingStartDate || !this.bookingEndDate || !this.bookingStartTime || !this.bookingEndTime) {
+      if (!this.bookingStartDate || !this.bookingEndDate) {
         return null;
       }
-      const start = new Date(`${this.bookingStartDate}T${this.bookingStartTime}:00`);
-      const end = new Date(`${this.bookingEndDate}T${this.bookingEndTime}:00`);
-      if (start >= end) {
+      const start = new Date(`${this.bookingStartDate}T00:00:00`);
+      const endBase = new Date(`${this.bookingEndDate}T00:00:00`);
+      endBase.setDate(endBase.getDate() + 1);
+      if (start >= endBase) {
         return null;
       }
       return {
         start: start.toISOString(),
-        end: end.toISOString(),
+        end: endBase.toISOString(),
       };
     }
 
@@ -378,7 +423,7 @@ export class RentEquipmentComponent implements OnInit {
     this.rentalService.getListingCalendar(listingId, date).subscribe({
       next: response => {
         this.calendarSlots = response.slots;
-        const nextSlot = response.slots.find(slot => slot.status === 'available' && !this.isPastSlot(slot));
+        const nextSlot = response.slots.find(slot => slot.status === 'available');
         this.nextAvailableSlot = nextSlot ? new Date(nextSlot.start_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
       },
       error: () => {
@@ -402,58 +447,14 @@ export class RentEquipmentComponent implements OnInit {
     });
   }
 
-  private notifyError(message: string): void {
-    this.showToast(this.cleanMessage(message), 'error');
+  private syncDraftFilters(): void {
+    this.draftRadiusKm = this.radiusKm;
+    this.draftMinPrice = this.minPrice;
+    this.draftMaxPrice = this.maxPrice;
+    this.draftTypeFilter = this.typeFilter;
+    this.draftCategoryFilter = this.categoryFilter;
+    this.draftLocationFilter = this.locationFilter;
+    this.draftOnlyWithImage = this.onlyWithImage;
+    this.draftSortBy = this.sortBy;
   }
-
-  private notifySuccess(message: string): void {
-    this.showToast(this.cleanMessage(message), 'success');
-  }
-
-  private cleanMessage(message: string): string {
-    const marker = ' failed: ';
-    if (message.includes(marker)) {
-      return message.split(marker).pop() || message;
-    }
-    return message;
-  }
-
-  closeToast(): void {
-    this.toastVisible = false;
-    if (this.toastTimer) {
-      clearTimeout(this.toastTimer);
-      this.toastTimer = null;
-    }
-  }
-
-  private showToast(message: string, type: 'success' | 'error'): void {
-    this.toastMessage = message;
-    this.toastType = type;
-    this.toastVisible = true;
-    if (this.toastTimer) {
-      clearTimeout(this.toastTimer);
-    }
-    this.toastTimer = setTimeout(() => {
-      this.toastVisible = false;
-      this.toastTimer = null;
-    }, type === 'error' ? 5000 : 3200);
-  }
-
-  isPastSlot(slot: RentalCalendarSlot): boolean {
-    return new Date(slot.end_datetime).getTime() <= Date.now();
-  }
-
-  getSlotDisplayStatus(slot: RentalCalendarSlot): 'PAST' | 'BOOKED' | 'BUFFER' | 'AVAILABLE' {
-    if (this.isPastSlot(slot)) {
-      return 'PAST';
-    }
-    if (slot.status === 'booked') {
-      return 'BOOKED';
-    }
-    if (slot.status === 'buffer') {
-      return 'BUFFER';
-    }
-    return 'AVAILABLE';
-  }
-
 }

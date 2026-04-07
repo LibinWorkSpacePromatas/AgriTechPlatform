@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 class CreateListingRequest(BaseModel):
     equipment_name: str = Field(min_length=1, max_length=255)
     description: str | None = None
+    specifications: dict[str, str] | None = None
     price: float = Field(gt=0)
     price_type: str
     quantity_total: int = Field(default=1, ge=1)
@@ -31,9 +32,12 @@ class ListingResponse(BaseModel):
     block_id: UUID | None
     equipment_name: str
     description: str | None
+    specifications: dict[str, str] | None = None
     price: float
     price_type: str
     quantity_total: int
+    image_url: str | None = None
+    image_public_id: str | None = None
     latitude: float | None
     longitude: float | None
     is_active: bool

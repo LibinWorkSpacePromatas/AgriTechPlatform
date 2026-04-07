@@ -7,7 +7,6 @@
   border-radius: 22px;
   border: 1px solid rgba(3, 71, 68, 0.1);
   box-shadow: 0 14px 30px rgba(8, 23, 18, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(4px);
 }
 
 h1 {

@@ -1,162 +1,361 @@
 <section class="section">
-  <div class="toast" *ngIf="toastVisible" [class.toast-error]="toastType === 'error'" [class.toast-success]="toastType === 'success'">
-    <div class="toast-head">
-      <strong>{{ toastType === 'error' ? 'Action Failed' : 'Success' }}</strong>
-      <button class="toast-close" type="button" (click)="closeToast()">×</button>
+  <section class="page-hero">
+    <div>
+      <span class="eyebrow">Rental Marketplace</span>
+      <h2>Rent Equipment</h2>
+      <p>Browse nearby tools, compare rental rates, and book the equipment your block needs.</p>
     </div>
-    <p>{{ toastMessage }}</p>
-  </div>
+  </section>
 
-  <h2>Rent Equipment</h2>
-
-  <div class="recommendation-card" *ngIf="recommendationLoading || recommendation">
-    <h3>Recommended for you</h3>
-    <p *ngIf="recommendationLoading">Analyzing your block conditions...</p>
-    <ng-container *ngIf="!recommendationLoading && recommendation as rec">
-      <p class="recommendation-reason">{{ rec.reason }}</p>
-      <p *ngIf="rec.weather_guardrail" class="recommendation-guardrail">{{ rec.weather_guardrail }}</p>
-      <div *ngIf="rec.recommendations.length; else noRecommendation">
-        <span class="recommendation-tag" *ngFor="let item of rec.recommendations">{{ item }}</span>
-      </div>
-      <p class="recommendation-action" *ngIf="rec.recommendations.includes('irrigation_pump')">Book irrigation pump now</p>
-      <ng-template #noRecommendation>
-        <p>No urgent rental recommendation right now.</p>
-      </ng-template>
-    </ng-container>
-  </div>
-
-  <div class="filters">
-    <div class="filter-field filter-search">
-      <label for="machineSearch">Machine Search</label>
+  <section class="search-toolbar">
+    <label class="search-shell">
+      <span class="search-label">Search Tool</span>
       <input
-        id="machineSearch"
         type="text"
         [(ngModel)]="machineSearchTerm"
         (keyup.enter)="applyMachineSearch()"
-        placeholder="e.g., pump, tractor">
+        placeholder="Pump, tractor, sprayer...">
+    </label>
+
+    <div class="search-actions">
+      <button class="btn toolbar-search-btn action-btn action-btn-search" type="button" (click)="applyMachineSearch()">
+        <span class="action-btn-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <circle cx="11" cy="11" r="6"></circle>
+            <path d="M16 16L21 21"></path>
+          </svg>
+        </span>
+        <span>Search</span>
+      </button>
+      <button class="btn filter-trigger-btn action-btn action-btn-filter" type="button" (click)="openFilterPanel()">
+        <span class="action-btn-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <path d="M4 6H20"></path>
+            <path d="M7 12H17"></path>
+            <path d="M10 18H14"></path>
+          </svg>
+        </span>
+        <span>Filter</span>
+      </button>
+      <button class="btn toolbar-reset-btn action-btn action-btn-reset" type="button" (click)="resetAllFilters()">
+        <span class="action-btn-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <path d="M4 4V10H10"></path>
+            <path d="M20 20V14H14"></path>
+            <path d="M20 9A7 7 0 0 0 8 5L4 10"></path>
+            <path d="M4 15A7 7 0 0 0 16 19L20 14"></path>
+          </svg>
+        </span>
+        <span>Reset</span>
+      </button>
+    </div>
+  </section>
+
+  <section class="tool-shortcuts" *ngIf="quickToolOptions.length">
+    <div class="tool-shortcuts-head">
+      <span class="tool-shortcuts-label">Quick Picks</span>
+      <button
+        *ngIf="categoryFilter"
+        class="tool-shortcuts-clear"
+        type="button"
+        (click)="toggleQuickCategory(categoryFilter)">
+        Clear
+      </button>
     </div>
 
-    <div class="filter-field filter-distance">
-      <label for="distanceRange">Distance (km): {{ radiusKm }}</label>
-      <input id="distanceRange" type="range" min="5" max="50" [(ngModel)]="radiusKm">
-    </div>
+    <div class="tool-shortcuts-row">
+      <button
+        *ngFor="let option of quickToolOptions"
+        class="tool-chip"
+        type="button"
+        [class.tool-chip-all]="option === 'All'"
+        [class.tool-chip-active]="option === 'All' ? !categoryFilter : categoryFilter === option"
+        (click)="toggleQuickCategory(option)">
+        {{ option }}
+      </button>
 
-    <div class="filter-field">
-      <label for="minPrice">Min Price</label>
-      <input id="minPrice" type="number" min="0" [(ngModel)]="minPrice" (ngModelChange)="onPriceFilterChange()">
+      <button class="tool-chip tool-chip-other" type="button" (click)="openFilterPanel()">
+        Other
+      </button>
     </div>
+  </section>
 
-    <div class="filter-field">
-      <label for="maxPrice">Max Price</label>
-      <input id="maxPrice" type="number" min="0" [(ngModel)]="maxPrice" (ngModelChange)="onPriceFilterChange()">
-    </div>
+  <div class="filter-drawer-backdrop" *ngIf="showFilterPanel" (click)="closeFilterPanel()">
+    <aside class="filter-drawer" (click)="$event.stopPropagation()">
+      <div class="filter-drawer-header">
+        <div>
+          <h3>Filters</h3>
+          <p>Tune the rental results without pushing the listings down the page.</p>
+        </div>
+        <button class="modal-close" type="button" (click)="closeFilterPanel()" aria-label="Close filters"></button>
+      </div>
 
-    <div class="filter-field">
-      <label for="typeFilter">Rate Type</label>
-      <select id="typeFilter" [(ngModel)]="typeFilter">
-        <option value="">All Types</option>
-        <option value="hourly">Hourly</option>
-        <option value="daily">Daily</option>
-      </select>
-    </div>
+      <div class="filter-drawer-body">
+        <label class="filter-field filter-range-panel">
+          <span>Distance</span>
+          <div class="range-wrap">
+            <div class="range-meta">
+              <strong>{{ draftRadiusKm }} km</strong>
+              <small>within your selected block</small>
+            </div>
+            <input type="range" min="5" max="50" [(ngModel)]="draftRadiusKm">
+          </div>
+        </label>
 
-    <div class="filter-actions">
-      <button class="btn btn-outline" (click)="applyMachineSearch()">Search</button>
-      <button class="btn btn-secondary" (click)="loadListings()">Apply Filters</button>
-    </div>
+        <label class="filter-field">
+          <span>Minimum Price</span>
+          <input type="number" [(ngModel)]="draftMinPrice" placeholder="0">
+        </label>
+
+        <label class="filter-field">
+          <span>Maximum Price</span>
+          <input type="number" [(ngModel)]="draftMaxPrice" placeholder="100000">
+        </label>
+
+        <label class="filter-field">
+          <span>Pricing Type</span>
+          <select [(ngModel)]="draftTypeFilter">
+            <option value="">All Types</option>
+            <option value="hourly">Hourly</option>
+            <option value="daily">Daily</option>
+          </select>
+        </label>
+
+        <label class="filter-field">
+          <span>Equipment Type</span>
+          <select [(ngModel)]="draftCategoryFilter">
+            <option value="">All Equipment</option>
+            <option *ngFor="let option of equipmentTypeOptions" [value]="option">{{ option }}</option>
+          </select>
+        </label>
+
+        <div class="filter-grid">
+          <label class="filter-field">
+            <span>Location</span>
+            <input type="text" [(ngModel)]="draftLocationFilter" placeholder="Search by block or area">
+          </label>
+        </div>
+
+        <label class="filter-field">
+          <span>Sort Results</span>
+          <select [(ngModel)]="draftSortBy">
+            <option *ngFor="let option of sortOptions" [value]="option.value">{{ option.label }}</option>
+          </select>
+        </label>
+
+        <label class="filter-toggle">
+          <input type="checkbox" [(ngModel)]="draftOnlyWithImage">
+          <div>
+            <strong>Show listings with images only</strong>
+            <small>Hide entries that do not have a tool photo yet.</small>
+          </div>
+        </label>
+      </div>
+
+      <div class="filter-drawer-actions">
+        <button class="btn btn-outline" type="button" (click)="resetFilters()">Reset</button>
+        <button class="btn btn-primary" type="button" (click)="applyFilters()">Apply Filters</button>
+      </div>
+    </aside>
   </div>
 
   <p *ngIf="loading">Loading listings...</p>
   <p *ngIf="error" class="error">{{ error }}</p>
   <p *ngIf="info" class="ok">{{ info }}</p>
 
-  <div class="cards">
-    <article class="card" *ngFor="let listing of filteredListings">
-      <h3>{{ listing.equipment_name }}</h3>
-      <p>Owner: {{ listing.owner_name || 'Farmer' }}</p>
-      <p>{{ listing.price | currency:'USD':'symbol':'1.0-2' }} / {{ listing.price_type }}</p>
-      <p>Total Units: {{ listing.quantity_total }}</p>
-      <p>Distance: {{ (listing.distance_m || 0) / 1000 | number:'1.1-1' }} km</p>
-      <p>Location: {{ listing.location_label || 'Unknown' }}</p>
-
-      <div class="booking-panel">
-        <label>Units to Book</label>
-        <input
-          type="number"
-          [(ngModel)]="bookingQuantity"
-          min="1"
-          [max]="getAvailableUnits(listing) || 1"
-          (ngModelChange)="onQuantityChange(listing)">
-        <small class="muted" *ngIf="hasLiveAvailability(listing); else checkStockHint">
-          Available: {{ getAvailableUnits(listing) }} / {{ listing.quantity_total }} units
-        </small>
-        <ng-template #checkStockHint>
-          <small class="muted">Select booking from/to date and time to check live availability.</small>
-        </ng-template>
-
-        <ng-container *ngIf="listing.price_type === 'hourly'; else dailyBooking">
-          <label>Booking From (Date & Time)</label>
-          <input type="datetime-local" [(ngModel)]="bookingStart" (ngModelChange)="onBookingInputChange(listing)">
-          <label>Booking To (Date & Time)</label>
-          <input type="datetime-local" [(ngModel)]="bookingEnd" (ngModelChange)="onBookingInputChange(listing)">
-        </ng-container>
-        <ng-template #dailyBooking>
-          <label>Booking From (Date)</label>
-          <input type="date" [(ngModel)]="bookingStartDate" (ngModelChange)="onBookingInputChange(listing)">
-          <label>Booking From (Time)</label>
-          <input type="time" [(ngModel)]="bookingStartTime" (ngModelChange)="onBookingInputChange(listing)">
-          <label>Booking To (Date)</label>
-          <input type="date" [(ngModel)]="bookingEndDate" (ngModelChange)="onBookingInputChange(listing)">
-          <label>Booking To (Time)</label>
-          <input type="time" [(ngModel)]="bookingEndTime" (ngModelChange)="onBookingInputChange(listing)">
-        </ng-template>
+  <div class="cards" *ngIf="filteredListings.length; else emptyListingsState">
+    <article class="card" *ngFor="let listing of filteredListings" (click)="openDetails(listing)">
+      <div class="card-media">
+        <img *ngIf="listing.image_url" class="listing-image" [src]="listing.image_url" [alt]="listing.equipment_name">
+        <span class="card-badge">{{ listing.price_type | uppercase }}</span>
       </div>
 
-      <p *ngIf="selectedListingId === listing.id && getBookingValidationError(listing)" class="error">
-        {{ getBookingValidationError(listing) }}
-      </p>
-      <p *ngIf="selectedListingId === listing.id && (bookingQuantity < 1 || bookingQuantity > getAvailableUnits(listing))" class="error">
-        Select quantity between 1 and {{ getAvailableUnits(listing) }}.
-      </p>
-
-      <p *ngIf="selectedListingId === listing.id && availability?.available" class="ok">Available</p>
-      <p *ngIf="selectedListingId === listing.id && availability && !availability.available" class="error">
-        Not Available ({{ availability.reason || 'Overlapping / Buffer' }})
-        <span *ngIf="availability.available_quantity != null"> - Remaining units: {{ availability.available_quantity }}</span>
-      </p>
-
-      <div class="booking-summary" *ngIf="selectedListingId === listing.id && getBookingSummary(listing) as summary">
-        <h4>Booking Summary</h4>
-        <p>Equipment: {{ listing.equipment_name }}</p>
-        <p>Start: {{ summary.start | date:'medium' }}</p>
-        <p>End: {{ summary.end | date:'medium' }}</p>
-        <p>Units: {{ bookingQuantity }}</p>
-        <p>Duration: {{ summary.duration }}</p>
-        <p>Rate: {{ summary.rateLabel }}</p>
-        <p>Billing: {{ summary.billingLine }}</p>
-        <p>Total Amount: {{ summary.total | currency:'USD':'symbol':'1.0-2' }}</p>
-        <p>Owner: {{ listing.owner_name || 'Farmer' }}</p>
-        <p>Location: {{ listing.location_label || 'Unknown' }}</p>
-        <p class="summary-note">Start time must be at least 30 minutes from now.</p>
-        <p class="summary-note">1-hour buffer is automatically applied after booking.</p>
-      </div>
-
-      <div class="slot-strip" *ngIf="selectedListingId === listing.id && calendarSlots.length">
-        <p *ngIf="nextAvailableSlot; else noFutureSlot" class="next-slot">Next available: {{ nextAvailableSlot }}</p>
-        <ng-template #noFutureSlot>
-          <p class="next-slot">No future slot available today</p>
-        </ng-template>
-        <div class="slot-pill" *ngFor="let slot of calendarSlots"
-          [class.past]="isPastSlot(slot)"
-          [class.booked]="!isPastSlot(slot) && slot.status === 'booked'"
-          [class.buffer]="!isPastSlot(slot) && slot.status === 'buffer'"
-          [class.available]="!isPastSlot(slot) && slot.status === 'available'">
-          {{ slot.start_datetime | date:'HH:mm' }}-{{ slot.end_datetime | date:'HH:mm' }} -> {{ getSlotDisplayStatus(slot) }}
+      <div class="card-content">
+        <div class="card-head">
+          <h3>{{ listing.equipment_name }}</h3>
+          <span class="card-owner">{{ listing.owner_name || 'Farmer' }}</span>
+        </div>
+        <p class="card-price">{{ listing.price | currency:'USD':'symbol':'1.0-2' }} / {{ listing.price_type }}</p>
+        <p class="card-preview-description">
+          {{ listing.description || 'Reliable farm equipment available for your next task.' }}
+        </p>
+        <div class="card-summary">
+          <p class="card-meta">Location: {{ listing.location_label || 'Unknown' }}</p>
+          <p class="card-meta">Distance: {{ (listing.distance_m || 0) / 1000 | number:'1.1-1' }} km</p>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-primary compact-book-btn" type="button" (click)="openBooking(listing); $event.stopPropagation()">
+            Book Now
+          </button>
         </div>
       </div>
-
-      <button class="btn btn-primary" [disabled]="!canBook(listing)" (click)="bookNow(listing)">Book Now</button>
     </article>
+  </div>
+
+  <ng-template #emptyListingsState>
+    <section class="empty-listings-state">
+      <div class="empty-state-icon" aria-hidden="true">
+        <svg viewBox="0 0 64 64" focusable="false">
+          <rect x="10" y="18" width="44" height="26" rx="8"></rect>
+          <path d="M18 44V50"></path>
+          <path d="M46 44V50"></path>
+          <path d="M20 26H44"></path>
+          <path d="M22 34H34"></path>
+          <circle cx="47" cy="17" r="9"></circle>
+          <path d="M43.5 13.5L50.5 20.5"></path>
+          <path d="M50.5 13.5L43.5 20.5"></path>
+        </svg>
+      </div>
+      <h3>No tools found</h3>
+      <p *ngIf="categoryFilter; else genericEmptyMessage">
+        No {{ categoryFilter.toLowerCase() }} listings are available right now in your selected area.
+      </p>
+      <ng-template #genericEmptyMessage>
+        <p>There are no rental items matching your current search or filters right now.</p>
+      </ng-template>
+      <button class="btn btn-outline empty-state-button" type="button" (click)="resetAllFilters()">
+        Show all tools
+      </button>
+    </section>
+  </ng-template>
+
+  <div class="details-modal-backdrop" *ngIf="detailsModalListing" (click)="closeDetailsModal()">
+    <div class="details-modal" *ngIf="detailsModalListing as listing" (click)="$event.stopPropagation()">
+      <div class="details-modal-media">
+        <img *ngIf="listing.image_url" class="details-modal-image" [src]="listing.image_url" [alt]="listing.equipment_name">
+        <span class="details-modal-badge">{{ listing.price_type | uppercase }}</span>
+      </div>
+
+      <div class="details-modal-content">
+        <div class="details-modal-header">
+          <div>
+            <h3>{{ listing.equipment_name }}</h3>
+            <p>{{ listing.owner_name || 'Farmer' }}</p>
+          </div>
+          <button class="modal-close" type="button" (click)="closeDetailsModal()" aria-label="Close details"></button>
+        </div>
+
+        <p class="details-modal-price">{{ listing.price | currency:'USD':'symbol':'1.0-2' }} / {{ listing.price_type }}</p>
+        <p class="details-modal-description">
+          {{ listing.description || 'No description available for this equipment yet.' }}
+        </p>
+
+        <div class="details-modal-grid">
+          <div class="details-modal-item">
+            <span>Location</span>
+            <strong>{{ listing.location_label || 'Unknown' }}</strong>
+          </div>
+          <div class="details-modal-item">
+            <span>Distance</span>
+            <strong>{{ (listing.distance_m || 0) / 1000 | number:'1.1-1' }} km</strong>
+          </div>
+        </div>
+
+        <section class="details-modal-section" *ngIf="listing.specifications && (listing.specifications | keyvalue).length">
+          <div class="details-modal-section-head">
+            <h4>Specifications</h4>
+            <span>{{ (listing.specifications | keyvalue).length }} details</span>
+          </div>
+          <div class="spec-grid">
+            <div class="spec-card" *ngFor="let spec of listing.specifications | keyvalue">
+              <span>{{ spec.key }}</span>
+              <strong>{{ spec.value || 'Not provided' }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <div class="details-modal-actions">
+          <button class="btn btn-outline" type="button" (click)="closeDetailsModal()">Close</button>
+          <button class="btn btn-primary" type="button" (click)="openBooking(listing)">Book Now</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="booking-modal-backdrop" *ngIf="bookingModalListing" (click)="closeBookingModal()">
+    <div class="booking-modal" *ngIf="bookingModalListing as listing" (click)="$event.stopPropagation()">
+      <div class="booking-modal-header">
+        <div>
+          <h3>{{ listing.equipment_name }}</h3>
+          <p>{{ listing.price_type === 'daily' ? 'Daily Rental' : 'Hourly Rental' }}</p>
+        </div>
+        <button class="modal-close" type="button" (click)="closeBookingModal()" aria-label="Close booking form"></button>
+      </div>
+
+      <div class="booking-modal-body">
+        <div class="booking-field-grid" *ngIf="listing.price_type === 'hourly'; else dailyBookingModal">
+          <label class="booking-field">
+            <span>Start Date & Time</span>
+            <input type="datetime-local" [(ngModel)]="bookingStart" (change)="onTimeChange(listing)">
+          </label>
+          <label class="booking-field">
+            <span>End Date & Time</span>
+            <input type="datetime-local" [(ngModel)]="bookingEnd" (change)="onTimeChange(listing)">
+          </label>
+        </div>
+
+        <ng-template #dailyBookingModal>
+          <div class="booking-field-grid">
+            <label class="booking-field">
+              <span>Start Date</span>
+              <input type="date" [(ngModel)]="bookingStartDate" (change)="onTimeChange(listing)">
+            </label>
+            <label class="booking-field">
+              <span>End Date</span>
+              <input type="date" [(ngModel)]="bookingEndDate" (change)="onTimeChange(listing)">
+            </label>
+          </div>
+        </ng-template>
+
+        <div class="booking-rate-row">
+          <span>Rate per {{ listing.price_type === 'daily' ? 'day' : 'hour' }}</span>
+          <strong>{{ listing.price | currency:'USD':'symbol':'1.0-2' }}</strong>
+        </div>
+
+        <label class="booking-field">
+          <span>Units to Book</span>
+          <input
+            type="number"
+            min="1"
+            [max]="listing.quantity_total || 1"
+            [(ngModel)]="bookingQuantity"
+            (change)="onTimeChange(listing)">
+        </label>
+
+        <p class="booking-helper-text">
+          Choose your rental start and end time to check availability and confirm this booking.
+        </p>
+
+        <p *ngIf="selectedListingId === listing.id && availability?.available" class="ok booking-status">Available for booking</p>
+        <p *ngIf="selectedListingId === listing.id && availability && !availability.available" class="error booking-status">
+          Not Available ({{ availability.reason || 'Overlapping / Buffer' }})
+        </p>
+        <p *ngIf="selectedListingId === listing.id && availability?.available_quantity != null" class="booking-helper-text">
+          Remaining units for this slot: {{ availability?.available_quantity }}
+        </p>
+
+        <div class="booking-summary" *ngIf="selectedListingId === listing.id && getBookingSummary(listing) as summary">
+          <h4>Booking Summary</h4>
+          <p>Start: {{ summary.start | date:'medium' }}</p>
+          <p>End: {{ summary.end | date:'medium' }}</p>
+          <p>Duration: {{ summary.duration }}</p>
+          <p>Units: {{ bookingQuantity }}</p>
+          <p>Total Price: {{ summary.total | currency:'USD':'symbol':'1.0-2' }}</p>
+          <p class="summary-note">1-hour buffer is automatically applied after booking.</p>
+        </div>
+
+        <div class="slot-strip" *ngIf="selectedListingId === listing.id && calendarSlots.length">
+          <p *ngIf="nextAvailableSlot" class="next-slot">Next available: {{ nextAvailableSlot }}</p>
+          <div class="slot-pill" *ngFor="let slot of calendarSlots" [class.booked]="slot.status === 'booked'" [class.buffer]="slot.status === 'buffer'" [class.available]="slot.status === 'available'">
+            {{ slot.start_datetime | date:'HH:mm' }}-{{ slot.end_datetime | date:'HH:mm' }} -> {{ slot.status | uppercase }}
+          </div>
+        </div>
+
+        <button class="btn btn-primary booking-submit" type="button" (click)="bookNow(listing)">
+          Confirm Booking
+        </button>
+      </div>
+    </div>
   </div>
 
   <div class="my-bookings-preview" *ngIf="myBookings.length">

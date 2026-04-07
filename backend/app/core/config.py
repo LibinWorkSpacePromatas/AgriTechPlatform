@@ -74,6 +74,10 @@ class Settings(BaseSettings):
     openrouter_api_key: str | None = Field(default=None, alias="OPENROUTER_API_KEY")
     openrouter_model: str = Field(default="google/gemini-2.0-flash-001", alias="OPENROUTER_MODEL")
     newsdata_api_key: str | None = Field(default=None, alias="NEWSDATA_API_KEY")
+    cloudinary_cloud_name: str | None = Field(default=None, alias="CLOUDINARY_CLOUD_NAME")
+    cloudinary_api_key: str | None = Field(default=None, alias="CLOUDINARY_API_KEY")
+    cloudinary_api_secret: str | None = Field(default=None, alias="CLOUDINARY_API_SECRET")
+    cloudinary_upload_folder: str = Field(default="agritech/rental-listings", alias="CLOUDINARY_UPLOAD_FOLDER")
     profit_risk_dataset_path: str = Field(
         default=str(Path(__file__).resolve().parents[2] / "Dataset" / "SA_Farmgate_Prices_Final.xlsx"),
         alias="PROFIT_RISK_DATASET_PATH",
@@ -94,6 +98,10 @@ class Settings(BaseSettings):
     @property
     def has_gee_credentials(self) -> bool:
         return bool(self.gee_project and self.gee_service_account_json)
+
+    @property
+    def has_cloudinary_credentials(self) -> bool:
+        return bool(self.cloudinary_cloud_name and self.cloudinary_api_key and self.cloudinary_api_secret)
 
 
 @lru_cache(maxsize=1)

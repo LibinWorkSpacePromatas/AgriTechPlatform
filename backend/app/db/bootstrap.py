@@ -155,14 +155,41 @@ def ensure_equipment_marketplace_tables() -> None:
                     block_id UUID REFERENCES blocks(id) ON DELETE SET NULL,
                     equipment_name TEXT NOT NULL,
                     description TEXT,
+                    specifications JSONB,
                     price DOUBLE PRECISION NOT NULL,
                     price_type VARCHAR(10) NOT NULL CHECK (price_type IN ('hourly', 'daily')),
                     quantity_total INTEGER NOT NULL DEFAULT 1,
+                    image_url TEXT,
+                    image_public_id TEXT,
                     latitude DOUBLE PRECISION,
                     longitude DOUBLE PRECISION,
                     is_active BOOLEAN DEFAULT true,
                     created_at TIMESTAMPTZ DEFAULT now()
                 )
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                ALTER TABLE equipment_listings
+                ADD COLUMN IF NOT EXISTS specifications JSONB
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                ALTER TABLE equipment_listings
+                ADD COLUMN IF NOT EXISTS image_url TEXT
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                ALTER TABLE equipment_listings
+                ADD COLUMN IF NOT EXISTS image_public_id TEXT
                 """
             )
         )
