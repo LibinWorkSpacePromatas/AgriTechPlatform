@@ -1,0 +1,295 @@
+<div class="detail-shell" [class.page-ready]="pageReady()">
+
+  <!-- Loading -->
+  <div class="detail-loading" *ngIf="isLoading()">
+    <div class="loading-spinner"></div>
+    <p class="loading-label">Loading auction…</p>
+  </div>
+
+  <!-- Error / Not Found -->
+  <div class="detail-not-found" *ngIf="!isLoading() && (loadError() || !auction())">
+    <div class="not-found-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+        <circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/>
+      </svg>
+    </div>
+    <p class="not-found-title">{{ loadError() || 'Auction not found' }}</p>
+    <button type="button" class="back-arrow" (click)="goBack()" aria-label="Go back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M19 12H5M12 5l-7 7 7 7"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Main Content -->
+  <ng-container *ngIf="!isLoading() && !loadError() && auction() as a">
+
+    <!-- Floating back arrow -->
+    <div class="detail-topbar">
+      <button type="button" class="back-arrow" (click)="goBack()" aria-label="Go back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5M12 5l-7 7 7 7"/>
+        </svg>
+      </button>
+      <span class="status-badge" [ngClass]="statusClass()">
+        <span class="status-dot" *ngIf="timerState() === 'active'"></span>
+        {{ displayStatus() }}
+      </span>
+    </div>
+
+    <!-- 3-column grid -->
+    <div class="detail-grid">
+
+      <!-- ── LEFT ── -->
+      <aside class="panel-left">
+        <div class="lot-card">
+          <div class="lot-image-wrap">
+            <img *ngIf="a.image_url" [src]="a.image_url" [alt]="a.produce_name" class="lot-image" />
+            <div *ngIf="!a.image_url" class="lot-image-placeholder">{{ a.produce_name.charAt(0) }}</div>
+            <span class="lot-badge" [ngClass]="statusClass()">{{ displayStatus() }}</span>
+          </div>
+
+          <div class="lot-info">
+            <h1 class="lot-title">{{ a.produce_name }}</h1>
+
+            <div class="lot-meta-row">
+              <div class="lot-meta-item">
+                <span class="lot-meta-label">Quantity</span>
+                <span class="lot-meta-value">{{ a.quantity | number }} {{ a.unit }}</span>
+              </div>
+              <div class="lot-meta-item">
+                <span class="lot-meta-label">Base Price</span>
+                <span class="lot-meta-value">${{ formatMoney(a.base_price) }}</span>
+              </div>
+            </div>
+
+            <div class="lot-dates">
+              <div class="lot-date-row">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+                </svg>
+                <div>
+                  <span class="lot-date-label">Opens</span>
+                  <span class="lot-date-val">{{ formatDate(a.start_time) }}</span>
+                </div>
+              </div>
+              <div class="lot-date-row">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+                </svg>
+                <div>
+                  <span class="lot-date-label">Closes</span>
+                  <span class="lot-date-val">{{ formatDate(a.end_time) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="lot-stats-mini">
+              <div class="lsm-item">
+                <span class="lsm-val">{{ bidCount() }}</span>
+                <span class="lsm-label">Bids</span>
+              </div>
+              <div class="lsm-divider"></div>
+              <div class="lsm-item">
+                <span class="lsm-val">${{ formatMoney(highestBid()) }}</span>
+                <span class="lsm-label">Highest</span>
+              </div>
+              <div class="lsm-divider"></div>
+              <div class="lsm-item">
+                <span class="lsm-val">{{ a.quantity | number }}</span>
+                <span class="lsm-label">{{ a.unit }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- ── CENTER ── -->
+      <main class="panel-center">
+
+        <!-- Timer -->
+        <div class="timer-card" [ngClass]="'timer-' + timerState()">
+
+          <ng-container *ngIf="timerState() === 'upcoming'">
+            <div class="timer-label-top">Starts In</div>
+            <div class="timer-digits urgency-normal">
+              <div class="timer-unit">
+                <span class="timer-num">{{ timerParts().h }}</span>
+                <span class="timer-unit-label">Hours</span>
+              </div>
+              <span class="timer-colon">:</span>
+              <div class="timer-unit">
+                <span class="timer-num">{{ timerParts().m }}</span>
+                <span class="timer-unit-label">Min</span>
+              </div>
+              <span class="timer-colon">:</span>
+              <div class="timer-unit">
+                <span class="timer-num">{{ timerParts().s }}</span>
+                <span class="timer-unit-label">Sec</span>
+              </div>
+            </div>
+            <div class="timer-sub">until auction opens</div>
+            <div class="timer-urgency-bar urgency-bar-normal"></div>
+          </ng-container>
+
+          <ng-container *ngIf="timerState() === 'active'">
+            <div class="timer-label-top">Ends In</div>
+            <div class="timer-digits" [ngClass]="'urgency-' + timerUrgency()">
+              <div class="timer-unit">
+                <span class="timer-num">{{ timerParts().h }}</span>
+                <span class="timer-unit-label">Hours</span>
+              </div>
+              <span class="timer-colon">:</span>
+              <div class="timer-unit">
+                <span class="timer-num">{{ timerParts().m }}</span>
+                <span class="timer-unit-label">Min</span>
+              </div>
+              <span class="timer-colon">:</span>
+              <div class="timer-unit">
+                <span class="timer-num">{{ timerParts().s }}</span>
+                <span class="timer-unit-label">Sec</span>
+              </div>
+            </div>
+            <div class="timer-sub" [ngClass]="'urgency-text-' + timerUrgency()">
+              <span *ngIf="timerUrgency() === 'danger'">⚠ Ending very soon</span>
+              <span *ngIf="timerUrgency() === 'warning'">Ending soon</span>
+              <span *ngIf="timerUrgency() === 'normal'">remaining</span>
+            </div>
+            <div class="timer-urgency-bar" [ngClass]="'urgency-bar-' + timerUrgency()"></div>
+          </ng-container>
+
+          <ng-container *ngIf="timerState() === 'ended'">
+            <div class="timer-ended-wrap">
+              <div class="timer-ended-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+                </svg>
+              </div>
+              <div>
+                <p class="timer-ended-title">Auction Ended</p>
+                <p class="timer-ended-sub">Closed {{ formatDate(a.end_time) }}</p>
+              </div>
+            </div>
+          </ng-container>
+
+        </div>
+
+        <!-- Live Graph -->
+        <div class="graph-card">
+          <div class="graph-header">
+            <div>
+              <h2 class="graph-title">Live Bidding</h2>
+              <p class="graph-sub">{{ timerState() === 'active' ? 'Real-time bid activity' : 'Bid history' }}</p>
+            </div>
+            <span class="graph-live-dot" *ngIf="timerState() === 'active'">
+              <span class="pulse-dot"></span> Live
+            </span>
+          </div>
+
+          <div class="bid-spike" *ngIf="bidDelta() > 0 && timerState() === 'active'">
+            +${{ formatMoney(bidDelta()) }} above base ↑
+          </div>
+
+          <div class="graph-wrap">
+            <canvas #graphCanvas class="bid-graph"
+              (mousemove)="onCanvasMouseMove($event)"
+              (mouseleave)="onCanvasMouseLeave()">
+            </canvas>
+            <div #tooltipEl class="graph-tooltip"
+              [class.visible]="tooltipVisible()"
+              [style.left.px]="tooltipX()"
+              [style.top.px]="tooltipY()">
+              {{ tooltipText() }}
+            </div>
+          </div>
+        </div>
+
+      </main>
+
+      <!-- ── RIGHT SIDEBAR ── -->
+      <aside class="panel-right">
+
+        <!-- Current Bid -->
+        <div class="bid-display-card">
+          <div class="bid-display-label">Current Bid</div>
+          <div class="bid-display-amount">
+            ${{ formatMoney(currentBid()) }}<span class="bid-currency"> AUD</span>
+          </div>
+          <div class="bid-display-delta" *ngIf="bidDelta() > 0">
+            +${{ formatMoney(bidDelta()) }} above base
+          </div>
+          <div class="bid-display-delta zero" *ngIf="bidDelta() === 0">
+            No bids yet — base price
+          </div>
+
+          <div class="farmer-notice">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/>
+            </svg>
+            <span>You are viewing as a seller. Only verified buyers can place bids.</span>
+          </div>
+
+          <!-- Voice Bid — feature indicator for buyers -->
+          <div class="voice-bid-preview" *ngIf="timerState() === 'active'">
+            <div class="vbp-label">Voice Bidding</div>
+            <div class="vbp-row">
+              <div class="voice-btn-wrap">
+                <button type="button" class="voice-btn" disabled aria-label="Voice bid — buyers only">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                       stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    <line x1="12" y1="19" x2="12" y2="23"/>
+                    <line x1="8" y1="23" x2="16" y2="23"/>
+                  </svg>
+                </button>
+                <span class="voice-btn-label">Hold to Bid</span>
+              </div>
+              <div class="vbp-info">
+                <span class="vbp-info-title">Voice Bidding</span>
+                <span class="vbp-info-sub">Available for verified buyers</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Bids -->
+        <div class="recent-bids-card">
+          <div class="rb-header">
+            <h3>Recent Bids</h3>
+            <span class="rb-count">{{ bidCount() }} total</span>
+          </div>
+
+          <div class="rb-empty" *ngIf="bids().length === 0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/>
+            </svg>
+            <span>No bids placed yet</span>
+          </div>
+
+          <div class="rb-list" *ngIf="bids().length > 0">
+            <div class="rb-item"
+              *ngFor="let bid of bids(); trackBy: trackBid"
+              [class.rb-top]="bid.is_top">
+              <div class="rb-avatar">{{ bid.bidder_initials }}</div>
+              <div class="rb-info">
+                <div class="rb-name-row">
+                  <span class="rb-name">{{ bid.bidder_name }}</span>
+                  <span class="rb-top-badge" *ngIf="bid.is_top">Top Bid</span>
+                </div>
+                <span class="rb-time">{{ timeAgo(bid.created_at) }}</span>
+              </div>
+              <div class="rb-amount-col">
+                <span class="rb-amount">${{ formatMoney(bid.amount) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </aside>
+    </div>
+  </ng-container>
+
+</div>

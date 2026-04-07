@@ -3,15 +3,59 @@ const path = require('path');
 
 // Directories
 const environmentsDir = path.join(__dirname, '..', 'src', 'environments');
+const frontendEnvPath = path.join(__dirname, '..', '.env');
+const frontendEnvExamplePath = path.join(__dirname, '..', '.env.example');
+const backendEnvPath = path.join(__dirname, '..', '..', 'backend', '.env');
+const backendEnvExamplePath = path.join(__dirname, '..', '..', 'backend', '.env.example');
 
 // Ensure environments directory exists
 if (!fs.existsSync(environmentsDir)) {
   fs.mkdirSync(environmentsDir, { recursive: true });
 }
 
-// Get API Key from Environment Variable or use placeholder
-const apiKey = process.env.OPENROUTER_API_KEY || 'OPENROUTER_API_KEY_PLACEHOLDER';
-const apiBaseUrl = process.env.API_BASE_URL || 'http://localhost:8000';
+function parseEnvFile(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return {};
+  }
+
+  const lines = fs.readFileSync(filePath, 'utf8').split(/\r?\n/);
+  const values = {};
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    const eqIndex = trimmed.indexOf('=');
+    if (eqIndex === -1) continue;
+
+    const key = trimmed.slice(0, eqIndex).trim();
+    let value = trimmed.slice(eqIndex + 1).trim();
+
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+
+    values[key] = value;
+  }
+
+  return values;
+}
+
+const sharedFileEnv = {
+  ...parseEnvFile(backendEnvExamplePath),
+  ...parseEnvFile(backendEnvPath),
+  ...parseEnvFile(frontendEnvExamplePath),
+  ...parseEnvFile(frontendEnvPath),
+};
+
+function readEnv(name, fallback) {
+  return process.env[name] ?? sharedFileEnv[name] ?? fallback;
+}
+
+// Get config from environment variables or backend .env
+const apiKey = readEnv('OPENROUTER_API_KEY', 'OPENROUTER_API_KEY_PLACEHOLDER');
+const apiBaseUrl = readEnv('API_BASE_URL', 'http://localhost:8000');
+const auctionPreviewImageUrl = readEnv('AUCTION_PREVIEW_IMAGE_URL', '');
 
 // Define the content for environment.prod.ts
 const envProdContent = `export const environment = {
@@ -38,7 +82,8 @@ const envProdContent = `export const environment = {
   ollama: {
     host: 'https://openrouter.ai/api/v1',
     apiKey: '${apiKey}'
-  }
+  },
+  auctionPreviewImageUrl: '${auctionPreviewImageUrl}'
 };
 `;
 
@@ -67,7 +112,8 @@ const envDevContent = `export const environment = {
   ollama: {
     host: 'https://openrouter.ai/api/v1',
     apiKey: '${apiKey}'
-  }
+  },
+  auctionPreviewImageUrl: '${auctionPreviewImageUrl}'
 };
 `;
 

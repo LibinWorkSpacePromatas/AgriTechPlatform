@@ -8,6 +8,9 @@ from sqlalchemy import inspect, text
 from app.db.base import Base
 from app.db.database import engine
 from app.db.models import (
+    Auction,
+    AuctionBid,
+    AuctionProfile,
     BlockDecision,
     GrowingOpportunityNewsCache,
     SatelliteCache,
@@ -775,3 +778,78 @@ def _ensure_sensor_support_tables() -> None:
 
 def ensure_satellite_cache_table() -> None:
     ensure_satellite_support_tables()
+
+
+def ensure_auction_tables() -> None:
+    with engine.begin() as connection:
+        connection.execute(text("CREATE EXTENSION IF NOT EXISTS pgcrypto"))
+
+    Base.metadata.create_all(
+        bind=engine,
+        tables=[
+            AuctionProfile.__table__,
+            Auction.__table__,
+            AuctionBid.__table__,
+        ],
+    )
+
+    with engine.begin() as connection:
+        connection.execute(text("DROP INDEX IF EXISTS idx_bids_amount"))
+        connection.execute(
+            text(
+                """
+                CREATE INDEX idx_bids_amount
+                ON auction_bids (auction_id, bid_amount DESC)
+                """
+            )
+        )
+
+    _ensure_user_role_column()
+    _seed_bidder_user()
+
+
+def _ensure_user_role_column() -> None:
+    inspector = inspect(engine)
+    if not inspector.has_table("users"):
+        return
+    existing_columns = {col["name"] for col in inspector.get_columns("users")}
+    if "role" not in existing_columns:
+        with engine.begin() as connection:
+            connection.execute(
+                text("ALTER TABLE users ADD COLUMN role VARCHAR(32) NOT NULL DEFAULT 'farmer'")
+            )
+
+
+def _seed_bidder_user() -> None:
+    from app.db.session import SessionLocal
+
+    db = SessionLocal()
+    try:
+        result = db.execute(
+            text("SELECT id FROM users WHERE role = 'bidder' LIMIT 1")
+        ).fetchone()
+        if result:
+            return
+        db.execute(
+            text(
+                """
+                INSERT INTO users (id, name, region, council, farm_name, farm_location, primary_crop, primary_soil, role)
+                VALUES (
+                    gen_random_uuid(),
+                    'Alex Buyer',
+                    'South Australia',
+                    'Adelaide Hills Council',
+                    'N/A',
+                    'Adelaide, SA',
+                    'N/A',
+                    'N/A',
+                    'bidder'
+                )
+                """
+            )
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()

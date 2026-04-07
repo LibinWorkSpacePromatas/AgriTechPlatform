@@ -10,7 +10,7 @@ export interface UserBlock {
     primarySoilClass: string;
     description: string;
     crop?: string;
-    area: number; // in hectares
+    area: number;
     latitude: number;
     longitude: number;
     polygon?: {
@@ -28,6 +28,7 @@ export interface User {
     farmLocation: string;
     primaryCropName: string;
     primarySoilType: string;
+    role: 'farmer' | 'bidder';
     blocks: UserBlock[];
     financials?: {
         projectedRoi: number;

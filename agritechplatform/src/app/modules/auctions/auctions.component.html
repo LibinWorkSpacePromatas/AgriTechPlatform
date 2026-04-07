@@ -1,0 +1,508 @@
+<div class="auction-app" [class.page-ready]="pageAnimated()">
+  <main class="auction-main">
+    <ng-container *ngIf="!isLoading(); else loadingShell">
+      <section *ngIf="!isRegisteredSeller(); else dashboardSection" class="onboarding-shell">
+        <section class="elite-board">
+          <article class="hero-copy">
+            <h1>Turn your harvest into better returns.</h1>
+            <p>Connect with verified buyers.<br />Get paid faster, sell smarter.</p>
+            <div class="hero-steps">
+              <div class="hero-step">
+                <span class="hero-step-num">1</span>
+                <span class="hero-step-label">Business Details</span>
+              </div>
+              <div class="hero-step">
+                <span class="hero-step-num">2</span>
+                <span class="hero-step-label">Bank Account</span>
+              </div>
+              <div class="hero-step">
+                <span class="hero-step-num">3</span>
+                <span class="hero-step-label">Review & Confirm</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="market-card" aria-label="Live auction preview">
+            <header>
+              <span class="live-badge">Live Auction Preview</span>
+            </header>
+            <div class="market-title">
+              <h3>Shiraz Grapes</h3>
+              <img *ngIf="previewImageUrl; else previewInitials" [src]="previewImageUrl" alt="Shiraz grapes" />
+              <ng-template #previewInitials>
+                <div class="market-title-thumb" aria-hidden="true">SG</div>
+              </ng-template>
+            </div>
+            <div class="lot-grid">
+              <div>
+                <small>Quantity</small>
+                <strong>5 Tons</strong>
+              </div>
+              <div>
+                <small>Base Price</small>
+                <strong>$1500</strong>
+              </div>
+            </div>
+            <div class="bid-row">
+              <div>
+                <small>Current Bid</small>
+                <strong class="bid-amount" [class.bid-flash]="bidFlash()">${{ bidAmount() }}</strong>
+              </div>
+              <span class="bid-delta" [class.bid-flash]="bidFlash()">+${{ bidDelta() }}</span>
+            </div>
+
+          </article>
+
+          <article class="stepper-card" [class.step-done]="onboardingStep() === 4">
+            <div class="stepper-head">
+              <h2>Seller Onboarding</h2>
+              <div class="stepper-track" role="list" aria-label="Onboarding steps">
+                <div class="step-dot" role="listitem" *ngFor="let title of stepTitles; let i = index" [class.active]="onboardingStep() === (i + 1)" [class.done]="onboardingStep() > (i + 1)">
+                  <span *ngIf="onboardingStep() <= (i + 1)">{{ i + 1 }}</span>
+                  <span *ngIf="onboardingStep() > (i + 1)">&#10003;</span>
+                </div>
+              </div>
+
+            </div>
+
+            <canvas #confettiCanvas class="confetti"></canvas>
+
+            <div class="step-body" *ngIf="onboardingStep() < 4; else doneState">
+              <form [formGroup]="onboardingForm" novalidate>
+                <ng-container [ngSwitch]="onboardingStep()">
+                  <div *ngSwitchCase="1" class="fields-wrap step-frame">
+                    <h3 class="form-title">Business details</h3>
+                    <p class="form-subtitle">Takes less than 1 minute</p>
+
+                    <div class="field-group">
+                      <label class="field floating" [class.invalid]="onboardingForm.get('business_name')?.touched && onboardingForm.get('business_name')?.invalid">
+                        <input formControlName="business_name" placeholder="Business Name" />
+                      </label>
+                      <span class="field-error" *ngIf="onboardingForm.get('business_name')?.touched && onboardingForm.get('business_name')?.invalid">
+                        Please enter your business name.
+                      </span>
+                    </div>
+
+                    <div class="field-group">
+                      <label class="field floating" [class.invalid]="onboardingForm.get('abn')?.touched && onboardingForm.get('abn')?.invalid">
+                        <input formControlName="abn" inputmode="numeric" placeholder="ABN (11 digits)" (input)="onABNInput($event)" />
+                      </label>
+                      <div class="field-hint">
+                        <a href="https://www.abr.gov.au/business-super-funds-charities/applying-abn" target="_blank" rel="noopener">Don't have an ABN? Apply here →</a>
+                      </div>
+                      <span class="field-error" *ngIf="onboardingForm.get('abn')?.touched && onboardingForm.get('abn')?.invalid">
+                        Please enter a valid 11-digit ABN.
+                      </span>
+                    </div>
+
+                    <div class="field-group">
+                      <label class="field floating" [class.invalid]="onboardingForm.get('contact_number')?.touched && onboardingForm.get('contact_number')?.invalid">
+                        <input formControlName="contact_number" inputmode="tel" placeholder="Contact Number (e.g. 0412 345 678)" (input)="onContactInput($event)" />
+                      </label>
+                      <span class="field-error" *ngIf="onboardingForm.get('contact_number')?.touched && onboardingForm.get('contact_number')?.invalid">
+                        Please enter a valid Australian phone number.
+                      </span>
+                    </div>
+                  </div>
+
+                  <div *ngSwitchCase="2" class="fields-wrap step-frame">
+                    <h3 class="form-title">Bank details</h3>
+                    <p class="form-subtitle">Secure payout setup</p>
+
+                    <div class="field-group">
+                      <label class="field floating" [class.invalid]="onboardingForm.get('bsb')?.touched && onboardingForm.get('bsb')?.invalid">
+                        <input formControlName="bsb" inputmode="numeric" placeholder="BSB (e.g. 062-000)" (input)="onBSBInput($event)" />
+                      </label>
+                      <span class="field-error" *ngIf="onboardingForm.get('bsb')?.touched && onboardingForm.get('bsb')?.invalid">
+                        Please enter a valid 6-digit BSB number.
+                      </span>
+                    </div>
+
+                    <div class="field-group">
+                      <label class="field floating" [class.invalid]="onboardingForm.get('account_number')?.touched && onboardingForm.get('account_number')?.invalid">
+                        <input formControlName="account_number" inputmode="numeric" placeholder="Account Number" (input)="onAccountInput($event)" />
+                      </label>
+                      <span class="field-error" *ngIf="onboardingForm.get('account_number')?.touched && onboardingForm.get('account_number')?.invalid">
+                        Please enter a valid account number (6–10 digits).
+                      </span>
+                    </div>
+                  </div>
+
+                  <div *ngSwitchCase="3" class="fields-wrap step-frame">
+                    <h3 class="form-title">Review & Confirm</h3>
+                    <p class="form-subtitle">Check your details before submitting</p>
+
+                    <div class="review-list">
+                      <div class="review-section">
+                        <span class="review-section-label">Business</span>
+                        <div class="review-row">
+                          <span class="review-key">Business Name</span>
+                          <span class="review-val">{{ onboardingForm.get('business_name')?.value || '—' }}</span>
+                        </div>
+                        <div class="review-row">
+                          <span class="review-key">ABN</span>
+                          <span class="review-val">{{ onboardingForm.get('abn')?.value || '—' }}</span>
+                        </div>
+                        <div class="review-row">
+                          <span class="review-key">Contact</span>
+                          <span class="review-val">{{ onboardingForm.get('contact_number')?.value || '—' }}</span>
+                        </div>
+                      </div>
+                      <div class="review-divider"></div>
+                      <div class="review-section">
+                        <span class="review-section-label">Bank</span>
+                        <div class="review-row">
+                          <span class="review-key">BSB</span>
+                          <span class="review-val">{{ onboardingForm.get('bsb')?.value || '—' }}</span>
+                        </div>
+                        <div class="review-row">
+                          <span class="review-key">Account</span>
+                          <span class="review-val">••••{{ (onboardingForm.get('account_number')?.value || '').slice(-3) }}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <label class="checkline">
+                      <input type="checkbox" formControlName="agree_terms" />
+                      <span>I confirm these details are accurate.</span>
+                    </label>
+                  </div>
+                </ng-container>
+
+                <p *ngIf="submitError()" class="error">{{ submitError() }}</p>
+
+                <div class="step-actions">
+                  <button type="button" class="ghost-btn" (click)="previousOnboardingStep()" *ngIf="onboardingStep() > 1">Back</button>
+                  <button type="button" class="primary-btn" *ngIf="onboardingStep() < 3" (click)="nextOnboardingStep()">Continue &#8594;</button>
+                  <button type="button" class="primary-btn start-btn" *ngIf="onboardingStep() === 3" (click)="submitRegistration()">Start Selling &#8594;</button>
+                </div>
+              </form>
+            </div>
+
+            <ng-template #doneState>
+              <div class="success-state" *ngIf="registrationCompleted()">
+                <svg class="checkmark" viewBox="0 0 52 52">
+                  <circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none" />
+                  <path class="checkmark-path" fill="none" d="M14 27l7 7 17-17" />
+                </svg>
+                <p>You're ready to sell!</p>
+                <button type="button" class="primary-btn create-first" (click)="continueToDashboard()">Create Your First Auction</button>
+              </div>
+            </ng-template>
+          </article>
+
+          <section class="trust-layer">
+            <article class="trust-card">
+              <div class="trust-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M5 13l4 4 10-10" /></svg>
+              </div>
+              <h3>Verified buyers only</h3>
+              <p>Trade with trusted, verified buyers.</p>
+            </article>
+            <article class="trust-card">
+              <div class="trust-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M7 10V7a5 5 0 0 1 10 0v3M5 10h14v10H5z" /></svg>
+              </div>
+              <h3>Secure payments</h3>
+              <p>Guaranteed and protected payouts.</p>
+            </article>
+          </section>
+        </section>
+      </section>
+
+      <ng-template #dashboardSection>
+        <section class="dashboard-shell">
+
+          <header class="dash-header">
+            <div class="dash-header-left">
+              <h1>Auctions</h1>
+              <p>Sell directly to verified buyers</p>
+            </div>
+            <div class="verified-badge">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4 10-10" /></svg>
+              <span>Verified Seller</span>
+            </div>
+          </header>
+
+          <div class="dash-actions">
+            <button type="button" class="dash-btn-primary" (click)="goToCreateAuction()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+              Create Auction
+            </button>
+            <button type="button" class="dash-btn-ghost" (click)="goToActiveAuctions()">View Auctions</button>
+          </div>
+
+          <div class="stats-row">
+            <div class="stat-card">
+              <span class="stat-value stat-value-green">{{ formatMoney(liveStats().total_revenue) }}</span>
+              <span class="stat-label">Total Revenue</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-card">
+              <span class="stat-value">{{ liveStats().active }}</span>
+              <span class="stat-label">Active Auctions</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-card">
+              <span class="stat-value">{{ liveStats().upcoming }}</span>
+              <span class="stat-label">Upcoming</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-card">
+              <span class="stat-value">{{ liveStats().ended }}</span>
+              <span class="stat-label">Completed</span>
+            </div>
+          </div>
+
+          <div class="auction-panel">
+            <div class="tab-bar">
+              <button class="tab-item" [class.active]="activeTab() === 'all'" (click)="selectTab('all')">All</button>
+              <button class="tab-item" [class.active]="activeTab() === 'active'" (click)="selectTab('active')">
+                Active
+                <span class="tab-count" *ngIf="liveStats().active > 0">{{ liveStats().active }}</span>
+              </button>
+              <button class="tab-item" [class.active]="activeTab() === 'upcoming'" (click)="selectTab('upcoming')">
+                Upcoming
+                <span class="tab-count" *ngIf="liveStats().upcoming > 0">{{ liveStats().upcoming }}</span>
+              </button>
+              <button class="tab-item" [class.active]="activeTab() === 'completed'" (click)="selectTab('completed')">
+                Completed
+                <span class="tab-count" *ngIf="liveStats().ended > 0">{{ liveStats().ended }}</span>
+              </button>
+            </div>
+
+            <div class="auction-list" *ngIf="filteredAuctions().length; else emptyState">
+              <article class="auction-card reveal-card" *ngFor="let row of filteredAuctions(); trackBy: trackByAuction">
+                <div class="card-image-wrap">
+                  <img *ngIf="row.image_url" [src]="row.image_url" [alt]="row.produce_name" class="card-image" />
+                  <div *ngIf="!row.image_url" class="card-image-placeholder">{{ row.produce_name.slice(0, 1) }}</div>
+                  <span class="card-status-badge" [ngClass]="displayStatusClass(row)">{{ displayStatus(row) }}</span>
+                </div>
+                <div class="card-body">
+                  <div class="card-body-top">
+                    <div>
+                      <h3 class="card-title">{{ row.produce_name }}</h3>
+                      <span class="card-price">{{ formatMoney(row.highest_bid ?? row.base_price) }}</span>
+                    </div>
+                    <div class="card-meta-right">
+                      <span class="card-bids" *ngIf="row.status === 'active'">{{ row.highest_bid ? '—' : '0' }} Bids</span>
+                      <div class="card-timer" *ngIf="isAuctionActive(row)">
+                        <span class="card-countdown">{{ countdownLabel(row) }}</span>
+                        <span class="card-ends-label">Ends soon</span>
+                      </div>
+                      <div class="card-timer" *ngIf="displayStatus(row) === 'Upcoming'">
+                        <span class="card-ends-label">{{ timeLeftLabel(row) }}</span>
+                      </div>
+                      <div class="card-timer" *ngIf="displayStatus(row) === 'Completed'">
+                        <span class="card-ends-label">Completed</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="card-actions">
+                    <button type="button" class="card-btn-primary" (click)="viewAuctionDetail(row)">View Details</button>
+                  </div>
+                </div>
+              </article>
+            </div>
+
+            <ng-template #emptyState>
+              <div class="empty-state">
+                <div class="empty-illustration">
+                  <ng-container [ngSwitch]="emptyIllustrationState()">
+                    <svg *ngSwitchCase="'all'" viewBox="0 0 160 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <ellipse cx="80" cy="108" rx="44" ry="7" fill="#e8f3ea"/>
+                      <rect x="36" y="62" width="88" height="44" rx="6" fill="#f0f8f2" stroke="#c4ddc9" stroke-width="1.5"/>
+                      <line x1="80" y1="62" x2="80" y2="106" stroke="#c4ddc9" stroke-width="1.5"/>
+                      <line x1="58" y1="62" x2="58" y2="106" stroke="#c4ddc9" stroke-width="1"/>
+                      <line x1="102" y1="62" x2="102" y2="106" stroke="#c4ddc9" stroke-width="1"/>
+                      <line x1="36" y1="84" x2="124" y2="84" stroke="#c4ddc9" stroke-width="1.5"/>
+                      <rect x="30" y="55" width="100" height="12" rx="4" fill="#d6ead9" stroke="#b0cfb5" stroke-width="1.5"/>
+                      <path d="M80 55 C80 42 80 30 80 18" stroke="#2d7b57" stroke-width="2" stroke-linecap="round"/>
+                      <path d="M80 38 C72 32 60 30 58 22 C66 20 76 26 80 38Z" fill="#4a9e6e" opacity="0.7"/>
+                      <path d="M80 30 C88 24 100 22 102 14 C94 12 84 18 80 30Z" fill="#2d7b57" opacity="0.85"/>
+                    </svg>
+
+                    <svg *ngSwitchCase="'active'" viewBox="0 0 160 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <ellipse cx="80" cy="108" rx="40" ry="7" fill="#edf5e8"/>
+                      <rect x="40" y="28" width="80" height="72" rx="10" fill="#f7fbf5" stroke="#c6ddc6" stroke-width="1.5"/>
+                      <circle cx="80" cy="58" r="18" fill="#e4f2e6" stroke="#8dbd97" stroke-width="2"/>
+                      <path d="M80 48v10l7 5" stroke="#2d7b57" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      <rect x="52" y="82" width="56" height="8" rx="4" fill="#dceede"/>
+                      <circle cx="54" cy="40" r="2" fill="#b8d7bf"/>
+                      <circle cx="106" cy="40" r="2" fill="#b8d7bf"/>
+                    </svg>
+
+                    <svg *ngSwitchCase="'upcoming'" viewBox="0 0 160 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <ellipse cx="80" cy="108" rx="42" ry="7" fill="#edf2f7"/>
+                      <rect x="32" y="22" width="96" height="78" rx="10" fill="#f8fafc" stroke="#cfd8e3" stroke-width="1.5"/>
+                      <rect x="32" y="22" width="96" height="22" rx="10" fill="#e8eef5"/>
+                      <line x1="55" y1="34" x2="55" y2="14" stroke="#8094aa" stroke-width="4" stroke-linecap="round"/>
+                      <line x1="105" y1="34" x2="105" y2="14" stroke="#8094aa" stroke-width="4" stroke-linecap="round"/>
+                      <rect x="48" y="56" width="64" height="12" rx="6" fill="#d7e3f0"/>
+                      <rect x="58" y="74" width="44" height="8" rx="4" fill="#c4d5e6"/>
+                      <circle cx="80" cy="40" r="3" fill="#6e8398"/>
+                    </svg>
+
+                    <svg *ngSwitchDefault viewBox="0 0 160 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <ellipse cx="80" cy="108" rx="40" ry="7" fill="#f2f4f7"/>
+                      <rect x="38" y="30" width="84" height="62" rx="10" fill="#fbfcfd" stroke="#d4dbe3" stroke-width="1.5"/>
+                      <path d="M58 62l14 14 30-30" stroke="#6b7280" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                      <rect x="52" y="82" width="56" height="7" rx="3.5" fill="#e6ebf0"/>
+                      <circle cx="46" cy="46" r="2" fill="#c3ccd6"/>
+                      <circle cx="114" cy="46" r="2" fill="#c3ccd6"/>
+                    </svg>
+                  </ng-container>
+                </div>
+                <p class="empty-title">{{ emptyTitle() }}</p>
+                <p class="empty-sub">Start selling your produce directly to verified buyers</p>
+                <button
+                  *ngIf="showCreateFirstAuctionButton()"
+                  type="button"
+                  class="dash-btn-primary"
+                  (click)="goToCreateAuction()">
+                  Create Your First Auction
+                </button>
+              </div>
+            </ng-template>
+          </div>
+
+        </section>
+      </ng-template>
+    </ng-container>
+  </main>
+</div>
+
+<div class="auction-modal-backdrop" *ngIf="createAuctionModalOpen()" (click)="closeCreateAuctionModal()">
+  <section class="auction-modal" role="dialog" aria-modal="true" aria-label="Create auction" (click)="$event.stopPropagation(); closeTimePickers()">
+    <header class="auction-modal-head">
+      <div>
+        <h2>Create Auction</h2>
+        <p>Set up your lot details and schedule in under a minute.</p>
+      </div>
+      <button type="button" class="modal-close" (click)="closeCreateAuctionModal()" [disabled]="isCreatingAuction()">&#10005;</button>
+    </header>
+
+    <form class="auction-modal-form" [formGroup]="createAuctionForm" novalidate>
+      <label class="modal-field">
+        <span>Crop *</span>
+        <select formControlName="produce_name">
+          <option value="" disabled>Select crop</option>
+          <option *ngFor="let crop of auctionCropOptions" [value]="crop">{{ crop }}</option>
+        </select>
+        <p class="modal-field-error" *ngIf="createAuctionForm.get('produce_name')?.touched && createAuctionForm.get('produce_name')?.invalid">
+          Crop is required.
+        </p>
+      </label>
+
+      <div class="modal-grid">
+        <label class="modal-field">
+          <span>Quantity (kg) *</span>
+          <input type="number" min="0.01" step="0.01" formControlName="quantity" placeholder="5000" />
+          <p class="modal-field-error" *ngIf="createAuctionForm.get('quantity')?.touched && createAuctionForm.get('quantity')?.invalid">
+            Enter a valid quantity greater than 0.
+          </p>
+        </label>
+        <label class="modal-field">
+          <span>Starting Price (AUD) *</span>
+          <input type="number" min="1" step="1" formControlName="base_price" placeholder="1500" />
+          <p class="modal-field-error" *ngIf="createAuctionForm.get('base_price')?.touched && createAuctionForm.get('base_price')?.invalid">
+            Enter a valid starting price.
+          </p>
+        </label>
+      </div>
+
+      <div class="modal-grid">
+        <div class="modal-field">
+          <span>Start Date & Time *</span>
+          <small>South Australia time (ACST/ACDT)</small>
+          <div class="dt-row">
+            <input type="date" formControlName="start_date" [attr.min]="minStartDate()" class="dt-date-input" />
+            <button type="button" class="dt-time-btn" (click)="$event.stopPropagation(); toggleTimePicker('start_time')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              {{ getTimeDisplay(createAuctionForm.get('start_time')?.value) }}
+            </button>
+          </div>
+          <div class="time-picker-dropdown" *ngIf="activeTimePicker() === 'start_time'" (click)="$event.stopPropagation()">
+            <div class="tp-col">
+              <div class="tp-item" *ngFor="let h of pickerHours('start_time')" [class.tp-selected]="pickerHour() === h" (click)="choosePickerHour('start_time', h)">{{ pad(h) }}</div>
+            </div>
+            <div class="tp-col">
+              <div class="tp-item" *ngFor="let m of pickerMinutes('start_time')" [class.tp-selected]="pickerMinute() === m" (click)="choosePickerMinute('start_time', m)">{{ pad(m) }}</div>
+            </div>
+            <div class="tp-col tp-period-col">
+              <div class="tp-item tp-period" *ngFor="let p of pickerPeriods('start_time')" [class.tp-selected]="pickerPeriod() === p" (click)="choosePickerPeriod('start_time', p)">{{ p }}</div>
+            </div>
+          </div>
+          <p class="modal-field-error" *ngIf="createAuctionForm.get('start_date')?.touched && createAuctionForm.get('start_date')?.invalid">Start date is required.</p>
+          <p class="modal-field-error" *ngIf="createAuctionForm.get('start_time')?.touched && createAuctionForm.errors?.['startInPast']">Start must be in the future.</p>
+        </div>
+
+        <div class="modal-field">
+          <span>End Date & Time *</span>
+          <small>South Australia time (ACST/ACDT)</small>
+          <div class="dt-row">
+            <input type="date" formControlName="end_date" [attr.min]="minEndDate()" class="dt-date-input" />
+            <button type="button" class="dt-time-btn" (click)="$event.stopPropagation(); toggleTimePicker('end_time')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              {{ getTimeDisplay(createAuctionForm.get('end_time')?.value) }}
+            </button>
+          </div>
+          <div class="time-picker-dropdown" *ngIf="activeTimePicker() === 'end_time'" (click)="$event.stopPropagation()">
+            <div class="tp-col">
+              <div class="tp-item" *ngFor="let h of pickerHours('end_time')" [class.tp-selected]="pickerHour() === h" (click)="choosePickerHour('end_time', h)">{{ pad(h) }}</div>
+            </div>
+            <div class="tp-col">
+              <div class="tp-item" *ngFor="let m of pickerMinutes('end_time')" [class.tp-selected]="pickerMinute() === m" (click)="choosePickerMinute('end_time', m)">{{ pad(m) }}</div>
+            </div>
+            <div class="tp-col tp-period-col">
+              <div class="tp-item tp-period" *ngFor="let p of pickerPeriods('end_time')" [class.tp-selected]="pickerPeriod() === p" (click)="choosePickerPeriod('end_time', p)">{{ p }}</div>
+            </div>
+          </div>
+          <p class="modal-field-error" *ngIf="createAuctionForm.get('end_date')?.touched && createAuctionForm.get('end_date')?.invalid">End date is required.</p>
+          <p class="modal-field-error" *ngIf="createAuctionForm.get('end_time')?.touched && createAuctionForm.errors?.['endBeforeStart']">End must be after start.</p>
+        </div>
+      </div>
+
+      <div class="modal-field">
+        <span>Lot Image *</span>
+        <div class="modal-upload-row">
+          <label class="modal-upload-btn">
+            <input type="file" accept="image/*" (change)="onImageSelected($event)" [disabled]="isUploading() || isCreatingAuction()" />
+            <span>{{ isUploading() ? 'Uploading...' : (uploadedImageUrl() ? 'Replace Image' : 'Upload Image') }}</span>
+          </label>
+          <button
+            *ngIf="uploadedImageUrl()"
+            type="button"
+            class="dash-btn-ghost modal-remove-btn"
+            (click)="removeSelectedAuctionImage()"
+            [disabled]="isUploading() || isCreatingAuction()">
+            Remove
+          </button>
+        </div>
+        <div class="modal-image-preview" *ngIf="uploadedImageUrl()">
+          <img [src]="uploadedImageUrl()!" alt="Auction image preview" />
+        </div>
+        <p class="modal-field-error" *ngIf="createAuctionForm.touched && !uploadedImageUrl()">
+          Image is required.
+        </p>
+      </div>
+
+      <p class="modal-error" *ngIf="createAuctionError()">{{ createAuctionError() }}</p>
+
+      <footer class="auction-modal-actions">
+        <button type="button" class="dash-btn-ghost" (click)="closeCreateAuctionModal()" [disabled]="isCreatingAuction()">Cancel</button>
+        <button
+          type="button"
+          class="dash-btn-primary"
+          (click)="submitCreateAuction()"
+          [disabled]="isCreatingAuction() || isUploading() || createAuctionForm.invalid || !uploadedImageUrl()">
+          {{ isCreatingAuction() ? 'Creating...' : 'Create Auction' }}
+        </button>
+      </footer>
+    </form>
+  </section>
+</div>
+
+<ng-template #loadingShell>
+  <div class="loading">Loading auctions...</div>
+</ng-template>

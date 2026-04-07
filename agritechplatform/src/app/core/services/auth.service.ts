@@ -38,6 +38,18 @@ export class AuthService {
         return false;
     }
 
+    getRole(): 'farmer' | 'bidder' | null {
+        return this.activeUserSubject.value?.role ?? null;
+    }
+
+    isBidder(): boolean {
+        return this.getRole() === 'bidder';
+    }
+
+    isFarmer(): boolean {
+        return this.getRole() === 'farmer';
+    }
+
     logout(): void {
         this.activeUserSubject.next(null);
         this.blockService.clearBlocks();

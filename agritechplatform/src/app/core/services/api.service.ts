@@ -12,6 +12,7 @@ export interface ApiUserResponse {
     farm_location: string;
     primary_crop: string;
     primary_soil: string;
+    role?: string;
 }
 
 export interface ApiBlockResponse {

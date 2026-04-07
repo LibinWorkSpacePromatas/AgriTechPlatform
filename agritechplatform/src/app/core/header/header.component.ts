@@ -20,12 +20,12 @@ import { Subscription } from 'rxjs';
           
           <div class="welcome-section">
             <h1 class="welcome-title">Welcome back, {{ currentUser ? currentUser.userName.split(' ')[0] : 'User' }}!</h1>
-            <p class="welcome-subtitle">{{ currentUser ? currentUser.farmName : 'Loading...' }}</p>
+            <p class="welcome-subtitle">{{ currentUser?.role === 'bidder' ? 'Verified Buyer' : (currentUser ? currentUser.farmName : 'Loading...') }}</p>
           </div>
         </div>
         
         <div class="header-right">
-          <button class="grower-gpt-btn hover-lift" routerLink="/grower-gpt">
+          <button class="grower-gpt-btn hover-lift" routerLink="/grower-gpt" *ngIf="currentUser?.role !== 'bidder'">
             <i-lucide [img]="MessageCircleIcon" class="gpt-icon"></i-lucide>
             <span class="btn-text">Open Grower GPT</span>
           </button>
