@@ -130,7 +130,7 @@
 
       <div class="right-column">
         <ng-container *ngIf="irrigationStatus">
-          <div class="ndwi-card card shadow-sm float-in" [ngClass]="getNdwiTone(irrigationStatus.status)">
+          <div class="ndwi-card card shadow-sm float-in" [ngClass]="getNdwiTone(getSatelliteInsightLabel())">
             <div class="card-title ndwi-card-header">
               <div class="ndwi-card-heading">
                 <i-lucide [img]="DropletIcon"></i-lucide>
@@ -157,16 +157,16 @@
             </div>
             <div class="ndwi-hero">
               <div class="ndwi-meta-row ndwi-status-row">
-                <span class="ndwi-status-chip" [ngClass]="getNdwiTone(irrigationStatus.status)">
-                  {{ getStatusHeadline(irrigationStatus.status) }}
+                <span class="ndwi-status-chip" [ngClass]="getNdwiTone(getSatelliteInsightLabel())">
+                  {{ getStatusHeadline(getSatelliteInsightLabel()) }}
                 </span>
                 <span class="status-pill neutral" *ngIf="irrigationStatus.date">
                   Latest: {{ irrigationStatus.date | date:'mediumDate' }}
                 </span>
               </div>
               <div class="ndwi-visual-row">
-                <div class="crop-visual-card" [ngClass]="[getNdwiTone(irrigationStatus.status), getCropVisualClass()]">
-                    <div class="water-fill-visual" [ngClass]="getNdwiTone(irrigationStatus.status)">
+                <div class="crop-visual-card" [ngClass]="[getNdwiTone(getSatelliteInsightLabel()), getCropVisualClass()]">
+                    <div class="water-fill-visual" [ngClass]="getNdwiTone(getSatelliteInsightLabel())">
                       <div class="water-fill-stage minimal">
                         <div class="water-reservoir minimal">
                           <div class="water-fill-shell minimal">
@@ -187,34 +187,55 @@
                     </div>
                 </div>
                 <div class="ndwi-value-group">
-                  <span class="urgency-badge" [ngClass]="getUrgencyTone(irrigationStatus.status)">
-                    {{ getUrgencyLabel(irrigationStatus.status) }}
+                  <span class="urgency-badge" [ngClass]="getUrgencyTone(getSatelliteInsightLabel())">
+                    {{ getUrgencyLabel(getSatelliteInsightLabel()) }}
                   </span>
                   <div class="ndwi-value">
                     {{ irrigationStatus.ndwi !== null ? (irrigationStatus.ndwi | number:'1.4-4') : 'N/A' }}
                   </div>
                   <div class="ndwi-value-copy">
-                    <span class="ndwi-value-label">Recommended action</span>
-                    <p class="ndwi-support-copy">{{ irrigationStatus.recommendation }}</p>
+                    <span class="ndwi-value-label">Satellite Insight</span>
+                    <p class="ndwi-support-copy">{{ getStatusExplanation(getSatelliteInsightLabel()) }}</p>
+
+                    <span class="ndwi-value-label">Final Decision</span>
+                    <p class="ndwi-support-copy">{{ getDecisionSummary() }}</p>
+                    <p class="ndwi-support-copy decision-warning" *ngIf="currentDecision?.warning">
+                      {{ currentDecision?.warning }}
+                    </p>
+                    <div class="decision-action-summary" *ngIf="currentDecision">
+                      <span class="ndwi-value-label">Recommended Action</span>
+                      <p class="decision-action-value" [ngClass]="getDecisionButtonTone()">
+                        {{ getRecommendedActionLabel() }}
+                      </p>
+                    </div>
                     
-                    <div *ngIf="irrigationStatus.waterNeeded" class="ndwi-smart-metric mt-2">
+                    <div *ngIf="currentDecision?.water_needed_mm" class="ndwi-smart-metric mt-2">
                       <span class="ndwi-value-label">Estimated Water</span>
-                      <p class="ndwi-support-copy font-bold text-blue-600">💧 {{ irrigationStatus.waterNeeded }} mm</p>
-                      <p class="ndwi-support-copy" *ngIf="irrigationStatus.waterNeededLiters">
-                        ≈ {{ (irrigationStatus.waterNeededLiters / 1000000) | number:'1.1-2' }} ML
+                      <p class="ndwi-support-copy font-bold text-blue-600">💧 {{ currentDecision?.water_needed_mm }} mm</p>
+                      <p class="ndwi-support-copy" *ngIf="currentDecision?.water_needed_liters">
+                        ≈ {{ ((currentDecision?.water_needed_liters || 0) / 1000000) | number:'1.1-2' }} ML
                       </p>
                     </div>
                     
                     
 
-                    <div class="irrigation-demo-panel">
+                    <div class="irrigation-demo-panel" [class.has-override]="shouldShowOverrideButton()">
                       <button
                         type="button"
                         class="irrigate-now-btn"
+                        [ngClass]="getDecisionButtonTone()"
                         [class.running]="isPumpRunning"
-                        [disabled]="!canStartDemoIrrigation()"
-                        (click)="triggerIrrigationDemo()">
-                        {{ isPumpRunning ? 'Pump Running' : 'Irrigate Now ' }}
+                        [disabled]="!canStartPrimaryDecisionAction()"
+                        (click)="triggerPrimaryDecisionAction()">
+                        {{ getDecisionButtonLabel() }}
+                      </button>
+                      <button
+                        *ngIf="shouldShowOverrideButton()"
+                        type="button"
+                        class="irrigation-secondary-btn"
+                        [disabled]="!canStartOverrideIrrigation()"
+                        (click)="triggerOverrideIrrigation()">
+                        Irrigate Anyway
                       </button>
                       <p class="irrigation-demo-note" *ngIf="pumpDemoMessage">{{ pumpDemoMessage }}</p>
                     </div>

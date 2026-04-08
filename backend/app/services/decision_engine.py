@@ -43,8 +43,6 @@ def _calculate_decision_confidence(
 
     if satellite_data_age_days is None:
         confidence -= 0.15
-    elif satellite_data_age_days > 3:
-        confidence -= 0.25
 
     if satellite_data_quality == "degraded":
         confidence -= 0.15
@@ -366,6 +364,12 @@ def _compute_irrigation_decision(data: dict[str, Any], db: Session) -> dict[str,
     dominant_reason = "No significant water stress"
     irrigation = "OFF"
     urgency = "LOW"
+    warning = None
+    stale_satellite_data = satellite_data_age_days is not None and satellite_data_age_days > 3
+
+    if stale_satellite_data:
+        confidence = _clamp_confidence(confidence * 0.7)
+        warning = f"Satellite data is {satellite_data_age_days} days old - verify before irrigating"
 
     if rain_next_48h >= forecast_threshold:
         return {
@@ -374,6 +378,7 @@ def _compute_irrigation_decision(data: dict[str, Any], db: Session) -> dict[str,
             "water_needed_mm": 0,
             "water_needed_liters": 0.0,
             "reason": "Rain expected in next 48 hours",
+            "warning": warning,
             "confidence": round(confidence, 2),
             "metadata": {
                 "score": 0,
@@ -395,14 +400,11 @@ def _compute_irrigation_decision(data: dict[str, Any], db: Session) -> dict[str,
                 "soil_wet_override": soil_wet_override,
                 "temp_avg": temp_avg,
                 "water_needed_liters": 0.0,
+                "warning": warning,
             }
         }
 
-    if satellite_data_age_days is not None and satellite_data_age_days > 3:
-        irrigation = "WAIT"
-        urgency = "LOW"
-        dominant_reason = "Satellite data is outdated, decision uncertain"
-    elif recent_rain_override:
+    if recent_rain_override:
         irrigation = "WAIT"
         urgency = "LOW"
         dominant_reason = "Recent heavy rainfall detected"
@@ -415,12 +417,12 @@ def _compute_irrigation_decision(data: dict[str, Any], db: Session) -> dict[str,
         if severe_ndwi_stress:
             irrigation = "ON"
             urgency = "HIGH"
-            dominant_reason = "Severe water stress (NDWI < -0.3)"
+            dominant_reason = "Severe water stress detected (NDWI)"
             score = 70
         elif ndwi_stress:
             irrigation = "ON"
             urgency = "MEDIUM"
-            dominant_reason = "Moderate water stress (NDWI < -0.1)"
+            dominant_reason = "Moderate water stress detected (NDWI)"
             score = 45
         else:
             irrigation = "OFF"
@@ -429,6 +431,13 @@ def _compute_irrigation_decision(data: dict[str, Any], db: Session) -> dict[str,
             score = -10
 
     reason = dominant_reason
+    if stale_satellite_data:
+        if irrigation == "ON":
+            if urgency == "HIGH":
+                urgency = "MEDIUM"
+            reason = f"{reason}, but satellite data is {satellite_data_age_days} days old"
+        elif warning and irrigation != "WAIT":
+            reason = f"{reason}, but satellite data is {satellite_data_age_days} days old"
 
     # 💧 Scientific Water Quantity Calculation
     water_needed_mm = 0
@@ -512,6 +521,7 @@ def _compute_irrigation_decision(data: dict[str, Any], db: Session) -> dict[str,
         "water_needed_mm": water_needed_mm,
         "water_needed_liters": water_needed_liters,
         "reason": reason,
+        "warning": warning,
         "confidence": round(confidence, 2),
         "metadata": {
             "score": score,
@@ -533,6 +543,7 @@ def _compute_irrigation_decision(data: dict[str, Any], db: Session) -> dict[str,
             "recent_rain_override": recent_rain_override,
             "soil_wet_override": soil_wet_override,
             "water_needed_liters": water_needed_liters,
+            "warning": warning,
         }
     }
 
