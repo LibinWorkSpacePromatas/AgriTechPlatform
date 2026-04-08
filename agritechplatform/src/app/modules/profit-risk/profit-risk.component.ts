@@ -115,6 +115,29 @@ export class ProfitRiskComponent implements OnInit {
   readonly scenarioOptions = [80, 153, 420];
 
   readonly currentCrop = computed(() => this.profitData()?.current_crop ?? null);
+  readonly displayCropLabel = computed(() => {
+    const selectedBlockCrop = this.selectedBlock()?.crop?.trim();
+    if (selectedBlockCrop) {
+      return this.getChartLabel(selectedBlockCrop);
+    }
+
+    const requestedCrop = this.currentCrop()?.requested_crop?.trim();
+    if (requestedCrop) {
+      return this.getChartLabel(requestedCrop);
+    }
+
+    const blockCrop = this.profitData()?.block_crop?.trim();
+    if (blockCrop) {
+      return this.getChartLabel(blockCrop);
+    }
+
+    const matchedCrop = this.currentCrop()?.matched_crop?.trim();
+    if (matchedCrop) {
+      return this.getChartLabel(matchedCrop);
+    }
+
+    return 'Crop';
+  });
   readonly heroBlockLabel = computed(() => {
     const name = this.selectedBlock()?.name?.trim();
     if (!name) {
@@ -124,13 +147,7 @@ export class ProfitRiskComponent implements OnInit {
     return name.split(' - ')[0]?.trim() || name;
   });
   readonly heroCropLabel = computed(() => {
-    const matchedCrop = this.currentCrop()?.matched_crop;
-    if (matchedCrop) {
-      return this.getChartLabel(matchedCrop);
-    }
-
-    const blockCrop = this.selectedBlock()?.crop;
-    return blockCrop ? this.getChartLabel(blockCrop) : 'Crop';
+    return this.displayCropLabel();
   });
   readonly marginRows = computed(() => this.profitData()?.margins ?? []);
   readonly chartRows = computed(() => {
@@ -447,7 +464,7 @@ export class ProfitRiskComponent implements OnInit {
       ? `${this.formatCurrency(data.net_margin)}/ha above zero`
       : `${this.formatCurrency(Math.abs(data.net_margin))}/ha below zero`;
 
-    return `${this.getChartLabel(current.matched_crop)} is currently running ${profitabilityText} at ${this.formatCurrency(data.water_price)}/ML water cost.`;
+    return `${this.displayCropLabel()} is currently running ${profitabilityText} at ${this.formatCurrency(data.water_price)}/ML water cost.`;
   });
 
   ngOnInit(): void {

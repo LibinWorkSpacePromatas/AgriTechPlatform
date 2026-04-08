@@ -36,6 +36,7 @@
           </svg>
         </span>
         <span>Filter</span>
+        <span class="action-btn-count" *ngIf="appliedFilterCount > 0">{{ appliedFilterCount }}</span>
       </button>
       <button class="btn toolbar-reset-btn action-btn action-btn-reset" type="button" (click)="resetAllFilters()">
         <span class="action-btn-icon" aria-hidden="true">
@@ -96,9 +97,9 @@
           <div class="range-wrap">
             <div class="range-meta">
               <strong>{{ draftRadiusKm }} km</strong>
-              <small>within your selected block</small>
+              <small>within your selected block, up to {{ maxRadiusKm }} km</small>
             </div>
-            <input type="range" min="5" max="50" [(ngModel)]="draftRadiusKm">
+            <input type="range" min="5" [max]="maxRadiusKm" [(ngModel)]="draftRadiusKm">
           </div>
         </label>
 
@@ -219,7 +220,7 @@
     </section>
   </ng-template>
 
-  <div class="details-modal-backdrop" *ngIf="detailsModalListing" (click)="closeDetailsModal()">
+  <div class="details-modal-backdrop" *ngIf="detailsModalListing">
     <div class="details-modal" *ngIf="detailsModalListing as listing" (click)="$event.stopPropagation()">
       <div class="details-modal-media">
         <img *ngIf="listing.image_url" class="details-modal-image" [src]="listing.image_url" [alt]="listing.equipment_name">
@@ -272,7 +273,7 @@
     </div>
   </div>
 
-  <div class="booking-modal-backdrop" *ngIf="bookingModalListing" (click)="closeBookingModal()">
+  <div class="booking-modal-backdrop" *ngIf="bookingModalListing">
     <div class="booking-modal" *ngIf="bookingModalListing as listing" (click)="$event.stopPropagation()">
       <div class="booking-modal-header">
         <div>

@@ -104,6 +104,21 @@ h2 {
   stroke-width: 2;
 }
 
+.action-btn-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: rgba(29, 78, 216, 0.14);
+  color: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
 .action-btn-search {
   background: linear-gradient(180deg, #0f766e, #115e59);
   color: #ffffff;
@@ -807,12 +822,16 @@ select:focus {
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
+  overflow-y: auto;
   background: rgba(15, 23, 42, 0.34);
   backdrop-filter: blur(10px);
 }
 
 .booking-modal {
+  display: flex;
+  flex-direction: column;
   width: min(100%, 560px);
+  max-height: min(88vh, 860px);
   overflow: hidden;
   border-radius: 28px;
   background: #fff;
@@ -868,8 +887,20 @@ select:focus {
 
 .booking-modal-body {
   display: grid;
+  flex: 1 1 auto;
+  min-height: 0;
   gap: 1rem;
   padding: 1.45rem 1.6rem 1.6rem;
+  overflow-y: auto;
+}
+
+.booking-modal-body::-webkit-scrollbar {
+  width: 0.45rem;
+}
+
+.booking-modal-body::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.85);
 }
 
 .booking-field-grid {

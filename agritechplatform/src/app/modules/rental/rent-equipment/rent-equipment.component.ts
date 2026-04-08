@@ -23,6 +23,7 @@ import {
   styleUrl: './rent-equipment.component.css'
 })
 export class RentEquipmentComponent implements OnInit {
+  readonly maxRadiusKm = 250;
   readonly baseToolOptions = [
     'Tractor',
     'Irrigation Pump',
@@ -188,6 +189,34 @@ export class RentEquipmentComponent implements OnInit {
       'Cultivator',
       'Trailer',
     ];
+  }
+
+  get appliedFilterCount(): number {
+    let count = 0;
+
+    if (this.radiusKm !== 50) {
+      count += 1;
+    }
+    if (this.minPrice !== 0 || this.maxPrice !== 100000) {
+      count += 1;
+    }
+    if (this.typeFilter) {
+      count += 1;
+    }
+    if (this.categoryFilter) {
+      count += 1;
+    }
+    if (this.locationFilter.trim()) {
+      count += 1;
+    }
+    if (this.onlyWithImage) {
+      count += 1;
+    }
+    if (this.sortBy !== 'distance') {
+      count += 1;
+    }
+
+    return count;
   }
 
   applyMachineSearch(): void {
