@@ -39,12 +39,18 @@ describe('WaterIrrigationComponent', () => {
   };
 
   beforeEach(async () => {
-    waterIrrigationService = jasmine.createSpyObj<WaterIrrigationService>('WaterIrrigationService', ['getIrrigationStatus']);
+    waterIrrigationService = jasmine.createSpyObj<WaterIrrigationService>('WaterIrrigationService', ['getIrrigationStatus', 'getDecision']);
     blockService = new MockBlockService([blockOne, blockTwo], blockOne);
 
     waterIrrigationService.getIrrigationStatus.and.callFake((blockId: string) =>
       of(buildIrrigationStatus(blockId))
     );
+    waterIrrigationService.getDecision.and.returnValue(of({
+      irrigation: 'WAIT',
+      urgency: 'LOW',
+      reason: 'Rain expected in next 48 hours',
+      warning: 'Satellite data is 4 days old - verify before irrigating'
+    }));
 
     await TestBed.configureTestingModule({
       imports: [WaterIrrigationComponent],
@@ -74,6 +80,21 @@ describe('WaterIrrigationComponent', () => {
     expect(waterIrrigationService.getIrrigationStatus.calls.mostRecent().args[0]).toBe('LAN-002');
     expect(component.selectedBlockLan).toBe('LAN-002');
     expect(component.irrigationStatus?.status).toBe('Moderate stress');
+  });
+
+  it('surfaces wait decisions as the primary action with optional override', () => {
+    component.currentDecision = {
+      irrigation: 'WAIT',
+      urgency: 'LOW',
+      reason: 'Rain expected in next 48 hours',
+      warning: 'Satellite data is 4 days old - verify before irrigating'
+    };
+
+    expect(component.getDecisionButtonLabel()).toBe('Wait / Delay Irrigation');
+    expect(component.getRecommendedActionLabel()).toBe('WAIT');
+    expect(component.getDecisionButtonTone()).toBe('wait');
+    expect(component.canStartPrimaryDecisionAction()).toBeTrue();
+    expect(component.shouldShowOverrideButton()).toBeTrue();
   });
 });
 

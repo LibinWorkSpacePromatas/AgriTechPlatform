@@ -72,6 +72,7 @@ class GrowerGPTDecision(BaseModel):
     water_needed_mm: float | int | None = None
     water_needed_liters: float | int | None = None
     reason: str | None = None
+    warning: str | None = None
     confidence: float | None = None
     rental_recommendations: list[str] = Field(default_factory=list)
     rental_reason: str | None = None

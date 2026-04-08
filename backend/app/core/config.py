@@ -72,6 +72,10 @@ class Settings(BaseSettings):
     satellite_worker_count: int = Field(default=2, alias="SATELLITE_WORKER_COUNT")
     satellite_gee_timeout_seconds: int = Field(default=90, alias="SATELLITE_GEE_TIMEOUT_SECONDS")
     satellite_event_retention_days: int = Field(default=7, alias="SATELLITE_EVENT_RETENTION_DAYS")
+    decision_ttl_minutes: int = Field(default=60, alias="DECISION_TTL_MINUTES")
+    decision_weather_rain_delta_mm: float = Field(default=3.0, alias="DECISION_WEATHER_RAIN_DELTA_MM")
+    decision_weather_temp_delta_c: float = Field(default=2.0, alias="DECISION_WEATHER_TEMP_DELTA_C")
+    decision_weather_rain_forecast_trigger_mm: float = Field(default=5.0, alias="DECISION_WEATHER_RAIN_FORECAST_TRIGGER_MM")
 
     openrouter_api_key: str | None = Field(default=None, alias="OPENROUTER_API_KEY")
     openrouter_model: str = Field(default="google/gemini-2.0-flash-001", alias="OPENROUTER_MODEL")

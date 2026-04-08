@@ -345,11 +345,35 @@ def ensure_crop_config_table() -> None:
                 """
                 INSERT INTO crop_config (crop, optimal_moisture_min, optimal_moisture_max, root_depth_mm, mad)
                 VALUES
-                ('Shiraz', 20, 40, 800, 0.5),
-                ('Wheat', 18, 28, 600, 0.5),
                 ('Almond', 25, 45, 1000, 0.45),
-                ('Citrus', 30, 50, 900, 0.5)
-                ON CONFLICT (crop) DO NOTHING;
+                ('Citrus', 30, 50, 900, 0.5),
+                ('Olive', 20, 40, 1200, 0.6),
+                ('Avocado', 35, 55, 800, 0.4),
+                ('Wheat', 18, 28, 600, 0.5),
+                ('Maize', 30, 50, 700, 0.55),
+                ('Rice', 40, 70, 300, 0.2),
+                ('Barley', 18, 30, 600, 0.5),
+                ('Shiraz', 20, 40, 800, 0.5),
+                ('Grenache', 20, 40, 800, 0.5),
+                ('Cabernet Sauvignon', 20, 40, 800, 0.5),
+                ('Merlot', 20, 40, 800, 0.5),
+                ('Chardonnay', 20, 40, 800, 0.5),
+                ('Pinot Grigio', 20, 40, 800, 0.5),
+                ('Riesling', 20, 40, 800, 0.5),
+                ('Semillon', 20, 40, 800, 0.5),
+                ('Tomato', 35, 60, 500, 0.4),
+                ('Potato', 30, 55, 400, 0.35),
+                ('Onion', 30, 50, 300, 0.35),
+                ('Carrot', 25, 45, 300, 0.4),
+                ('Cotton', 25, 45, 1000, 0.55),
+                ('Sugarcane', 40, 70, 1200, 0.6),
+                ('Soybean', 25, 45, 600, 0.5),
+                ('Sunflower', 20, 40, 800, 0.5)
+                ON CONFLICT (crop) DO UPDATE SET
+                    optimal_moisture_min = EXCLUDED.optimal_moisture_min,
+                    optimal_moisture_max = EXCLUDED.optimal_moisture_max,
+                    root_depth_mm = EXCLUDED.root_depth_mm,
+                    mad = EXCLUDED.mad;
                 """
             )
         )

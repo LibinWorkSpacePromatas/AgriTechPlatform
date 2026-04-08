@@ -865,6 +865,13 @@ def get_block_decision(block_id: str, db: Session = Depends(get_db)):
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Error resolving block: {exc}") from exc
 
+    try:
+        from app.services.decision_engine import is_decision_stale, trigger_block_decision
+        if is_decision_stale(db, block.id):
+            trigger_block_decision(db, block.id)
+    except Exception as exc:
+        logger.warning("Decision refresh-on-read failed for block %s: %s", block.id, exc)
+
     row = db.execute(
         text("""
             SELECT decision_payload 
