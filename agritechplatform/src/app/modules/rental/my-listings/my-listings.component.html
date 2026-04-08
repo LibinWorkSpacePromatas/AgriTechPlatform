@@ -66,6 +66,34 @@
           </div>
         </div>
 
+        <div class="field field-full availability-section">
+          <div class="availability-header">
+            <div>
+              <h4>Availability Settings <span>(Optional)</span></h4>
+              <p>Skip this for now if the tool is generally available. You can update it later.</p>
+            </div>
+          </div>
+
+          <label class="availability-toggle">
+            <input type="checkbox" [(ngModel)]="availabilitySettings.available_all_days" name="available_all_days">
+            <div>
+              <strong>Available all days</strong>
+              <small>Turn this off only if the tool should be rentable only on selected weekdays.</small>
+            </div>
+          </label>
+
+          <div class="weekday-picker" *ngIf="!availabilitySettings.available_all_days">
+            <button
+              *ngFor="let day of weekdayOptions"
+              type="button"
+              class="weekday-chip"
+              [class.weekday-chip-active]="isAvailableDaySelected(day.value)"
+              (click)="toggleAvailableDay(day.value)">
+              {{ day.label }}
+            </button>
+          </div>
+        </div>
+
         <div class="field field-full">
           <label class="form-label" for="listing-image">Images (Max 5MB each)</label>
           <div class="upload-box">

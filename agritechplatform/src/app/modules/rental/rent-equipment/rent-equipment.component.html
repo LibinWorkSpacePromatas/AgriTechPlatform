@@ -81,6 +81,15 @@
     </div>
   </section>
 
+  <section class="results-context" *ngIf="useRadiusFilter || lat != null || lon != null">
+    <p *ngIf="useRadiusFilter; else nearestSortContext">
+      Showing tools within <strong>{{ radiusKm }} km</strong> of your selected block, with nearest matches first.
+    </p>
+    <ng-template #nearestSortContext>
+      <p>Showing all tools and sorting the closest matches to your selected block first.</p>
+    </ng-template>
+  </section>
+
   <div class="filter-drawer-backdrop" *ngIf="showFilterPanel" (click)="closeFilterPanel()">
     <aside class="filter-drawer" (click)="$event.stopPropagation()">
       <div class="filter-drawer-header">
@@ -92,16 +101,25 @@
       </div>
 
       <div class="filter-drawer-body">
-        <label class="filter-field filter-range-panel">
+        <div class="filter-field filter-range-panel">
           <span>Distance</span>
+          <label class="filter-toggle filter-toggle-compact">
+            <input type="checkbox" [(ngModel)]="draftUseRadiusFilter">
+            <div>
+              <strong>Limit results by distance</strong>
+              <small>Turn this on only when you want to hide farther equipment.</small>
+            </div>
+          </label>
           <div class="range-wrap">
             <div class="range-meta">
-              <strong>{{ draftRadiusKm }} km</strong>
-              <small>within your selected block, up to {{ maxRadiusKm }} km</small>
+              <strong>{{ draftUseRadiusFilter ? (draftRadiusKm + ' km') : 'All distances' }}</strong>
+              <small>
+                {{ draftUseRadiusFilter ? ('within your selected block, up to ' + maxRadiusKm + ' km') : 'Nearest listings still appear first' }}
+              </small>
             </div>
-            <input type="range" min="5" [max]="maxRadiusKm" [(ngModel)]="draftRadiusKm">
+            <input type="range" min="5" [max]="maxRadiusKm" [(ngModel)]="draftRadiusKm" [disabled]="!draftUseRadiusFilter">
           </div>
-        </label>
+        </div>
 
         <label class="filter-field">
           <span>Minimum Price</span>
@@ -182,7 +200,12 @@
         </p>
         <div class="card-summary">
           <p class="card-meta">Location: {{ listing.location_label || 'Unknown' }}</p>
-          <p class="card-meta">Distance: {{ (listing.distance_m || 0) / 1000 | number:'1.1-1' }} km</p>
+          <p class="card-meta" *ngIf="listing.distance_m != null; else noDistanceCard">
+            Distance: {{ listing.distance_m / 1000 | number:'1.1-1' }} km
+          </p>
+          <ng-template #noDistanceCard>
+            <p class="card-meta">Distance unavailable</p>
+          </ng-template>
         </div>
         <div class="card-actions">
           <button class="btn btn-primary compact-book-btn" type="button" (click)="openBooking(listing); $event.stopPropagation()">
@@ -209,10 +232,12 @@
       </div>
       <h3>No tools found</h3>
       <p *ngIf="categoryFilter; else genericEmptyMessage">
-        No {{ categoryFilter.toLowerCase() }} listings are available right now in your selected area.
+        No {{ categoryFilter.toLowerCase() }} listings are available right now{{ useRadiusFilter ? (' within ' + radiusKm + ' km of your selected block') : '' }}.
       </p>
       <ng-template #genericEmptyMessage>
-        <p>There are no rental items matching your current search or filters right now.</p>
+        <p>
+          There are no rental items matching your current search or filters right now{{ useRadiusFilter ? (' within ' + radiusKm + ' km of your selected block') : '' }}.
+        </p>
       </ng-template>
       <button class="btn btn-outline empty-state-button" type="button" (click)="resetAllFilters()">
         Show all tools
@@ -246,10 +271,16 @@
             <span>Location</span>
             <strong>{{ listing.location_label || 'Unknown' }}</strong>
           </div>
-          <div class="details-modal-item">
+          <div class="details-modal-item" *ngIf="listing.distance_m != null; else noDistanceDetails">
             <span>Distance</span>
-            <strong>{{ (listing.distance_m || 0) / 1000 | number:'1.1-1' }} km</strong>
+            <strong>{{ listing.distance_m / 1000 | number:'1.1-1' }} km</strong>
           </div>
+          <ng-template #noDistanceDetails>
+            <div class="details-modal-item">
+              <span>Distance</span>
+              <strong>Unavailable</strong>
+            </div>
+          </ng-template>
         </div>
 
         <section class="details-modal-section" *ngIf="listing.specifications && (listing.specifications | keyvalue).length">
@@ -286,12 +317,20 @@
       <div class="booking-modal-body">
         <div class="booking-field-grid" *ngIf="listing.price_type === 'hourly'; else dailyBookingModal">
           <label class="booking-field">
-            <span>Start Date & Time</span>
-            <input type="datetime-local" [(ngModel)]="bookingStart" (change)="onTimeChange(listing)">
+            <span>Start Date</span>
+            <input type="date" [(ngModel)]="bookingStartDate" (change)="onTimeChange(listing)">
           </label>
           <label class="booking-field">
-            <span>End Date & Time</span>
-            <input type="datetime-local" [(ngModel)]="bookingEnd" (change)="onTimeChange(listing)">
+            <span>Start Time</span>
+            <input type="time" [(ngModel)]="bookingStartTime" step="3600" (change)="onTimeChange(listing)">
+          </label>
+          <label class="booking-field">
+            <span>End Date</span>
+            <input type="date" [(ngModel)]="bookingEndDate" (change)="onTimeChange(listing)">
+          </label>
+          <label class="booking-field">
+            <span>End Time</span>
+            <input type="time" [(ngModel)]="bookingEndTime" step="3600" (change)="onTimeChange(listing)">
           </label>
         </div>
 
@@ -324,7 +363,13 @@
         </label>
 
         <p class="booking-helper-text">
-          Choose your rental start and end time to check availability and confirm this booking.
+          {{ listing.price_type === 'daily'
+            ? 'Choose the rental start and end dates to check availability.'
+            : 'Choose start and end dates first, then pick the booking times to check availability.' }}
+        </p>
+
+        <p class="booking-helper-text" *ngIf="listing.price_type === 'hourly' && !calendarDate">
+          Select a start date to see that day's booked and available time slots.
         </p>
 
         <p *ngIf="selectedListingId === listing.id && availability?.available" class="ok booking-status">Available for booking</p>
@@ -345,7 +390,8 @@
           <p class="summary-note">1-hour buffer is automatically applied after booking.</p>
         </div>
 
-        <div class="slot-strip" *ngIf="selectedListingId === listing.id && calendarSlots.length">
+        <div class="slot-strip" *ngIf="selectedListingId === listing.id && calendarDate && calendarSlots.length">
+          <p class="slot-date-label">Availability for {{ calendarDate | date:'mediumDate' }}</p>
           <p *ngIf="nextAvailableSlot" class="next-slot">Next available: {{ nextAvailableSlot }}</p>
           <div class="slot-pill" *ngFor="let slot of calendarSlots" [class.booked]="slot.status === 'booked'" [class.buffer]="slot.status === 'buffer'" [class.available]="slot.status === 'available'">
             {{ slot.start_datetime | date:'HH:mm' }}-{{ slot.end_datetime | date:'HH:mm' }} -> {{ slot.status | uppercase }}
@@ -359,11 +405,4 @@
     </div>
   </div>
 
-  <div class="my-bookings-preview" *ngIf="myBookings.length">
-    <h3>My Recent Bookings</h3>
-    <div class="preview-row" *ngFor="let booking of myBookings | slice:0:5">
-      <span>{{ booking.equipment_name || booking.listing_id }}</span>
-      <span>{{ booking.status }}</span>
-    </div>
-  </div>
 </section>

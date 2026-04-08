@@ -159,6 +159,7 @@ def ensure_equipment_marketplace_tables() -> None:
                     equipment_name TEXT NOT NULL,
                     description TEXT,
                     specifications JSONB,
+                    availability_settings JSONB,
                     price DOUBLE PRECISION NOT NULL,
                     price_type VARCHAR(10) NOT NULL CHECK (price_type IN ('hourly', 'daily')),
                     quantity_total INTEGER NOT NULL DEFAULT 1,
@@ -177,6 +178,14 @@ def ensure_equipment_marketplace_tables() -> None:
                 """
                 ALTER TABLE equipment_listings
                 ADD COLUMN IF NOT EXISTS specifications JSONB
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                ALTER TABLE equipment_listings
+                ADD COLUMN IF NOT EXISTS availability_settings JSONB
                 """
             )
         )

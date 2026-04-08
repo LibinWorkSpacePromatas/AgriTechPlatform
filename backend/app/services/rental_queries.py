@@ -71,6 +71,7 @@ INSERT_LISTING_SQL = text(
         equipment_name,
         description,
         specifications,
+        availability_settings,
         price,
         price_type,
         quantity_total,
@@ -85,6 +86,7 @@ INSERT_LISTING_SQL = text(
         :equipment_name,
         :description,
         CAST(:specifications AS JSONB),
+        CAST(:availability_settings AS JSONB),
         :price,
         :price_type,
         :quantity_total,
@@ -100,6 +102,7 @@ INSERT_LISTING_SQL = text(
         equipment_name,
         description,
         specifications,
+        availability_settings,
         price,
         price_type,
         quantity_total,
@@ -122,13 +125,14 @@ LIST_LISTINGS_SQL = text(
         l.equipment_name,
         l.description,
         l.specifications,
+        l.availability_settings,
         l.price,
         l.price_type,
         l.quantity_total,
         l.image_url,
         l.image_public_id,
-        l.latitude,
-        l.longitude,
+        COALESCE(l.latitude, ST_Y(ST_Centroid(b.geom))) AS latitude,
+        COALESCE(l.longitude, ST_X(ST_Centroid(b.geom))) AS longitude,
         l.is_active,
         l.created_at,
         u.name AS owner_name,
@@ -136,8 +140,13 @@ LIST_LISTINGS_SQL = text(
             b.lanslu,
             u.farm_location,
             CASE
-                WHEN l.latitude IS NOT NULL AND l.longitude IS NOT NULL
-                THEN CONCAT(ROUND(l.latitude::numeric, 5), ', ', ROUND(l.longitude::numeric, 5))
+                WHEN COALESCE(l.latitude, ST_Y(ST_Centroid(b.geom))) IS NOT NULL
+                  AND COALESCE(l.longitude, ST_X(ST_Centroid(b.geom))) IS NOT NULL
+                THEN CONCAT(
+                    ROUND(COALESCE(l.latitude, ST_Y(ST_Centroid(b.geom)))::numeric, 5),
+                    ', ',
+                    ROUND(COALESCE(l.longitude, ST_X(ST_Centroid(b.geom)))::numeric, 5)
+                )
                 ELSE NULL
             END,
             'Unknown'
@@ -167,13 +176,14 @@ LIST_LISTINGS_WITH_RADIUS_SQL = text(
         l.equipment_name,
         l.description,
         l.specifications,
+        l.availability_settings,
         l.price,
         l.price_type,
         l.quantity_total,
         l.image_url,
         l.image_public_id,
-        l.latitude,
-        l.longitude,
+        COALESCE(l.latitude, ST_Y(ST_Centroid(b.geom))) AS latitude,
+        COALESCE(l.longitude, ST_X(ST_Centroid(b.geom))) AS longitude,
         l.is_active,
         l.created_at,
         u.name AS owner_name,
@@ -181,8 +191,13 @@ LIST_LISTINGS_WITH_RADIUS_SQL = text(
             b.lanslu,
             u.farm_location,
             CASE
-                WHEN l.latitude IS NOT NULL AND l.longitude IS NOT NULL
-                THEN CONCAT(ROUND(l.latitude::numeric, 5), ', ', ROUND(l.longitude::numeric, 5))
+                WHEN COALESCE(l.latitude, ST_Y(ST_Centroid(b.geom))) IS NOT NULL
+                  AND COALESCE(l.longitude, ST_X(ST_Centroid(b.geom))) IS NOT NULL
+                THEN CONCAT(
+                    ROUND(COALESCE(l.latitude, ST_Y(ST_Centroid(b.geom)))::numeric, 5),
+                    ', ',
+                    ROUND(COALESCE(l.longitude, ST_X(ST_Centroid(b.geom)))::numeric, 5)
+                )
                 ELSE NULL
             END,
             'Unknown'
@@ -195,11 +210,17 @@ LIST_LISTINGS_WITH_RADIUS_SQL = text(
         CASE
             WHEN :lat IS NOT NULL
               AND :lon IS NOT NULL
-              AND l.latitude IS NOT NULL
-              AND l.longitude IS NOT NULL
+              AND COALESCE(l.latitude, ST_Y(ST_Centroid(b.geom))) IS NOT NULL
+              AND COALESCE(l.longitude, ST_X(ST_Centroid(b.geom))) IS NOT NULL
             THEN ST_Distance(
                 ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography,
-                ST_SetSRID(ST_MakePoint(l.longitude, l.latitude), 4326)::geography
+                ST_SetSRID(
+                    ST_MakePoint(
+                        COALESCE(l.longitude, ST_X(ST_Centroid(b.geom))),
+                        COALESCE(l.latitude, ST_Y(ST_Centroid(b.geom)))
+                    ),
+                    4326
+                )::geography
             )
             ELSE NULL::double precision
         END AS distance_m
@@ -212,15 +233,88 @@ LIST_LISTINGS_WITH_RADIUS_SQL = text(
           :lat IS NULL
           OR :lon IS NULL
           OR (
-              l.latitude IS NOT NULL
-              AND l.longitude IS NOT NULL
+              COALESCE(l.latitude, ST_Y(ST_Centroid(b.geom))) IS NOT NULL
+              AND COALESCE(l.longitude, ST_X(ST_Centroid(b.geom))) IS NOT NULL
               AND ST_DWithin(
                   ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography,
-                  ST_SetSRID(ST_MakePoint(l.longitude, l.latitude), 4326)::geography,
+                  ST_SetSRID(
+                      ST_MakePoint(
+                          COALESCE(l.longitude, ST_X(ST_Centroid(b.geom))),
+                          COALESCE(l.latitude, ST_Y(ST_Centroid(b.geom)))
+                      ),
+                      4326
+                  )::geography,
                   :radius_in_meters
               )
           )
       )
+    ORDER BY distance_m ASC NULLS LAST, created_at DESC
+    """
+)
+
+
+LIST_LISTINGS_WITH_DISTANCE_SQL = text(
+    """
+    SELECT
+        l.id,
+        l.owner_id,
+        l.block_id,
+        l.equipment_name,
+        l.description,
+        l.specifications,
+        l.availability_settings,
+        l.price,
+        l.price_type,
+        l.quantity_total,
+        l.image_url,
+        l.image_public_id,
+        COALESCE(l.latitude, ST_Y(ST_Centroid(b.geom))) AS latitude,
+        COALESCE(l.longitude, ST_X(ST_Centroid(b.geom))) AS longitude,
+        l.is_active,
+        l.created_at,
+        u.name AS owner_name,
+        COALESCE(
+            b.lanslu,
+            u.farm_location,
+            CASE
+                WHEN COALESCE(l.latitude, ST_Y(ST_Centroid(b.geom))) IS NOT NULL
+                  AND COALESCE(l.longitude, ST_X(ST_Centroid(b.geom))) IS NOT NULL
+                THEN CONCAT(
+                    ROUND(COALESCE(l.latitude, ST_Y(ST_Centroid(b.geom)))::numeric, 5),
+                    ', ',
+                    ROUND(COALESCE(l.longitude, ST_X(ST_Centroid(b.geom)))::numeric, 5)
+                )
+                ELSE NULL
+            END,
+            'Unknown'
+        ) AS location_label,
+        (
+            SELECT COUNT(*)
+            FROM equipment_bookings eb
+            WHERE eb.listing_id = l.id
+        ) AS bookings_count,
+        CASE
+            WHEN :lat IS NOT NULL
+              AND :lon IS NOT NULL
+              AND COALESCE(l.latitude, ST_Y(ST_Centroid(b.geom))) IS NOT NULL
+              AND COALESCE(l.longitude, ST_X(ST_Centroid(b.geom))) IS NOT NULL
+            THEN ST_Distance(
+                ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography,
+                ST_SetSRID(
+                    ST_MakePoint(
+                        COALESCE(l.longitude, ST_X(ST_Centroid(b.geom))),
+                        COALESCE(l.latitude, ST_Y(ST_Centroid(b.geom)))
+                    ),
+                    4326
+                )::geography
+            )
+            ELSE NULL::double precision
+        END AS distance_m
+    FROM equipment_listings l
+    JOIN users u ON u.id = l.owner_id
+    LEFT JOIN blocks b ON b.id = l.block_id
+    WHERE l.is_active = true
+      AND (:exclude_owner_id IS NULL OR l.owner_id <> :exclude_owner_id)
     ORDER BY distance_m ASC NULLS LAST, created_at DESC
     """
 )
@@ -235,6 +329,7 @@ SELECT_LISTING_SQL = text(
         equipment_name,
         description,
         specifications,
+        availability_settings,
         price,
         price_type,
         quantity_total,
@@ -272,6 +367,7 @@ TOGGLE_LISTING_SQL = text(
         equipment_name,
         description,
         specifications,
+        availability_settings,
         price,
         price_type,
         quantity_total,
@@ -292,6 +388,7 @@ UPDATE_LISTING_SQL = text(
         equipment_name = :equipment_name,
         description = :description,
         specifications = CAST(:specifications AS JSONB),
+        availability_settings = CAST(:availability_settings AS JSONB),
         price = :price,
         price_type = :price_type,
         quantity_total = :quantity_total,
@@ -309,6 +406,7 @@ UPDATE_LISTING_SQL = text(
         equipment_name,
         description,
         specifications,
+        availability_settings,
         price,
         price_type,
         quantity_total,
@@ -448,6 +546,7 @@ MY_LISTINGS_SQL = text(
         l.equipment_name,
         l.description,
         l.specifications,
+        l.availability_settings,
         l.price,
         l.price_type,
         l.quantity_total,

@@ -1,13 +1,15 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AuthService } from '../../../core/services/auth.service';
 import { BlockService } from '../../../shared/services/block.service';
+import { User, UserBlock } from '../../../core/models/user.model';
+import { Block } from '../../../shared/models';
 import {
   CheckAvailabilityResponse,
   CheckAvailabilityPayload,
   CreateBookingPayload,
-  RentalBooking,
   RentalCalendarSlot,
   RentalListing,
   RentalPriceType,
@@ -23,7 +25,9 @@ import {
   styleUrl: './rent-equipment.component.css'
 })
 export class RentEquipmentComponent implements OnInit {
+  private readonly destroyRef = inject(DestroyRef);
   readonly maxRadiusKm = 250;
+  readonly defaultRadiusKm = 50;
   readonly baseToolOptions = [
     'Tractor',
     'Irrigation Pump',
@@ -61,7 +65,8 @@ export class RentEquipmentComponent implements OnInit {
 
   lat: number | null = null;
   lon: number | null = null;
-  radiusKm = 50;
+  radiusKm = this.defaultRadiusKm;
+  useRadiusFilter = false;
   minPrice = 0;
   maxPrice = 100000;
   typeFilter: '' | RentalPriceType = '';
@@ -72,7 +77,8 @@ export class RentEquipmentComponent implements OnInit {
   machineSearchTerm = '';
   appliedMachineSearchTerm = '';
   showFilterPanel = false;
-  draftRadiusKm = 50;
+  draftRadiusKm = this.defaultRadiusKm;
+  draftUseRadiusFilter = false;
   draftMinPrice = 0;
   draftMaxPrice = 100000;
   draftTypeFilter: '' | RentalPriceType = '';
@@ -88,12 +94,13 @@ export class RentEquipmentComponent implements OnInit {
   bookingEnd = '';
   bookingStartDate = '';
   bookingEndDate = '';
+  bookingStartTime = '';
+  bookingEndTime = '';
   bookingQuantity = 1;
   availability: CheckAvailabilityResponse | null = null;
   calendarSlots: RentalCalendarSlot[] = [];
   calendarDate = '';
   nextAvailableSlot: string | null = null;
-  myBookings: RentalBooking[] = [];
   recommendation: RentalRecommendationResponse | null = null;
   recommendationLoading = false;
   blockId: string | null = null;
@@ -105,17 +112,19 @@ export class RentEquipmentComponent implements OnInit {
   ) { }
 
   ngOnInit(): void {
-    const selectedBlock = this.blockService.getSelectedBlock();
-    const user = this.authService.getCurrentUser();
-    const userBlock = user?.blocks?.[0] as any;
-    this.lat = selectedBlock?.lat ?? userBlock?.latitude ?? null;
-    this.lon = selectedBlock?.lon ?? userBlock?.longitude ?? null;
-    this.blockId = selectedBlock?.lan ?? userBlock?.lanslu ?? userBlock?.id ?? null;
-    if (this.blockId) {
-      this.loadRecommendations(this.blockId);
-    }
-    this.loadMyBookings();
-    this.loadListings();
+    this.blockService.selectedBlock$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(block => {
+        this.syncLocationContext(block, this.authService.getCurrentUser());
+        if (this.blockId) {
+          this.loadRecommendations(this.blockId);
+        } else {
+          this.recommendation = null;
+        }
+        this.loadListings();
+      });
+
+    this.syncLocationContext(this.blockService.getSelectedBlock(), this.authService.getCurrentUser());
     this.syncDraftFilters();
   }
 
@@ -126,7 +135,7 @@ export class RentEquipmentComponent implements OnInit {
     this.rentalService.getListings(
       this.lat ?? undefined,
       this.lon ?? undefined,
-      this.radiusKm,
+      this.useRadiusFilter ? this.radiusKm : undefined,
       currentUser?.userId
     ).subscribe({
       next: response => {
@@ -194,7 +203,7 @@ export class RentEquipmentComponent implements OnInit {
   get appliedFilterCount(): number {
     let count = 0;
 
-    if (this.radiusKm !== 50) {
+    if (this.useRadiusFilter) {
       count += 1;
     }
     if (this.minPrice !== 0 || this.maxPrice !== 100000) {
@@ -242,6 +251,7 @@ export class RentEquipmentComponent implements OnInit {
   }
 
   applyFilters(): void {
+    this.useRadiusFilter = this.draftUseRadiusFilter;
     this.radiusKm = this.draftRadiusKm;
     this.minPrice = this.draftMinPrice;
     this.maxPrice = this.draftMaxPrice;
@@ -255,7 +265,8 @@ export class RentEquipmentComponent implements OnInit {
   }
 
   resetFilters(): void {
-    this.draftRadiusKm = 50;
+    this.draftUseRadiusFilter = false;
+    this.draftRadiusKm = this.defaultRadiusKm;
     this.draftMinPrice = 0;
     this.draftMaxPrice = 100000;
     this.draftTypeFilter = '';
@@ -268,7 +279,8 @@ export class RentEquipmentComponent implements OnInit {
   resetAllFilters(): void {
     this.machineSearchTerm = '';
     this.appliedMachineSearchTerm = '';
-    this.radiusKm = 50;
+    this.useRadiusFilter = false;
+    this.radiusKm = this.defaultRadiusKm;
     this.minPrice = 0;
     this.maxPrice = 100000;
     this.typeFilter = '';
@@ -298,10 +310,13 @@ export class RentEquipmentComponent implements OnInit {
     this.bookingEnd = '';
     this.bookingStartDate = '';
     this.bookingEndDate = '';
+    this.bookingStartTime = '';
+    this.bookingEndTime = '';
     this.bookingQuantity = 1;
-    this.calendarDate = new Date().toISOString().slice(0, 10);
+    this.calendarDate = '';
+    this.calendarSlots = [];
+    this.nextAvailableSlot = null;
     this.detailsModalListing = null;
-    this.loadCalendar(listing.id, this.calendarDate);
   }
 
   closeBookingModal(): void {
@@ -314,6 +329,8 @@ export class RentEquipmentComponent implements OnInit {
     this.bookingEnd = '';
     this.bookingStartDate = '';
     this.bookingEndDate = '';
+    this.bookingStartTime = '';
+    this.bookingEndTime = '';
     this.bookingQuantity = 1;
   }
 
@@ -328,8 +345,13 @@ export class RentEquipmentComponent implements OnInit {
     this.availability = null;
     this.info = null;
     const window = this.buildBookingWindow(listing);
-    this.calendarDate = window?.start ? new Date(window.start).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
-    this.loadCalendar(listing.id, this.calendarDate);
+    this.calendarDate = this.resolveCalendarDate(listing, window);
+    if (this.calendarDate) {
+      this.loadCalendar(listing.id, this.calendarDate);
+    } else {
+      this.calendarSlots = [];
+      this.nextAvailableSlot = null;
+    }
 
     if (!window) {
       return;
@@ -372,10 +394,10 @@ export class RentEquipmentComponent implements OnInit {
       next: res => {
         this.info = `Booking requested (${res.booking.status})`;
         this.availability = { listing_id: listing.id, available: true, conflict: false, reason: null };
-        this.myBookings.unshift(res.booking);
-        this.loadMyBookings();
-        this.calendarDate = new Date(window.start).toISOString().slice(0, 10);
-        this.loadCalendar(listing.id, this.calendarDate);
+        this.calendarDate = this.resolveCalendarDate(listing, window);
+        if (this.calendarDate) {
+          this.loadCalendar(listing.id, this.calendarDate);
+        }
         this.closeBookingModal();
       },
       error: err => {
@@ -419,9 +441,11 @@ export class RentEquipmentComponent implements OnInit {
       };
     }
 
-    if (!this.bookingStart || !this.bookingEnd) {
+    if (!this.bookingStartDate || !this.bookingEndDate || !this.bookingStartTime || !this.bookingEndTime) {
       return null;
     }
+    this.bookingStart = `${this.bookingStartDate}T${this.bookingStartTime}`;
+    this.bookingEnd = `${this.bookingEndDate}T${this.bookingEndTime}`;
     const start = new Date(this.bookingStart);
     const end = new Date(this.bookingEnd);
     if (start >= end) {
@@ -431,21 +455,6 @@ export class RentEquipmentComponent implements OnInit {
       start: start.toISOString(),
       end: end.toISOString(),
     };
-  }
-
-  private loadMyBookings(): void {
-    const user = this.authService.getCurrentUser();
-    if (!user) {
-      return;
-    }
-    this.rentalService.getMyBookings(user.userId).subscribe({
-      next: bookings => {
-        this.myBookings = bookings;
-      },
-      error: () => {
-        this.myBookings = [];
-      },
-    });
   }
 
   private loadCalendar(listingId: string, date: string): void {
@@ -476,7 +485,47 @@ export class RentEquipmentComponent implements OnInit {
     });
   }
 
+  private resolveCalendarDate(listing: RentalListing, window: { start: string; end: string } | null): string {
+    if (listing.price_type === 'daily') {
+      return this.bookingStartDate || this.bookingEndDate || '';
+    }
+
+    if (this.bookingStartDate) {
+      return this.bookingStartDate;
+    }
+    if (window?.start) {
+      return this.toLocalDateString(new Date(window.start));
+    }
+    return '';
+  }
+
+  private toLocalDateString(value: Date): string {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  private syncLocationContext(selectedBlock: Block | null, user: User | null): void {
+    const matchingUserBlock = this.findMatchingUserBlock(selectedBlock, user);
+    this.lat = selectedBlock?.lat ?? matchingUserBlock?.latitude ?? null;
+    this.lon = selectedBlock?.lon ?? matchingUserBlock?.longitude ?? null;
+    this.blockId = selectedBlock?.id ?? matchingUserBlock?.id ?? selectedBlock?.lan ?? matchingUserBlock?.lanslu ?? null;
+  }
+
+  private findMatchingUserBlock(selectedBlock: Block | null, user: User | null): UserBlock | null {
+    if (!selectedBlock || !user?.blocks?.length) {
+      return user?.blocks?.[0] ?? null;
+    }
+
+    return user.blocks.find(block =>
+      (block.id && selectedBlock.id && block.id === selectedBlock.id)
+      || block.lanslu === selectedBlock.lan
+    ) ?? user.blocks[0] ?? null;
+  }
+
   private syncDraftFilters(): void {
+    this.draftUseRadiusFilter = this.useRadiusFilter;
     this.draftRadiusKm = this.radiusKm;
     this.draftMinPrice = this.minPrice;
     this.draftMaxPrice = this.maxPrice;

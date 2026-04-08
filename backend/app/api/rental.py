@@ -54,6 +54,21 @@ def _parse_specifications(specifications: str | None) -> dict[str, str] | None:
     return normalized or None
 
 
+def _parse_availability_settings(availability_settings: str | None) -> dict | None:
+    if not availability_settings:
+        return None
+
+    try:
+        parsed = json.loads(availability_settings)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail="Invalid availability settings payload.") from exc
+
+    if not isinstance(parsed, dict):
+        raise HTTPException(status_code=400, detail="Availability settings must be an object.")
+
+    return parsed or None
+
+
 @router.get("/dashboard")
 def dashboard(
     user_id: UUID = Query(...),
@@ -72,6 +87,7 @@ def create_listing(
     equipment_name: str = Form(...),
     description: str | None = Form(default=None),
     specifications: str | None = Form(default=None),
+    availability_settings: str | None = Form(default=None),
     price: float = Form(...),
     price_type: str = Form(...),
     quantity_total: int = Form(default=1),
@@ -95,6 +111,7 @@ def create_listing(
             equipment_name=equipment_name,
             description=description,
             specifications=_parse_specifications(specifications),
+            availability_settings=_parse_availability_settings(availability_settings),
             price=price,
             price_type=price_type,
             quantity_total=quantity_total,
@@ -163,6 +180,7 @@ def update_listing(
     equipment_name: str = Form(...),
     description: str | None = Form(default=None),
     specifications: str | None = Form(default=None),
+    availability_settings: str | None = Form(default=None),
     price: float = Form(...),
     price_type: str = Form(...),
     quantity_total: int = Form(default=1),
@@ -187,6 +205,7 @@ def update_listing(
             equipment_name=equipment_name,
             description=description,
             specifications=_parse_specifications(specifications),
+            availability_settings=_parse_availability_settings(availability_settings),
             price=price,
             price_type=price_type,
             quantity_total=quantity_total,

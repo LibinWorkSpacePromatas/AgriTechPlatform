@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import date, datetime, timedelta
+from datetime import time as dt_time
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -16,6 +17,102 @@ class RentalServiceError(Exception):
         super().__init__(detail)
         self.detail = detail
         self.status_code = status_code
+
+
+VALID_WEEKDAYS = {"mon", "tue", "wed", "thu", "fri", "sat", "sun"}
+
+
+def _normalize_availability_settings(raw_settings: dict | None) -> dict | None:
+    if not raw_settings:
+        return None
+
+    available_all_days = bool(raw_settings.get("available_all_days", True))
+    available_days = [
+        str(day).strip().lower()
+        for day in (raw_settings.get("available_days") or [])
+        if str(day).strip().lower() in VALID_WEEKDAYS
+    ]
+    unavailable_dates = sorted({
+        str(value).strip()
+        for value in (raw_settings.get("unavailable_dates") or [])
+        if str(value).strip()
+    })
+    working_hours_start = str(raw_settings.get("working_hours_start") or "").strip() or None
+    working_hours_end = str(raw_settings.get("working_hours_end") or "").strip() or None
+    minimum_booking_hours = raw_settings.get("minimum_booking_hours")
+    advance_notice_hours = raw_settings.get("advance_notice_hours")
+
+    settings = {
+        "available_all_days": available_all_days,
+        "available_days": available_days if not available_all_days else [],
+        "working_hours_start": working_hours_start,
+        "working_hours_end": working_hours_end,
+        "unavailable_dates": unavailable_dates,
+        "minimum_booking_hours": int(minimum_booking_hours) if minimum_booking_hours is not None else None,
+        "advance_notice_hours": int(advance_notice_hours) if advance_notice_hours is not None else None,
+    }
+    return settings
+
+
+def _parse_clock(value: str | None) -> dt_time | None:
+    if not value:
+        return None
+    hour, minute = value.split(":", 1)
+    return dt_time(hour=int(hour), minute=int(minute))
+
+
+def _booking_dates(start: datetime, end: datetime) -> list[date]:
+    current = start.date()
+    final = (end - timedelta(seconds=1)).date()
+    dates: list[date] = []
+    while current <= final:
+        dates.append(current)
+        current += timedelta(days=1)
+    return dates
+
+
+def _validate_listing_rules(listing: dict, start: datetime, end: datetime) -> dict | None:
+    settings = listing.get("availability_settings") or {}
+    if not settings:
+        return None
+
+    minimum_booking_hours = settings.get("minimum_booking_hours")
+    if minimum_booking_hours is not None:
+        duration_hours = (end - start).total_seconds() / 3600
+        if duration_hours < int(minimum_booking_hours):
+            return {"available": False, "reason": f"Minimum booking is {minimum_booking_hours} hour(s)"}
+
+    advance_notice_hours = settings.get("advance_notice_hours")
+    if advance_notice_hours is not None:
+        now_reference = datetime.now(start.tzinfo) if start.tzinfo else datetime.utcnow()
+        min_start = now_reference + timedelta(hours=int(advance_notice_hours))
+        if start < min_start:
+            return {"available": False, "reason": f"Requires {advance_notice_hours} hour(s) advance notice"}
+
+    if not settings.get("available_all_days", True):
+        allowed = set(settings.get("available_days") or [])
+        if allowed:
+            for booking_date in _booking_dates(start, end):
+                weekday = booking_date.strftime("%a").lower()[:3]
+                if weekday not in allowed:
+                    return {"available": False, "reason": "Tool is not available on the selected day(s)"}
+
+    blocked_dates = set(settings.get("unavailable_dates") or [])
+    if blocked_dates:
+        for booking_date in _booking_dates(start, end):
+            if booking_date.isoformat() in blocked_dates:
+                return {"available": False, "reason": "Tool is unavailable on one or more selected dates"}
+
+    working_start = _parse_clock(settings.get("working_hours_start"))
+    working_end = _parse_clock(settings.get("working_hours_end"))
+    if working_start and working_end and listing.get("price_type") == "hourly":
+        if start.time() < working_start or end.time() > working_end:
+            return {
+                "available": False,
+                "reason": f"Bookings must stay within {working_start.strftime('%H:%M')} - {working_end.strftime('%H:%M')}",
+            }
+
+    return None
 
 
 def get_dashboard(db: Session, user_id: UUID) -> dict:
@@ -106,6 +203,7 @@ def create_listing(
             "equipment_name": payload.equipment_name.strip(),
             "description": payload.description,
             "specifications": json.dumps(payload.specifications) if payload.specifications else None,
+            "availability_settings": json.dumps(_normalize_availability_settings(payload.availability_settings.model_dump())) if payload.availability_settings else None,
             "price": float(payload.price),
             "price_type": payload.price_type,
             "quantity_total": int(payload.quantity_total),
@@ -127,6 +225,17 @@ def get_listings(
     exclude_owner_id: UUID | None = None,
 ) -> list[dict]:
     if radius_km is None:
+        if lat is not None and lon is not None:
+            rows = db.execute(
+                queries.LIST_LISTINGS_WITH_DISTANCE_SQL,
+                {
+                    "lat": lat,
+                    "lon": lon,
+                    "exclude_owner_id": str(exclude_owner_id) if exclude_owner_id else None,
+                },
+            ).mappings().all()
+            return [dict(row) for row in rows]
+
         rows = db.execute(
             queries.LIST_LISTINGS_SQL,
             {"exclude_owner_id": str(exclude_owner_id) if exclude_owner_id else None},
@@ -177,6 +286,11 @@ def update_listing(
     block_id = payload.block_id if payload.block_id is not None else existing.get("block_id")
     latitude = payload.latitude if payload.latitude is not None else existing.get("latitude")
     longitude = payload.longitude if payload.longitude is not None else existing.get("longitude")
+    availability_settings = (
+        json.dumps(_normalize_availability_settings(payload.availability_settings.model_dump()))
+        if payload.availability_settings is not None
+        else json.dumps(existing.get("availability_settings")) if existing.get("availability_settings") is not None else None
+    )
 
     if block_id is not None:
         _ensure_block_owned_by_user(db, UUID(str(block_id)), user_id)
@@ -193,6 +307,7 @@ def update_listing(
             "equipment_name": payload.equipment_name.strip(),
             "description": payload.description,
             "specifications": json.dumps(payload.specifications) if payload.specifications else None,
+            "availability_settings": availability_settings,
             "price": float(payload.price),
             "price_type": payload.price_type,
             "quantity_total": int(payload.quantity_total),
@@ -258,6 +373,11 @@ def check_availability_with_reason(
             "reason": f"Only {quantity_total} unit(s) available",
             "available_quantity": quantity_total,
         }
+
+    rules_result = _validate_listing_rules(listing, start, end)
+    if rules_result:
+        rules_result["available_quantity"] = quantity_total
+        return rules_result
 
     reserved_overlap = db.execute(
         queries.BOOKING_RESERVED_UNITS_SQL,

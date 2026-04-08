@@ -3,7 +3,15 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
 import { BlockService } from '../../../shared/services/block.service';
-import { CreateListingPayload, RentalCalendarSlot, RentalListing, RentalPriceType, RentalService } from '../../../services/rental/rental.service';
+import {
+  AvailabilitySettings,
+  AvailabilityWeekday,
+  CreateListingPayload,
+  RentalCalendarSlot,
+  RentalListing,
+  RentalPriceType,
+  RentalService
+} from '../../../services/rental/rental.service';
 
 interface ListingSpecField {
   key: string;
@@ -44,6 +52,7 @@ export class MyListingsComponent implements OnInit, OnDestroy {
     quantity_total: 1,
     latitude: null,
     longitude: null,
+    availability_settings: null,
     image: undefined,
   };
 
@@ -117,6 +126,15 @@ export class MyListingsComponent implements OnInit, OnDestroy {
       { key: 'coverage_area', label: 'Coverage Area', placeholder: 'e.g. 20 acres/hr' },
     ],
   };
+  readonly weekdayOptions: Array<{ value: AvailabilityWeekday; label: string }> = [
+    { value: 'mon', label: 'Mon' },
+    { value: 'tue', label: 'Tue' },
+    { value: 'wed', label: 'Wed' },
+    { value: 'thu', label: 'Thu' },
+    { value: 'fri', label: 'Fri' },
+    { value: 'sat', label: 'Sat' },
+    { value: 'sun', label: 'Sun' },
+  ];
 
   constructor(
     private authService: AuthService,
@@ -177,6 +195,7 @@ export class MyListingsComponent implements OnInit, OnDestroy {
       latitude: listing.latitude,
       longitude: listing.longitude,
       block_id: listing.block_id,
+      availability_settings: this.cloneAvailabilitySettings(listing.availability_settings),
       image: undefined,
     };
     this.syncSpecValues(listing.specifications || {});
@@ -218,6 +237,11 @@ export class MyListingsComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const availabilitySettings = this.buildAvailabilitySettingsPayload();
+    if (availabilitySettings && !availabilitySettings.available_all_days && !availabilitySettings.available_days.length) {
+      this.createError = 'Choose at least one available weekday or turn on "Available all days".';
+      return;
+    }
     const selectedBlock = this.blockService.getSelectedBlock();
     if (!selectedBlock?.id) {
       this.createError = 'Select a valid block before creating a listing';
@@ -229,6 +253,7 @@ export class MyListingsComponent implements OnInit, OnDestroy {
       equipment_name: this.form.equipment_name.trim(),
       description: this.form.description.trim(),
       specifications: this.buildSpecificationsPayload(),
+      availability_settings: availabilitySettings,
       block_id: this.form.block_id || selectedBlock.id,
       latitude: null,
       longitude: null,
@@ -345,12 +370,30 @@ export class MyListingsComponent implements OnInit, OnDestroy {
     ];
   }
 
+  get availabilitySettings(): AvailabilitySettings {
+    if (!this.form.availability_settings) {
+      this.form.availability_settings = this.createDefaultAvailabilitySettings();
+    }
+    return this.form.availability_settings;
+  }
+
   onEquipmentTypeChange(): void {
     const nextValues: Record<string, string> = {};
     for (const field of this.currentSpecFields) {
       nextValues[field.key] = this.specValues[field.key] || '';
     }
     this.specValues = nextValues;
+  }
+
+  toggleAvailableDay(day: AvailabilityWeekday): void {
+    const current = this.availabilitySettings.available_days;
+    this.availabilitySettings.available_days = current.includes(day)
+      ? current.filter(value => value !== day)
+      : [...current, day];
+  }
+
+  isAvailableDaySelected(day: AvailabilityWeekday): boolean {
+    return this.availabilitySettings.available_days.includes(day);
   }
 
   private buildSpecificationsPayload(): Record<string, string> | null {
@@ -360,11 +403,31 @@ export class MyListingsComponent implements OnInit, OnDestroy {
     return entries.length ? Object.fromEntries(entries) : null;
   }
 
+  private buildAvailabilitySettingsPayload(): AvailabilitySettings | null {
+    const settings = this.availabilitySettings;
+
+    const normalized: AvailabilitySettings = {
+      available_all_days: settings.available_all_days,
+      available_days: settings.available_all_days ? [] : [...settings.available_days].sort(),
+      working_hours_start: null,
+      working_hours_end: null,
+      unavailable_dates: [],
+      minimum_booking_hours: null,
+      advance_notice_hours: null,
+    };
+
+    const hasCustomRules = !normalized.available_all_days
+      || normalized.available_days.length > 0;
+
+    return hasCustomRules ? normalized : null;
+  }
+
   private resetForm(): void {
     this.form = {
       equipment_name: '',
       description: '',
       specifications: null,
+      availability_settings: this.createDefaultAvailabilitySettings(),
       price: 0,
       price_type: 'hourly',
       quantity_total: 1,
@@ -392,5 +455,26 @@ export class MyListingsComponent implements OnInit, OnDestroy {
       normalized[field.key] = specifications[field.label] || '';
     }
     this.specValues = normalized;
+  }
+
+  private createDefaultAvailabilitySettings(): AvailabilitySettings {
+    return {
+      available_all_days: true,
+      available_days: [],
+      working_hours_start: null,
+      working_hours_end: null,
+      unavailable_dates: [],
+      minimum_booking_hours: null,
+      advance_notice_hours: null,
+    };
+  }
+
+  private cloneAvailabilitySettings(settings?: AvailabilitySettings | null): AvailabilitySettings {
+    return {
+      ...this.createDefaultAvailabilitySettings(),
+      ...(settings || {}),
+      available_days: [...(settings?.available_days || [])],
+      unavailable_dates: [...(settings?.unavailable_dates || [])],
+    };
   }
 }
