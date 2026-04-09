@@ -164,4 +164,74 @@ describe('ProfitRiskComponent', () => {
     expect(component.chartRows().map(row => row.crop)).toContain('Lemons');
     expect(component.priceChartRows().map(row => row.crop)).toContain('Lemons');
   });
+
+  it('calculates chart 3 as revenue per ML and applies the olive EVOO special case', () => {
+    fixture.detectChanges();
+
+    const req = httpMock.expectOne('http://localhost:8000/api/blocks/block-a-shiraz/profit-risk?water_price=153');
+    req.flush({
+      block_id: 'block-a-shiraz',
+      block_name: 'Block A',
+      block_crop: 'Shiraz',
+      water_price: 153,
+      net_margin: -1095,
+      risk_level: 'High',
+      best_crop: 'Olive oil — extra virgin bulk (oil-to-mill)',
+      best_crop_margin: 43500,
+      updated_at: '2026-03-28T10:30:00+00:00',
+      current_crop: {
+        requested_crop: 'Shiraz',
+        matched_crop: 'Shiraz (inland red — Riverland)',
+        commodity: 'Wine Grapes',
+        match_type: 'exact',
+        note: null,
+        current_price: 200,
+        break_even_price: 350,
+        price_trend: 'CRISIS',
+        yield_t_ha: 8.5,
+        water_req_ml_ha: 8,
+        net_margin: -1095
+      },
+      margins: [
+        {
+          crop: 'Olive oil — extra virgin bulk (oil-to-mill)',
+          commodity: 'Olives',
+          current_price: 7,
+          break_even_price: 5,
+          price_trend: 'STRONG',
+          yield_t_ha: 1,
+          water_req_ml_ha: 3.8,
+          cost_per_unit: 2,
+          margins: {
+            low: 45000,
+            current: 44000,
+            high: 43000,
+            selected: 44000
+          }
+        },
+        {
+          crop: 'Shiraz (inland red — Riverland)',
+          commodity: 'Wine Grapes',
+          current_price: 200,
+          break_even_price: 350,
+          price_trend: 'CRISIS',
+          yield_t_ha: 8.5,
+          water_req_ml_ha: 8,
+          cost_per_unit: 300,
+          margins: {
+            low: -500,
+            current: -1095,
+            high: -3200,
+            selected: -1095
+          }
+        }
+      ]
+    });
+
+    fixture.detectChanges();
+
+    expect(component.getRevenuePerMl(component.chartRows()[0])).toBeCloseTo(7000 * 7 / 3.8, 6);
+    const chartPoints = component.revenueWaterChartData().datasets[0].data as Array<{ x: number; y: number; r: number }>;
+    expect(chartPoints.find(point => point.x === 3.8)?.y).toBeCloseTo(7000 * 7 / 3.8, 6);
+  });
 });

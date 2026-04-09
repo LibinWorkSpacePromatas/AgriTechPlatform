@@ -94,6 +94,8 @@ interface ProfitRiskResponse {
   styleUrls: ['./profit-risk.component.css']
 })
 export class ProfitRiskComponent implements OnInit {
+  private static readonly MIN_VIABLE_REVENUE_PER_ML = 700;
+
   readonly TrendingUp = TrendingUp;
   readonly AlertTriangle = AlertTriangle;
   readonly DollarSign = DollarSign;
@@ -365,8 +367,8 @@ export class ProfitRiskComponent implements OnInit {
         label: 'Revenue per ML',
         data: this.chartRows().map(row => ({
           x: row.water_req_ml_ha,
-          y: row.current_price * row.yield_t_ha,
-          r: Math.max(8, Math.min(18, Math.abs(row.margins.selected) / 900))
+          y: this.getRevenuePerMl(row),
+          r: Math.max(10, Math.min(22, Math.abs(row.margins.selected) / 800))
         })),
         backgroundColor: this.chartRows().map(row => this.getPriceBarColor(row.crop)),
         borderColor: '#ffffff',
@@ -393,7 +395,7 @@ export class ProfitRiskComponent implements OnInit {
             const point = context.raw as { x: number; y: number; r: number };
             return [
               `Water use: ${point.x.toFixed(1)} ML/ha`,
-              `Revenue: ${this.formatCurrency(point.y)}/ha`
+              `Revenue per ML: ${this.formatCurrency(point.y)}/ML`
             ];
           }
         }
@@ -401,6 +403,8 @@ export class ProfitRiskComponent implements OnInit {
     },
     scales: {
       x: {
+        min: 2,
+        max: 14,
         title: {
           display: true,
           text: 'Water requirement (ML / ha)',
@@ -408,20 +412,24 @@ export class ProfitRiskComponent implements OnInit {
           font: { size: 12 }
         },
         ticks: {
-          color: '#111827'
+          color: '#111827',
+          stepSize: 2
         },
         grid: { color: '#e6e9ef' },
         border: { color: '#c7cfd8' }
       },
       y: {
+        min: -2000,
+        max: 14000,
         title: {
           display: true,
-          text: 'Revenue (AUD / ha)',
+          text: 'Revenue per ML of water (AUD / ML)',
           color: '#4b5563',
           font: { size: 12 }
         },
         ticks: {
           color: '#111827',
+          stepSize: 2000,
           callback: (value: string | number) => this.formatCompactCurrency(Number(value))
         },
         grid: { color: '#e6e9ef' },
@@ -432,18 +440,59 @@ export class ProfitRiskComponent implements OnInit {
   readonly revenueWaterGuidePlugin: Plugin<'bubble'> = {
     id: 'revenueWaterGuide',
     afterDraw: (chart: any) => {
-      const { ctx, chartArea } = chart;
+      const { ctx, chartArea, scales } = chart;
       if (!chartArea) {
         return;
       }
 
+      const yScale = scales?.y;
+      if (!yScale) {
+        return;
+      }
+
+      const guideY = yScale.getPixelForValue(ProfitRiskComponent.MIN_VIABLE_REVENUE_PER_ML);
+      if (!Number.isFinite(guideY)) {
+        return;
+      }
+
       ctx.save();
-      ctx.strokeStyle = 'rgba(107, 114, 128, 0.35)';
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.45)';
       ctx.setLineDash([5, 5]);
       ctx.beginPath();
-      ctx.moveTo(chartArea.left, chartArea.top + 28);
-      ctx.lineTo(chartArea.right, chartArea.top + 28);
+      ctx.moveTo(chartArea.left, guideY);
+      ctx.lineTo(chartArea.right, guideY);
       ctx.stroke();
+      ctx.setLineDash([]);
+
+      const legendText = `Approx. min viable ($${ProfitRiskComponent.MIN_VIABLE_REVENUE_PER_ML}/ML)`;
+      ctx.font = '600 11px Arial';
+      const textWidth = ctx.measureText(legendText).width;
+      const legendWidth = textWidth + 42;
+      const legendHeight = 24;
+      const legendX = chartArea.right - legendWidth - 6;
+      const legendY = chartArea.top + 6;
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+      ctx.strokeStyle = '#d1d5db';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(legendX, legendY, legendWidth, legendHeight, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.65)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.moveTo(legendX + 8, legendY + legendHeight / 2);
+      ctx.lineTo(legendX + 30, legendY + legendHeight / 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#3f3f46';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(legendText, legendX + 34, legendY + legendHeight / 2 + 0.5);
       ctx.restore();
     }
   };
@@ -632,6 +681,24 @@ export class ProfitRiskComponent implements OnInit {
     };
 
     return tips[key];
+  }
+
+  getRevenuePerHa(row: ProfitRiskCropRow): number {
+    const normalizedCrop = this.normalizeCropKey(row.crop);
+    if (normalizedCrop.includes('olive oil')) {
+      return row.current_price * 7000;
+    }
+
+    return row.current_price * row.yield_t_ha;
+  }
+
+  getRevenuePerMl(row: ProfitRiskCropRow): number {
+    const waterRequirement = Number(row.water_req_ml_ha);
+    if (!Number.isFinite(waterRequirement) || waterRequirement <= 0) {
+      return 0;
+    }
+
+    return this.getRevenuePerHa(row) / waterRequirement;
   }
 
   private buildOrderedChartRows(desiredOrder: string[]): ProfitRiskCropRow[] {
