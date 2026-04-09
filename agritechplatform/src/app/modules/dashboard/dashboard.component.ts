@@ -743,7 +743,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
       .pipe(
         takeUntil(this.destroy$),
         filter((block): block is SharedBlock => !!block),
-        distinctUntilChanged((previous, current) => previous.lan === current.lan)
+        distinctUntilChanged((previous, current) => (previous.id || previous.lan) === (current.id || current.lan))
       )
       .subscribe(block => {
         this.currentBlock = this.mapSharedBlock(block);
@@ -849,7 +849,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private handleSatelliteRefreshEvent(block: DashboardBlock, event: SatelliteRefreshEvent): void {
-    if (!this.currentBlock || this.currentBlock.lan !== block.lan) {
+    if (!this.currentBlock || (this.currentBlock.id || this.currentBlock.lan) !== (block.id || block.lan)) {
       return;
     }
 
