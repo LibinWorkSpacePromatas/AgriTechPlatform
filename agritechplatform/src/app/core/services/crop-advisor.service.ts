@@ -58,6 +58,27 @@ export interface FarmerAdvisoryInput {
         lai: number | null;
     };
     weatherData: WeatherData | null;
+    profitRiskData?: ProfitRiskAdvisoryData | null;
+}
+
+export interface ProfitRiskCropSnapshot {
+    crop: string;
+    netMarginPerHa: number;
+    waterReqMlHa: number;
+}
+
+export interface ProfitRiskCurrentCropSnapshot extends ProfitRiskCropSnapshot {
+    matchedCrop: string;
+    note?: string | null;
+}
+
+export interface ProfitRiskAdvisoryData {
+    waterPrice: number;
+    riskLevel: string;
+    currentCrop: ProfitRiskCurrentCropSnapshot;
+    bestCrop: string;
+    bestCropMarginPerHa: number;
+    margins: ProfitRiskCropSnapshot[];
 }
 
 export type FarmerAdvisoryTone = 'good' | 'warning' | 'critical' | 'neutral';
@@ -66,6 +87,7 @@ export interface FarmerSignalCard {
     label: string;
     value: string;
     source: 'Sensor' | 'Satellite' | 'Weather';
+    required?: string;
     summary: string;
     tone: FarmerAdvisoryTone;
 }
@@ -99,6 +121,10 @@ export interface FarmerFinancialSummary {
     profitOpportunity: number;
     currentYieldPercent: number;
     confidenceLabel: string;
+    workbookBaselineProfit: number;
+    liveAdjustment: number;
+    waterPrice: number | null;
+    riskLevel: string | null;
 }
 
 export interface FarmerMigrationSummary {
@@ -134,6 +160,8 @@ interface CropEvaluation {
     suitabilityScore: number;
     projectedProfit: number;
     potentialProfit: number;
+    baseAnnualProfit: number;
+    liveAdjustment: number;
     performanceFactor: number;
     waterRequirement: number;
     tone: FarmerAdvisoryTone;
@@ -226,13 +254,20 @@ export class CropAdvisorService {
     buildFarmerAdvisory(input: FarmerAdvisoryInput): FarmerAdvisory {
         const currentProfile = this.getCropProfile(input.currentCrop) || this.cropProfiles['Shiraz'];
         const currentEvaluation = this.evaluateCrop(currentProfile, input, false);
-        const migrationOptions = Object.values(this.cropProfiles)
+        const rankedMigrationOptions = Object.values(this.cropProfiles)
             .filter(profile => profile.name !== currentProfile.name)
             .map(profile => this.evaluateCrop(profile, input, true))
-            .sort((left, right) => right.projectedProfit - left.projectedProfit)
+            .sort((left, right) => {
+                const scoreDifference = right.suitabilityScore - left.suitabilityScore;
+                if (scoreDifference !== 0) {
+                    return scoreDifference;
+                }
+
+                return right.projectedProfit - left.projectedProfit;
+            })
             .slice(0, 3);
 
-        const mappedOptions = migrationOptions.map(option => this.mapMigrationOption(option, currentEvaluation));
+        const mappedOptions = rankedMigrationOptions.map(option => this.mapMigrationOption(option, currentEvaluation));
         const bestOption = mappedOptions[0] || null;
 
         return {
@@ -247,10 +282,14 @@ export class CropAdvisorService {
                 potentialProfit: currentEvaluation.potentialProfit,
                 profitOpportunity: Math.max(0, currentEvaluation.potentialProfit - currentEvaluation.projectedProfit),
                 currentYieldPercent: Math.round(currentEvaluation.performanceFactor * 100),
-                confidenceLabel: this.getConfidenceLabel(input)
+                confidenceLabel: this.getConfidenceLabel(input),
+                workbookBaselineProfit: currentEvaluation.baseAnnualProfit,
+                liveAdjustment: currentEvaluation.liveAdjustment,
+                waterPrice: input.profitRiskData?.waterPrice ?? null,
+                riskLevel: input.profitRiskData?.riskLevel ?? null
             },
             migrationSummary: this.buildMigrationSummary(currentEvaluation, bestOption),
-            signalCards: this.buildSignalCards(input),
+            signalCards: this.buildSignalCards(input, currentProfile),
             reasons: this.buildReasons(currentEvaluation, bestOption),
             benefits: this.buildBenefits(currentEvaluation, bestOption),
             actions: this.buildActionPlan(input, currentEvaluation, bestOption),
@@ -534,14 +573,22 @@ export class CropAdvisorService {
         const migrationPenalty = isMigrationCandidate ? 5 : 0;
         const suitabilityScore = Math.max(0, Math.min(100, Math.round(weightedScore + waterAdvantage + profitabilityAdvantage - migrationPenalty)));
         const performanceFactor = this.clamp(0.35 + (suitabilityScore / 100) * 0.65, 0.25, 1.0);
+        const economics = this.resolveEconomics(profile, input, isMigrationCandidate);
+        const liveAdjustment = input.profitRiskData ? 0 : this.calculateLiveAdjustment(economics.baseAnnualProfit, suitabilityScore);
+        const projectedProfit = economics.baseAnnualProfit + liveAdjustment;
+        const potentialProfit = input.profitRiskData
+            ? economics.baseAnnualProfit
+            : Math.max(economics.baseAnnualProfit, projectedProfit);
 
         return {
             cropName: profile.name,
             suitabilityScore,
-            projectedProfit: profile.profitPerHa * input.areaHa * performanceFactor,
-            potentialProfit: profile.profitPerHa * input.areaHa,
+            projectedProfit,
+            potentialProfit,
+            baseAnnualProfit: economics.baseAnnualProfit,
+            liveAdjustment,
             performanceFactor,
-            waterRequirement: profile.waterRequirement,
+            waterRequirement: economics.waterRequirement,
             tone: suitabilityScore >= 75 ? 'good' : suitabilityScore >= 55 ? 'warning' : 'critical',
             positives: this.buildPositiveReasons(profile, input, suitabilityScore),
             concerns: this.buildConcerns(profile, input, suitabilityScore)
@@ -668,33 +715,39 @@ export class CropAdvisorService {
         return concerns;
     }
 
-    private buildSignalCards(input: FarmerAdvisoryInput): FarmerSignalCard[] {
+    private buildSignalCards(input: FarmerAdvisoryInput, profile: CropProfile): FarmerSignalCard[] {
         const cards: FarmerSignalCard[] = [];
         const { sensorData, satelliteData, weatherData } = input;
 
         if (typeof sensorData.moisture === 'number') {
+            const moistureMin = profile.moisture.optimal[0];
+            const moistureMax = profile.moisture.optimal[1];
             cards.push({
                 label: 'Soil moisture',
                 value: `${sensorData.moisture.toFixed(1)}%`,
                 source: 'Sensor',
-                summary: sensorData.moisture < 30
-                    ? 'Moisture is low enough to reduce yield unless irrigation catches up.'
-                    : sensorData.moisture < 40
-                        ? 'Moisture is usable but should be watched closely.'
-                        : 'Moisture is in a safer working band.',
-                tone: sensorData.moisture < 30 ? 'critical' : sensorData.moisture < 40 ? 'warning' : 'good'
+                required: `${moistureMin.toFixed(0)}% to ${moistureMax.toFixed(0)}%`,
+                summary: sensorData.moisture < moistureMin
+                    ? `Moisture is below the preferred range for ${profile.name}.`
+                    : sensorData.moisture > moistureMax
+                        ? `Moisture is above the preferred range for ${profile.name}.`
+                        : `Moisture is in the preferred range for ${profile.name}.`,
+                tone: sensorData.moisture < moistureMin ? 'critical' : sensorData.moisture > moistureMax ? 'warning' : 'good'
             });
         }
 
         if (typeof sensorData.ph === 'number') {
+            const phMin = profile.ph.optimal[0];
+            const phMax = profile.ph.optimal[1];
             cards.push({
                 label: 'Soil pH',
                 value: sensorData.ph.toFixed(1),
                 source: 'Sensor',
-                summary: sensorData.ph < 6.2 || sensorData.ph > 7.8
-                    ? 'pH is outside the sweeter nutrient uptake range.'
-                    : 'pH is supportive for nutrient uptake.',
-                tone: sensorData.ph < 6.2 || sensorData.ph > 7.8 ? 'warning' : 'good'
+                required: `${phMin.toFixed(1)} to ${phMax.toFixed(1)}`,
+                summary: sensorData.ph < phMin || sensorData.ph > phMax
+                    ? `pH is outside the preferred range for ${profile.name} and may reduce nutrient efficiency.`
+                    : `pH is in the preferred range for ${profile.name}.`,
+                tone: sensorData.ph < phMin || sensorData.ph > phMax ? 'warning' : 'good'
             });
         }
 
@@ -703,6 +756,7 @@ export class CropAdvisorService {
                 label: 'Canopy health',
                 value: satelliteData.ndvi.toFixed(2),
                 source: 'Satellite',
+                required: 'NDVI 0.50 or higher',
                 summary: satelliteData.ndvi < 0.35
                     ? 'The satellite sees weaker canopy activity than a healthy block should show.'
                     : satelliteData.ndvi < 0.5
@@ -717,6 +771,7 @@ export class CropAdvisorService {
                 label: 'Water balance',
                 value: satelliteData.ndwi.toFixed(2),
                 source: 'Satellite',
+                required: 'NDWI -0.05 or higher',
                 summary: satelliteData.ndwi < -0.18
                     ? 'Satellite water balance confirms crop water stress.'
                     : satelliteData.ndwi < -0.05
@@ -734,6 +789,7 @@ export class CropAdvisorService {
                 label: 'Heat outlook',
                 value: `${forecastMax.toFixed(1)}°C`,
                 source: 'Weather',
+                required: 'Below 32.0°C',
                 summary: forecastMax >= 36
                     ? 'Heat in the next week is high enough to push stress and irrigation demand up.'
                     : forecastMax >= 32
@@ -746,6 +802,7 @@ export class CropAdvisorService {
                 label: '7-day rain',
                 value: `${rainTotal.toFixed(1)} mm`,
                 source: 'Weather',
+                required: 'At least 8.0 mm',
                 summary: rainTotal >= 20
                     ? 'Rainfall should ease irrigation demand, but disease pressure may rise.'
                     : rainTotal >= 8
@@ -762,18 +819,18 @@ export class CropAdvisorService {
         currentEvaluation: CropEvaluation,
         bestOption: FarmerMigrationOption | null
     ): FarmerMigrationSummary {
-        if (!bestOption || bestOption.profitDelta <= 0 || bestOption.suitabilityScore <= currentEvaluation.suitabilityScore + 5) {
+        if (!this.shouldRecommendMigration(currentEvaluation, bestOption)) {
             return {
                 title: `Keep ${currentEvaluation.cropName} and improve field conditions`,
-                summary: `The current crop still has the best practical fit today. Focus on lifting moisture, canopy strength, and weather resilience before making a crop switch.`,
-                reason: 'Migration is not justified yet because the current block can still recover more safely than a full crop change.',
+                summary: `Do not change crops today. Fix the main field issues first and review again after fresh data arrives.`,
+                reason: 'A crop change is not justified today because the current block can still recover more safely than a full crop change.',
                 recommendedCrop: null,
                 suggestedSharePct: 0,
                 projectedProfitAfterMigration: currentEvaluation.projectedProfit,
                 gainVsCurrent: 0,
                 benefits: [
-                    'Lower operational disruption',
-                    'Faster response by improving today’s stress factors',
+                    'Lower disruption for the farm team',
+                    'Faster recovery by improving today’s main stress factors',
                     'Keeps current crop knowledge and infrastructure in use'
                 ]
             };
@@ -786,7 +843,7 @@ export class CropAdvisorService {
 
         return {
             title: `Phased migration to ${bestOption.cropName} is worth considering`,
-            summary: `A ${bestOption.suggestedSharePct}% migration trial improves the block’s profit outlook while reducing exposure to the main stress factors showing in the live data.`,
+            summary: `A small ${bestOption.suggestedSharePct}% trial of ${bestOption.cropName} could improve margin while lowering exposure to the main stress factors showing in the live data.`,
             reason: bestOption.whyItFits,
             recommendedCrop: bestOption.cropName,
             suggestedSharePct: bestOption.suggestedSharePct,
@@ -802,8 +859,10 @@ export class CropAdvisorService {
     ): string[] {
         const reasons = [...currentEvaluation.concerns.slice(0, 2)];
 
-        if (bestOption && bestOption.profitDelta > 0) {
-            reasons.push(`Migration matters because ${bestOption.cropName} is projected to outperform the current crop under today’s live conditions.`);
+        if (this.shouldRecommendMigration(currentEvaluation, bestOption) && bestOption) {
+            reasons.push(`${bestOption.cropName} is the strongest alternative if conditions do not improve.`);
+        } else {
+            reasons.push('No crop change is recommended today.');
         }
 
         if (!reasons.length) {
@@ -817,10 +876,10 @@ export class CropAdvisorService {
         currentEvaluation: CropEvaluation,
         bestOption: FarmerMigrationOption | null
     ): string[] {
-        if (!bestOption || bestOption.profitDelta <= 0) {
+        if (!this.shouldRecommendMigration(currentEvaluation, bestOption)) {
             return [
-                'Improve yield by correcting the current block stress factors first.',
-                'Keep existing vineyard operations and infrastructure in place.',
+                'Fix the current block issues before making a bigger decision.',
+                'Keep current vineyard operations and infrastructure in place.',
                 'Use the next weather window to recover margin without a crop change.'
             ];
         }
@@ -866,12 +925,12 @@ export class CropAdvisorService {
             }
         }
 
-        if (bestOption && bestOption.profitDelta > 0) {
+        if (this.shouldRecommendMigration(currentEvaluation, bestOption) && bestOption) {
             actions.push({
                 timing: 'This month',
                 title: `Model a ${bestOption.suggestedSharePct}% ${bestOption.cropName} migration trial`,
-                detail: 'Price a phased conversion for part of the block so you can compare water use, margin, and operational fit before going broader.',
-                reason: `This option lifts projected profit by ${this.formatCurrency(bestOption.profitDelta)} against the current crop outlook.`
+                detail: 'Price a small phased conversion for part of the block so you can compare water use, margin, and operational fit before going broader.',
+                reason: `${bestOption.cropName} is the strongest alternative in the current data.`
             });
         } else {
             actions.push({
@@ -904,52 +963,64 @@ export class CropAdvisorService {
         currentEvaluation: CropEvaluation,
         bestOption: FarmerMigrationOption | null
     ): string {
-        if (bestOption && bestOption.profitDelta > currentEvaluation.projectedProfit * 0.2) {
-            return `${bestOption.cropName} now looks more profitable than ${currentEvaluation.cropName} for this block.`;
+        if (this.shouldRecommendMigration(currentEvaluation, bestOption) && bestOption) {
+            return `A small ${bestOption.cropName} trial is worth reviewing for this block.`;
         }
 
         if (currentEvaluation.suitabilityScore >= 70) {
-            return `${currentEvaluation.cropName} is still a solid fit for the block right now.`;
+            return `${currentEvaluation.cropName} is still the best choice for this block right now.`;
         }
 
-        return `${currentEvaluation.cropName} can still work, but margin is being squeezed by live field stress.`;
+        return `Keep ${currentEvaluation.cropName} for now and fix the main stress issues first.`;
     }
 
     private buildSummary(
         currentEvaluation: CropEvaluation,
         bestOption: FarmerMigrationOption | null
     ): string {
-        if (!bestOption || bestOption.profitDelta <= 0) {
-            return `Current live data supports staying with ${currentEvaluation.cropName}, but the block will earn more only if the main stress factors are corrected quickly.`;
+        if (!this.shouldRecommendMigration(currentEvaluation, bestOption)) {
+            return `Live data says the block needs recovery work first. Improve moisture and the main stress signals before making any crop change decision.`;
         }
 
-        return `${bestOption.cropName} offers better profit and resilience under the current sensor, satellite, and forecast picture, so a phased migration is worth reviewing.`;
+        return `${bestOption.cropName} is the strongest alternative in the current data, so a small trial may be worth reviewing if you want to test a lower-risk change.`;
     }
 
     private getRecommendationLabel(
         currentEvaluation: CropEvaluation,
         bestOption: FarmerMigrationOption | null
     ): string {
-        if (!bestOption || bestOption.profitDelta <= 0 || bestOption.suitabilityScore <= currentEvaluation.suitabilityScore + 5) {
-            return 'Stay and optimize';
+        if (!this.shouldRecommendMigration(currentEvaluation, bestOption)) {
+            return 'Keep current crop';
         }
 
-        return 'Migration worth reviewing';
+        return 'Review a small trial';
     }
 
     private getRecommendationTone(
         currentEvaluation: CropEvaluation,
         bestOption: FarmerMigrationOption | null
     ): FarmerAdvisoryTone {
-        if (!bestOption || bestOption.profitDelta <= 0) {
+        if (!this.shouldRecommendMigration(currentEvaluation, bestOption)) {
             return currentEvaluation.suitabilityScore >= 70 ? 'good' : 'warning';
         }
 
         return bestOption.profitDelta > currentEvaluation.projectedProfit * 0.4 ? 'critical' : 'warning';
     }
 
+    private shouldRecommendMigration(
+        currentEvaluation: CropEvaluation,
+        bestOption: FarmerMigrationOption | null
+    ): bestOption is FarmerMigrationOption {
+        return !!bestOption
+            && bestOption.profitDelta > 0
+            && bestOption.suitabilityScore > currentEvaluation.suitabilityScore + 5;
+    }
+
     private getConfidenceLabel(input: FarmerAdvisoryInput): string {
         const sourceCount = this.buildSources(input).length;
+        if (input.profitRiskData) {
+            return sourceCount >= 4 ? 'High confidence' : 'Medium confidence';
+        }
         if (sourceCount >= 4) {
             return 'High confidence';
         }
@@ -957,6 +1028,87 @@ export class CropAdvisorService {
             return 'Medium confidence';
         }
         return 'Low confidence';
+    }
+
+    private resolveEconomics(
+        profile: CropProfile,
+        input: FarmerAdvisoryInput,
+        isMigrationCandidate: boolean
+    ): { baseAnnualProfit: number; waterRequirement: number } {
+        const areaHa = input.areaHa || 0;
+        const profitRiskData = input.profitRiskData;
+        if (!profitRiskData) {
+            return {
+                baseAnnualProfit: profile.profitPerHa * areaHa,
+                waterRequirement: profile.waterRequirement
+            };
+        }
+
+        if (!isMigrationCandidate) {
+            return {
+                baseAnnualProfit: profitRiskData.currentCrop.netMarginPerHa * areaHa,
+                waterRequirement: profitRiskData.currentCrop.waterReqMlHa || profile.waterRequirement
+            };
+        }
+
+        const matchedMargin = this.findProfitRiskMargin(profile.name, profitRiskData.margins);
+        if (!matchedMargin) {
+            return {
+                baseAnnualProfit: profile.profitPerHa * areaHa,
+                waterRequirement: profile.waterRequirement
+            };
+        }
+
+        return {
+            baseAnnualProfit: matchedMargin.netMarginPerHa * areaHa,
+            waterRequirement: matchedMargin.waterReqMlHa || profile.waterRequirement
+        };
+    }
+
+    private calculateLiveAdjustment(baseAnnualProfit: number, suitabilityScore: number): number {
+        if (!baseAnnualProfit) {
+            return 0;
+        }
+
+        const adjustmentStrength = ((suitabilityScore - 70) / 100) * 0.35;
+        return Math.round(Math.abs(baseAnnualProfit) * adjustmentStrength * 100) / 100;
+    }
+
+    private findProfitRiskMargin(
+        cropName: string,
+        margins: ProfitRiskCropSnapshot[]
+    ): ProfitRiskCropSnapshot | undefined {
+        const aliases = this.getProfitRiskAliases(cropName);
+        return margins.find(row => {
+            const normalizedRow = this.normalizeCropLabel(row.crop);
+            return aliases.some(alias => normalizedRow.includes(alias) || alias.includes(normalizedRow));
+        });
+    }
+
+    private getProfitRiskAliases(cropName: string): string[] {
+        const normalized = this.normalizeCropLabel(cropName);
+        const aliasMap: Record<string, string[]> = {
+            'grenache': ['grenache'],
+            'shiraz': ['shiraz'],
+            'chardonnay': ['chardonnay'],
+            'cabernet sauvignon': ['cabernet sauvignon', 'cabernet'],
+            'merlot': ['merlot'],
+            'olives': ['olive oil', 'olives evoo', 'fresh table olives', 'table olives', 'olives'],
+            'almonds': ['almond kernel', 'almonds'],
+            'citrus': ['navel oranges', 'citrus oranges', 'mandarins', 'lemons', 'citrus', 'oranges']
+        };
+
+        return aliasMap[normalized] || [normalized];
+    }
+
+    private normalizeCropLabel(value: string): string {
+        return value
+            .trim()
+            .toLowerCase()
+            .replace(/[—–-]/g, ' ')
+            .replace(/[^a-z0-9]+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
     }
 
     private getSatelliteScore(
@@ -1082,7 +1234,7 @@ export class CropAdvisorService {
     private formatCurrency(value: number): string {
         return new Intl.NumberFormat('en-US', {
             style: 'currency',
-            currency: 'USD',
+            currency: 'AUD',
             maximumFractionDigits: 0
         }).format(value);
     }
