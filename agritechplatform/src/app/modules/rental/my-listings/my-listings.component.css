@@ -181,6 +181,97 @@ textarea {
   gap: 0.75rem;
 }
 
+.availability-section {
+  margin-top: 0.2rem;
+  padding: 0.95rem 1rem 1rem;
+  border: 1px solid rgba(29, 78, 216, 0.14);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(239, 246, 255, 0.82), rgba(248, 250, 252, 0.92));
+}
+
+.availability-header {
+  margin-bottom: 0.85rem;
+}
+
+.availability-header h4 {
+  margin: 0 0 0.2rem;
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.availability-header h4 span {
+  color: #64748b;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.availability-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.availability-toggle {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem;
+  align-items: start;
+  margin-bottom: 0.9rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.availability-toggle input {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.2rem;
+}
+
+.availability-toggle strong {
+  display: block;
+  color: #0f172a;
+  font-size: 0.95rem;
+}
+
+.availability-toggle small {
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.availability-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.weekday-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-bottom: 0.95rem;
+}
+
+.weekday-chip {
+  min-width: 3.2rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 999px;
+  background: #fff;
+  color: #475569;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.weekday-chip-active {
+  border-color: transparent;
+  background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
+  color: #fff;
+  box-shadow: 0 12px 24px rgba(15, 118, 110, 0.18);
+}
+
 .spec-field {
   min-width: 0;
 }

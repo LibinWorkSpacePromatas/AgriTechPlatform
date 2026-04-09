@@ -25,6 +25,18 @@
           </select>
         </div>
 
+        <div class="field field-half" *ngIf="showSubtypeSelector">
+          <label class="form-label" for="equipment_subtype">Subtype</label>
+          <select id="equipment_subtype" [(ngModel)]="selectedSubtype" name="equipment_subtype" (ngModelChange)="onSubtypeChange()">
+            <option *ngFor="let subtype of currentSubtypeOptions" [value]="subtype.value">{{ subtype.label }}</option>
+          </select>
+        </div>
+
+        <div class="field field-half" *ngIf="showCustomSubtypeInput">
+          <label class="form-label" for="custom_subtype">Custom Subtype</label>
+          <input id="custom_subtype" [(ngModel)]="customSubtype" name="custom_subtype" type="text" placeholder="Enter equipment subtype">
+        </div>
+
         <div class="field field-half">
           <label class="form-label" for="price_type">Pricing Type *</label>
           <select id="price_type" [(ngModel)]="form.price_type" name="price_type" required>
@@ -63,6 +75,34 @@
                 type="text"
                 [placeholder]="specField.placeholder">
             </div>
+          </div>
+        </div>
+
+        <div class="field field-full availability-section">
+          <div class="availability-header">
+            <div>
+              <h4>Availability Settings <span>(Optional)</span></h4>
+              <p>Skip this for now if the tool is generally available. You can update it later.</p>
+            </div>
+          </div>
+
+          <label class="availability-toggle">
+            <input type="checkbox" [(ngModel)]="availabilitySettings.available_all_days" name="available_all_days">
+            <div>
+              <strong>Available all days</strong>
+              <small>Turn this off only if the tool should be rentable only on selected weekdays.</small>
+            </div>
+          </label>
+
+          <div class="weekday-picker" *ngIf="!availabilitySettings.available_all_days">
+            <button
+              *ngFor="let day of weekdayOptions"
+              type="button"
+              class="weekday-chip"
+              [class.weekday-chip-active]="isAvailableDaySelected(day.value)"
+              (click)="toggleAvailableDay(day.value)">
+              {{ day.label }}
+            </button>
           </div>
         </div>
 
@@ -108,11 +148,12 @@
       </div>
       <div class="listing-content">
         <div class="listing-head">
-          <h3>{{ listing.equipment_name }}</h3>
+          <h3>{{ getListingDisplayName(listing) }}</h3>
           <span class="listing-inline-status" [class.active]="listing.is_active" [class.inactive]="!listing.is_active">
             {{ listing.is_active ? 'Available' : 'Inactive' }}
           </span>
         </div>
+        <p class="listing-meta" *ngIf="getListingDisplayDetail(listing)">{{ getListingDisplayDetail(listing) }}</p>
         <p class="listing-price">{{ listing.price | currency:'USD':'symbol':'1.0-2' }} / {{ listing.price_type }}</p>
         <p class="listing-preview-description">
           {{ listing.description || 'No description added yet.' }}
@@ -141,7 +182,8 @@
       <div class="details-modal-content">
         <div class="details-modal-header">
           <div>
-            <h3>{{ listing.equipment_name }}</h3>
+            <h3>{{ getListingDisplayName(listing) }}</h3>
+            <p *ngIf="getListingDisplayDetail(listing)">{{ getListingDisplayDetail(listing) }}</p>
             <p>{{ listing.is_active ? 'Available for booking' : 'Currently inactive' }}</p>
           </div>
           <button class="modal-close" type="button" (click)="closeDetailsModal()" aria-label="Close details">x</button>

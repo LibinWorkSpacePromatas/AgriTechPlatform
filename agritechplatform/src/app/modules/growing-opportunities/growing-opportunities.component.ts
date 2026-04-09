@@ -105,7 +105,7 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
             .pipe(
                 takeUntil(this.destroy$),
                 filter((block): block is Block => !!block),
-                distinctUntilChanged((previous, current) => previous.lan === current.lan)
+                distinctUntilChanged((previous, current) => (previous.id || previous.lan) === (current.id || current.lan))
             )
             .subscribe(block => {
                 this.currentBlock = block;
@@ -476,7 +476,7 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
         this.feedbackRequest?.unsubscribe();
 
         this.feedbackRequest = this.growingOpportunitiesService
-            .sendFeedback(this.currentBlock.lan || this.currentBlock.id, {
+            .sendFeedback(this.currentBlock.id || this.currentBlock.lan, {
                 recommendation_id: recommendation.id,
                 helpful
             })
@@ -507,7 +507,7 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
         this.insightsRequest?.unsubscribe();
         this.newsRequest?.unsubscribe();
 
-        this.insightsRequest = this.growingOpportunitiesService.getPageData(block.lan || block.id)
+        this.insightsRequest = this.growingOpportunitiesService.getPageData(block.id || block.lan)
             .pipe(takeUntil(this.destroy$))
             .subscribe({
                 next: pageData => {
@@ -540,7 +540,7 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
 
         this.newsRequest?.unsubscribe();
         this.newsRequest = this.growingOpportunitiesService.getNewsData(
-            this.currentBlock.lan || this.currentBlock.id,
+            this.currentBlock.id || this.currentBlock.lan,
             forceRefresh
         )
             .pipe(takeUntil(this.destroy$))
@@ -646,7 +646,7 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
     }
 
     private loadStoredNewsCount(block: Block): void {
-        const stored = localStorage.getItem(`${this.newsCountStorageKey}:${block.lan || block.id}`);
+        const stored = localStorage.getItem(`${this.newsCountStorageKey}:${block.id || block.lan}`);
         const parsed = stored ? Number(stored) : 0;
 
         this.newsCounts = {
@@ -664,7 +664,7 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
         }
 
         localStorage.setItem(
-            `${this.newsCountStorageKey}:${this.currentBlock.lan || this.currentBlock.id}`,
+            `${this.newsCountStorageKey}:${this.currentBlock.id || this.currentBlock.lan}`,
             String(this.newsCounts.all)
         );
     }

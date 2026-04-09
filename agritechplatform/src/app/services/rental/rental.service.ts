@@ -5,6 +5,17 @@ import { environment } from '../../../environments/environment';
 
 export type RentalPriceType = 'hourly' | 'daily';
 export type BookingStatus = 'pending' | 'approved' | 'rejected' | 'completed';
+export type AvailabilityWeekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+
+export interface AvailabilitySettings {
+  available_all_days: boolean;
+  available_days: AvailabilityWeekday[];
+  working_hours_start?: string | null;
+  working_hours_end?: string | null;
+  unavailable_dates: string[];
+  minimum_booking_hours?: number | null;
+  advance_notice_hours?: number | null;
+}
 
 export interface RentalDashboardResponse {
   total_listings: number;
@@ -24,6 +35,7 @@ export interface RentalListing {
   equipment_name: string;
   description: string | null;
   specifications?: Record<string, string> | null;
+  availability_settings?: AvailabilitySettings | null;
   price: number;
   price_type: RentalPriceType;
   quantity_total: number;
@@ -43,6 +55,7 @@ export interface CreateListingPayload {
   equipment_name: string;
   description?: string | null;
   specifications?: Record<string, string> | null;
+  availability_settings?: AvailabilitySettings | null;
   price: number;
   price_type: RentalPriceType;
   quantity_total?: number;
@@ -170,8 +183,11 @@ export class RentalService {
 
   getListings(lat?: number, lon?: number, radiusKm?: number, userId?: string): Observable<RentalListing[]> {
     let params = new HttpParams();
-    if (lat != null && lon != null && radiusKm != null) {
-      params = params.set('lat', lat).set('lon', lon).set('radius', radiusKm);
+    if (lat != null && lon != null) {
+      params = params.set('lat', lat).set('lon', lon);
+    }
+    if (radiusKm != null) {
+      params = params.set('radius', radiusKm);
     }
     if (userId) {
       params = params.set('user_id', userId);
@@ -265,6 +281,9 @@ export class RentalService {
     }
     if (payload.specifications && Object.keys(payload.specifications).length) {
       formData.append('specifications', JSON.stringify(payload.specifications));
+    }
+    if (payload.availability_settings) {
+      formData.append('availability_settings', JSON.stringify(payload.availability_settings));
     }
     if (payload.latitude != null) {
       formData.append('latitude', String(payload.latitude));
