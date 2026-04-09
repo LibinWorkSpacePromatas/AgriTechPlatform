@@ -642,7 +642,14 @@ def ensure_unified_farm_state_view() -> None:
         connection.execute(
             text(
                 """
-                CREATE OR REPLACE VIEW unified_farm_state AS
+                DROP VIEW IF EXISTS unified_farm_state
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE VIEW unified_farm_state AS
                 SELECT
                     b.id AS block_id,
                     MAX(CASE WHEN sd.sensor_type = 'soil_moisture' THEN sl.value END) AS soil_moisture,
