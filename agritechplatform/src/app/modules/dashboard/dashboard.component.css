@@ -3687,10 +3687,13 @@
 
 .metric-card-value {
     margin-top: 0.45rem;
-    font-size: 1.7rem;
+    font-size: clamp(1.15rem, 1.45vw, 1.7rem);
     font-weight: 800;
     color: #0f172a;
     line-height: 1.08;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .metric-card-help {
@@ -3714,11 +3717,31 @@
     gap: 0.7rem;
 }
 
+.signal-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.signal-value-group {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.24rem;
+}
+
 .signal-value {
     font-size: 1.25rem;
     font-weight: 800;
     color: #0f172a;
     text-align: right;
+    line-height: 1.08;
+    white-space: nowrap;
+}
+
+.signal-value.signal-value-required {
+    color: #15803d;
 }
 
 .signal-source.advisor-tone-good,
@@ -3764,8 +3787,68 @@
     color: #111827;
 }
 
+.signal-required-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+}
+
+.signal-required-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: #64748b;
+    line-height: 1;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.signal-required-switch {
+    position: relative;
+    width: 28px;
+    height: 16px;
+    border-radius: 999px;
+    background: #dbe4ea;
+    border: 1px solid #cbd5e1;
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.signal-required-switch.is-active {
+    background: linear-gradient(135deg, #22c55e 0%, #15803d 100%);
+    border-color: #16a34a;
+    box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.08);
+}
+
+.signal-required-thumb {
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    background: #ffffff;
+    box-shadow: 0 2px 4px rgba(15, 23, 42, 0.18);
+    transition: transform 0.2s ease;
+}
+
+.signal-required-switch.is-active .signal-required-thumb {
+    transform: translateX(12px);
+}
+
+.signal-required-control:hover .signal-required-switch,
+.signal-required-control:focus-visible .signal-required-switch {
+    border-color: #94a3b8;
+}
+
+.signal-required-control:focus-visible {
+    outline: none;
+}
+
 .signal-summary {
-    margin: 0.6rem 0 0;
+    margin: 0.45rem 0 0;
     color: #475569;
     line-height: 1.6;
 }
