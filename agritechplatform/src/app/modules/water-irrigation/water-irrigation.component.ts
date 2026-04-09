@@ -369,6 +369,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
           });
 
           this.blockService.setBlocks(nextBlocks);
+          this.refreshUserCache();
           this.renderSpatialLayers();
           this.map.invalidateSize();
           this.refreshAfterGeometryChange();
@@ -465,6 +466,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
             };
           });
           this.blockService.setBlocks(nextBlocks);
+          this.refreshUserCache();
           this.toggleMoveMode();
           this.renderSpatialLayers();
           this.map.invalidateSize();
@@ -513,6 +515,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
             };
           });
           this.blockService.setBlocks(nextBlocks);
+          this.refreshUserCache();
           if (this.drawLayerGroup) {
             this.drawLayerGroup.clearLayers();
           }
@@ -567,6 +570,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
           };
         });
         this.blockService.setBlocks(nextBlocks);
+        this.refreshUserCache();
         this.renderSpatialLayers();
         this.map.invalidateSize();
         this.refreshAfterGeometryChange();
@@ -611,6 +615,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
             this.drawLayerGroup.clearLayers();
           }
           this.blockService.setBlocks(remainingBlocks);
+          this.refreshUserCache();
         },
         error: (error: any) => {
           console.error('Failed to delete block', error);
@@ -631,6 +636,14 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
       },
       error: (error: any) => {
         console.error('Error fetching unified farm state:', error);
+      }
+    });
+  }
+
+  private refreshUserCache(): void {
+    this.userDataService.loadUsers(true).pipe(take(1)).subscribe({
+      error: (error: any) => {
+        console.error('Failed to refresh user cache after block mutation', error);
       }
     });
   }
