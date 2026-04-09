@@ -155,12 +155,18 @@ export class RentEquipmentComponent implements OnInit {
     const categorySearch = this.categoryFilter.trim().toLowerCase();
 
     return this.listings.filter(listing => {
+      const category = this.getEquipmentCategory(listing).toLowerCase();
+      const subtype = this.getEquipmentSubtype(listing).toLowerCase();
+      const displayName = this.getListingDisplayName(listing).toLowerCase();
       const typeMatch = !this.typeFilter || listing.price_type === this.typeFilter;
       const priceMatch = listing.price >= this.minPrice && listing.price <= this.maxPrice;
       const machineMatch = !search
         || listing.equipment_name.toLowerCase().includes(search)
+        || displayName.includes(search)
+        || category.includes(search)
+        || subtype.includes(search)
         || (listing.description || '').toLowerCase().includes(search);
-      const categoryMatch = !categorySearch || listing.equipment_name.toLowerCase() === categorySearch;
+      const categoryMatch = !categorySearch || category === categorySearch;
       const locationMatch = !locationSearch || (listing.location_label || '').toLowerCase().includes(locationSearch);
       const imageMatch = !this.onlyWithImage || !!listing.image_url;
 
@@ -183,7 +189,7 @@ export class RentEquipmentComponent implements OnInit {
   }
 
   get equipmentTypeOptions(): string[] {
-    return [...new Set([...this.baseToolOptions, ...this.listings.map(listing => listing.equipment_name).filter(Boolean)])]
+    return [...new Set([...this.baseToolOptions, ...this.listings.map(listing => this.getEquipmentCategory(listing)).filter(Boolean)])]
       .sort((left, right) => left.localeCompare(right));
   }
 
@@ -290,6 +296,16 @@ export class RentEquipmentComponent implements OnInit {
     this.sortBy = 'distance';
     this.resetFilters();
     this.loadListings();
+  }
+
+  getListingDisplayName(listing: RentalListing): string {
+    return this.getEquipmentSubtype(listing) || listing.equipment_name;
+  }
+
+  getListingDisplayDetail(listing: RentalListing): string | null {
+    const category = this.getEquipmentCategory(listing);
+    const subtype = this.getEquipmentSubtype(listing);
+    return subtype ? `${category} • ${subtype}` : category || null;
   }
 
   openDetails(listing: RentalListing): void {
@@ -534,5 +550,17 @@ export class RentEquipmentComponent implements OnInit {
     this.draftLocationFilter = this.locationFilter;
     this.draftOnlyWithImage = this.onlyWithImage;
     this.draftSortBy = this.sortBy;
+  }
+
+  private getEquipmentCategory(listing: RentalListing): string {
+    return this.readSpecification(listing.specifications, 'Equipment Category') || listing.equipment_name;
+  }
+
+  private getEquipmentSubtype(listing: RentalListing): string {
+    return this.readSpecification(listing.specifications, 'Equipment Subtype');
+  }
+
+  private readSpecification(specifications: Record<string, string> | null | undefined, key: string): string {
+    return specifications?.[key]?.trim() || '';
   }
 }

@@ -123,14 +123,14 @@ export class ProfitRiskComponent implements OnInit {
       return this.getChartLabel(selectedBlockCrop);
     }
 
-    const requestedCrop = this.currentCrop()?.requested_crop?.trim();
-    if (requestedCrop) {
-      return this.getChartLabel(requestedCrop);
-    }
-
     const blockCrop = this.profitData()?.block_crop?.trim();
     if (blockCrop) {
       return this.getChartLabel(blockCrop);
+    }
+
+    const requestedCrop = this.currentCrop()?.requested_crop?.trim();
+    if (requestedCrop) {
+      return this.getChartLabel(requestedCrop);
     }
 
     const matchedCrop = this.currentCrop()?.matched_crop?.trim();
@@ -150,6 +150,24 @@ export class ProfitRiskComponent implements OnInit {
   });
   readonly heroCropLabel = computed(() => {
     return this.displayCropLabel();
+  });
+  readonly backendCropSummary = computed(() => {
+    const blockCrop = this.profitData()?.block_crop?.trim() || this.currentCrop()?.requested_crop?.trim();
+    const matchedCrop = this.currentCrop()?.matched_crop?.trim();
+    const matchType = this.currentCrop()?.match_type?.trim().toLowerCase();
+
+    if (!matchedCrop || !blockCrop || matchType === 'exact') {
+      return null;
+    }
+
+    const displayBlockCrop = this.getChartLabel(blockCrop);
+    const displayMatchedCrop = this.getChartLabel(matchedCrop);
+
+    if (this.normalizeCropKey(displayBlockCrop) === this.normalizeCropKey(displayMatchedCrop)) {
+      return null;
+    }
+
+    return `Workbook benchmark used: ${displayMatchedCrop}`;
   });
   readonly marginRows = computed(() => this.profitData()?.margins ?? []);
   readonly chartRows = computed(() => {
@@ -773,7 +791,8 @@ export class ProfitRiskComponent implements OnInit {
     this.error.set(null);
 
     const waterPrice = this.waterPrice();
-    const url = `${environment.apiBaseUrl}/api/blocks/${block.lan || block.id}/profit-risk?water_price=${waterPrice}`;
+    const blockIdentifier = block.id || block.lan;
+    const url = `${environment.apiBaseUrl}/api/blocks/${blockIdentifier}/profit-risk?water_price=${waterPrice}`;
 
     this.http.get<ProfitRiskResponse>(url)
       .pipe(takeUntilDestroyed(this.destroyRef))

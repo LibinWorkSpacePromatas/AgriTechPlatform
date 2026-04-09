@@ -191,9 +191,10 @@
 
       <div class="card-content">
         <div class="card-head">
-          <h3>{{ listing.equipment_name }}</h3>
+          <h3>{{ getListingDisplayName(listing) }}</h3>
           <span class="card-owner">{{ listing.owner_name || 'Farmer' }}</span>
         </div>
+        <p class="card-meta" *ngIf="getListingDisplayDetail(listing)">{{ getListingDisplayDetail(listing) }}</p>
         <p class="card-price">{{ listing.price | currency:'USD':'symbol':'1.0-2' }} / {{ listing.price_type }}</p>
         <p class="card-preview-description">
           {{ listing.description || 'Reliable farm equipment available for your next task.' }}
@@ -255,7 +256,8 @@
       <div class="details-modal-content">
         <div class="details-modal-header">
           <div>
-            <h3>{{ listing.equipment_name }}</h3>
+            <h3>{{ getListingDisplayName(listing) }}</h3>
+            <p *ngIf="getListingDisplayDetail(listing)">{{ getListingDisplayDetail(listing) }}</p>
             <p>{{ listing.owner_name || 'Farmer' }}</p>
           </div>
           <button class="modal-close" type="button" (click)="closeDetailsModal()" aria-label="Close details"></button>
@@ -308,7 +310,8 @@
     <div class="booking-modal" *ngIf="bookingModalListing as listing" (click)="$event.stopPropagation()">
       <div class="booking-modal-header">
         <div>
-          <h3>{{ listing.equipment_name }}</h3>
+          <h3>{{ getListingDisplayName(listing) }}</h3>
+          <p *ngIf="getListingDisplayDetail(listing)">{{ getListingDisplayDetail(listing) }}</p>
           <p>{{ listing.price_type === 'daily' ? 'Daily Rental' : 'Hourly Rental' }}</p>
         </div>
         <button class="modal-close" type="button" (click)="closeBookingModal()" aria-label="Close booking form"></button>

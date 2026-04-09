@@ -244,7 +244,7 @@ export class GrowerGptComponent implements OnInit, AfterViewChecked, OnDestroy {
     this.chatHistory = [];
     this.lastRenderedMessageCount = 0;
 
-    this.growerGptService.getRuleBasedInsights(block.lan || block.id)
+    this.growerGptService.getRuleBasedInsights(block.id || block.lan)
       .pipe(take(1))
       .subscribe({
         next: (backendData) => {

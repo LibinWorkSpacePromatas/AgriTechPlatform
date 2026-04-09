@@ -507,7 +507,7 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
         this.insightsRequest?.unsubscribe();
         this.newsRequest?.unsubscribe();
 
-        this.insightsRequest = this.growingOpportunitiesService.getPageData(block.lan || block.id)
+        this.insightsRequest = this.growingOpportunitiesService.getPageData(block.id || block.lan)
             .pipe(takeUntil(this.destroy$))
             .subscribe({
                 next: pageData => {
@@ -646,7 +646,7 @@ export class GrowingOpportunitiesComponent implements OnInit, OnDestroy {
     }
 
     private loadStoredNewsCount(block: Block): void {
-        const stored = localStorage.getItem(`${this.newsCountStorageKey}:${block.lan || block.id}`);
+        const stored = localStorage.getItem(`${this.newsCountStorageKey}:${block.id || block.lan}`);
         const parsed = stored ? Number(stored) : 0;
 
         this.newsCounts = {

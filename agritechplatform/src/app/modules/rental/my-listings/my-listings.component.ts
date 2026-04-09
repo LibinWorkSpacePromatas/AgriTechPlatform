@@ -19,6 +19,11 @@ interface ListingSpecField {
   placeholder: string;
 }
 
+interface EquipmentSubtypeOption {
+  label: string;
+  value: string;
+}
+
 @Component({
   selector: 'app-my-listings',
   standalone: true,
@@ -43,6 +48,8 @@ export class MyListingsComponent implements OnInit, OnDestroy {
   selectedImageName: string | null = null;
   imagePreviewUrl: string | null = null;
   specValues: Record<string, string> = {};
+  selectedSubtype = '';
+  customSubtype = '';
 
   form: CreateListingPayload = {
     equipment_name: '',
@@ -69,6 +76,34 @@ export class MyListingsComponent implements OnInit, OnDestroy {
     'Trailer',
     'Drone',
   ];
+  readonly subtypeOptions: Record<string, EquipmentSubtypeOption[]> = {
+    Harvester: [
+      { label: 'No subtype / General Harvester', value: '' },
+      { label: 'Combine Harvester', value: 'Combine Harvester' },
+      { label: 'Grape Harvester', value: 'Grape Harvester' },
+      { label: 'Forage Harvester', value: 'Forage Harvester' },
+      { label: 'Sugarcane Harvester', value: 'Sugarcane Harvester' },
+      { label: 'Potato Harvester', value: 'Potato Harvester' },
+      { label: 'Rice Harvester', value: 'Rice Harvester' },
+      { label: 'Other', value: '__other__' },
+    ],
+    Tractor: [
+      { label: 'No subtype / General Tractor', value: '' },
+      { label: 'Utility Tractor', value: 'Utility Tractor' },
+      { label: 'Row Crop Tractor', value: 'Row Crop Tractor' },
+      { label: 'Orchard Tractor', value: 'Orchard Tractor' },
+      { label: 'Compact Tractor', value: 'Compact Tractor' },
+      { label: 'Other', value: '__other__' },
+    ],
+    Sprayer: [
+      { label: 'No subtype / General Sprayer', value: '' },
+      { label: 'Boom Sprayer', value: 'Boom Sprayer' },
+      { label: 'Airblast Sprayer', value: 'Airblast Sprayer' },
+      { label: 'Knapsack Sprayer', value: 'Knapsack Sprayer' },
+      { label: 'Drone Sprayer', value: 'Drone Sprayer' },
+      { label: 'Other', value: '__other__' },
+    ],
+  };
   readonly commonSpecFields: ListingSpecField[] = [
     { key: 'brand', label: 'Brand', placeholder: 'Enter brand' },
     { key: 'model', label: 'Model', placeholder: 'Enter model name or number' },
@@ -198,6 +233,8 @@ export class MyListingsComponent implements OnInit, OnDestroy {
       availability_settings: this.cloneAvailabilitySettings(listing.availability_settings),
       image: undefined,
     };
+    this.selectedSubtype = this.getListingSubtypeValue(listing);
+    this.customSubtype = this.getListingCustomSubtypeValue(listing);
     this.syncSpecValues(listing.specifications || {});
     this.selectedImageName = null;
     this.clearImagePreview();
@@ -370,6 +407,18 @@ export class MyListingsComponent implements OnInit, OnDestroy {
     ];
   }
 
+  get currentSubtypeOptions(): EquipmentSubtypeOption[] {
+    return this.subtypeOptions[this.form.equipment_name] || [];
+  }
+
+  get showSubtypeSelector(): boolean {
+    return this.currentSubtypeOptions.length > 0;
+  }
+
+  get showCustomSubtypeInput(): boolean {
+    return this.selectedSubtype === '__other__';
+  }
+
   get availabilitySettings(): AvailabilitySettings {
     if (!this.form.availability_settings) {
       this.form.availability_settings = this.createDefaultAvailabilitySettings();
@@ -383,6 +432,24 @@ export class MyListingsComponent implements OnInit, OnDestroy {
       nextValues[field.key] = this.specValues[field.key] || '';
     }
     this.specValues = nextValues;
+    this.selectedSubtype = '';
+    this.customSubtype = '';
+  }
+
+  onSubtypeChange(): void {
+    if (this.selectedSubtype !== '__other__') {
+      this.customSubtype = '';
+    }
+  }
+
+  getListingDisplayName(listing: RentalListing): string {
+    return this.getEquipmentSubtypeLabel(listing.specifications || null) || listing.equipment_name;
+  }
+
+  getListingDisplayDetail(listing: RentalListing): string | null {
+    const category = this.readSpecification(listing.specifications || null, 'Equipment Category') || listing.equipment_name;
+    const subtype = this.getEquipmentSubtypeLabel(listing.specifications || null);
+    return subtype ? `${category} • ${subtype}` : category || null;
   }
 
   toggleAvailableDay(day: AvailabilityWeekday): void {
@@ -400,6 +467,16 @@ export class MyListingsComponent implements OnInit, OnDestroy {
     const entries = this.currentSpecFields
       .map(field => [field.label, (this.specValues[field.key] || '').trim()] as const)
       .filter(([, value]) => !!value);
+
+    if (this.form.equipment_name?.trim()) {
+      entries.unshift(['Equipment Category', this.form.equipment_name.trim()]);
+    }
+
+    const subtype = this.getSelectedSubtypeLabel();
+    if (subtype) {
+      entries.unshift(['Equipment Subtype', subtype]);
+    }
+
     return entries.length ? Object.fromEntries(entries) : null;
   }
 
@@ -436,6 +513,8 @@ export class MyListingsComponent implements OnInit, OnDestroy {
       image: undefined,
     };
     this.specValues = {};
+    this.selectedSubtype = '';
+    this.customSubtype = '';
     this.editingListingId = null;
     this.editingListingImageUrl = null;
     this.selectedImageName = null;
@@ -476,5 +555,41 @@ export class MyListingsComponent implements OnInit, OnDestroy {
       available_days: [...(settings?.available_days || [])],
       unavailable_dates: [...(settings?.unavailable_dates || [])],
     };
+  }
+
+  private getSelectedSubtypeLabel(): string {
+    if (this.selectedSubtype === '__other__') {
+      return this.customSubtype.trim();
+    }
+    return this.selectedSubtype.trim();
+  }
+
+  private getListingSubtypeValue(listing: RentalListing): string {
+    const subtype = this.readSpecification(listing.specifications || null, 'Equipment Subtype');
+    if (!subtype) {
+      return '';
+    }
+
+    const options = this.subtypeOptions[listing.equipment_name] || [];
+    return options.some(option => option.value === subtype) ? subtype : '__other__';
+  }
+
+  private getListingCustomSubtypeValue(listing: RentalListing): string {
+    const subtype = this.readSpecification(listing.specifications || null, 'Equipment Subtype');
+    if (!subtype) {
+      return '';
+    }
+
+    const options = this.subtypeOptions[listing.equipment_name] || [];
+    return options.some(option => option.value === subtype) ? '' : subtype;
+  }
+
+  private getEquipmentSubtypeLabel(specifications: Record<string, string> | null): string | null {
+    return this.readSpecification(specifications, 'Equipment Subtype');
+  }
+
+  private readSpecification(specifications: Record<string, string> | null, label: string): string | null {
+    const value = specifications?.[label]?.trim();
+    return value ? value : null;
   }
 }

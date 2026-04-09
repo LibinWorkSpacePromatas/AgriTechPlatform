@@ -4,7 +4,7 @@
             <i-lucide [img]="TrendingUp" class="header-icon"></i-lucide>
             <h1>Profit & Risk Analysis</h1>
         </div>
-        <p class="subtitle">Workbook-driven crop margins for {{ selectedBlock()?.name }} • {{ selectedBlock()?.location }}</p>
+        <p class="subtitle">Workbook-driven crop margins for {{ heroBlockLabel() }} - {{ heroCropLabel() }} • {{ selectedBlock()?.location }}</p>
     </div> 
  
     <div class="live-forecast-panel">
@@ -26,6 +26,9 @@
                 </span>
                 <span class="forecast-pill" *ngIf="currentCrop()">
                     Trend {{ currentCrop()!.price_trend }}
+                </span>
+                <span class="forecast-pill" *ngIf="backendCropSummary()">
+                    {{ backendCropSummary() }}
                 </span>
             </div>
             <p class="forecast-status" *ngIf="profitData()">

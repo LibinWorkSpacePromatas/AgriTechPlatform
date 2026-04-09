@@ -817,7 +817,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.insightsRequest?.unsubscribe();
 
-    this.insightsRequest = this.dashboardApiService.getBlockInsights(block.lan || block.id)
+    this.insightsRequest = this.dashboardApiService.getBlockInsights(block.id || block.lan)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: insights => {
@@ -843,7 +843,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private subscribeToSatelliteRefreshEvents(block: DashboardBlock): void {
     this.refreshEventsSubscription?.unsubscribe();
-    this.refreshEventsSubscription = this.satelliteRefreshEventsService.watchBlock(block.lan || block.id)
+    this.refreshEventsSubscription = this.satelliteRefreshEventsService.watchBlock(block.id || block.lan)
       .pipe(takeUntil(this.destroy$))
       .subscribe(event => this.handleSatelliteRefreshEvent(block, event));
   }
