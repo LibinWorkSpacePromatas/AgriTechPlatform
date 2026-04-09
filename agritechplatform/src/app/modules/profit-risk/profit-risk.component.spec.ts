@@ -87,4 +87,81 @@ describe('ProfitRiskComponent', () => {
     expect(component).toBeTruthy();
     expect(component.profitData()?.risk_level).toBe('High');
   });
+
+  it('includes the selected block crop in chart rows when it is outside the default key crop list', () => {
+    block$.next({
+      ...block,
+      id: 'block-a-lemons',
+      lan: 'block-a-lemons',
+      crop: 'Lemons',
+      grapeVariety: 'Lemons'
+    });
+
+    fixture.detectChanges();
+
+    const req = httpMock.expectOne('http://localhost:8000/api/blocks/block-a-lemons/profit-risk?water_price=153');
+    req.flush({
+      block_id: 'block-a-lemons',
+      block_name: 'Block A',
+      block_crop: 'Lemons',
+      water_price: 153,
+      net_margin: 1200,
+      risk_level: 'Low',
+      best_crop: 'Lemons',
+      best_crop_margin: 1200,
+      updated_at: '2026-03-28T10:30:00+00:00',
+      current_crop: {
+        requested_crop: 'Lemons',
+        matched_crop: 'Lemons',
+        commodity: 'Citrus',
+        match_type: 'exact',
+        note: null,
+        current_price: 900,
+        break_even_price: 650,
+        price_trend: 'STEADY',
+        yield_t_ha: 14,
+        water_req_ml_ha: 7,
+        net_margin: 1200
+      },
+      margins: [
+        {
+          crop: 'Lemons',
+          commodity: 'Citrus',
+          current_price: 900,
+          break_even_price: 650,
+          price_trend: 'STEADY',
+          yield_t_ha: 14,
+          water_req_ml_ha: 7,
+          cost_per_unit: 300,
+          margins: {
+            low: 1800,
+            current: 1200,
+            high: -400,
+            selected: 1200
+          }
+        },
+        {
+          crop: 'Shiraz (inland red - Riverland)',
+          commodity: 'Wine Grapes',
+          current_price: 200,
+          break_even_price: 350,
+          price_trend: 'CRISIS',
+          yield_t_ha: 8.5,
+          water_req_ml_ha: 8,
+          cost_per_unit: 300,
+          margins: {
+            low: -500,
+            current: -1095,
+            high: -3200,
+            selected: -1095
+          }
+        }
+      ]
+    });
+
+    fixture.detectChanges();
+
+    expect(component.chartRows().map(row => row.crop)).toContain('Lemons');
+    expect(component.priceChartRows().map(row => row.crop)).toContain('Lemons');
+  });
 });

@@ -161,10 +161,7 @@ export class ProfitRiskComponent implements OnInit {
       'Peaches (fresh market — Riverland SA)'
     ];
 
-    const rowsByCrop = new Map(this.marginRows().map(row => [row.crop, row]));
-    return desiredOrder
-      .map(crop => rowsByCrop.get(crop))
-      .filter((row): row is ProfitRiskCropRow => !!row);
+    return this.buildOrderedChartRows(desiredOrder);
   });
   readonly marginChartData = computed<ChartData<'bar'>>(() => ({
     labels: this.chartRows().map(row => this.getChartLabel(row.crop)),
@@ -254,10 +251,7 @@ export class ProfitRiskComponent implements OnInit {
       'Shiraz (inland red — Riverland)'
     ];
 
-    const rowsByCrop = new Map(this.marginRows().map(row => [row.crop, row]));
-    return desiredOrder
-      .map(crop => rowsByCrop.get(crop))
-      .filter((row): row is ProfitRiskCropRow => !!row);
+    return this.buildOrderedChartRows(desiredOrder);
   });
   readonly priceChartData = computed<ChartData<'bar'>>(() => ({
     labels: this.priceChartRows().map(row => this.getChartLabel(row.crop)),
@@ -638,6 +632,66 @@ export class ProfitRiskComponent implements OnInit {
     };
 
     return tips[key];
+  }
+
+  private buildOrderedChartRows(desiredOrder: string[]): ProfitRiskCropRow[] {
+    const rows = this.marginRows();
+    const rowsByCrop = new Map(rows.map(row => [row.crop, row]));
+    const orderedRows = desiredOrder
+      .map(crop => rowsByCrop.get(crop))
+      .filter((row): row is ProfitRiskCropRow => !!row);
+
+    const currentRow = this.resolveCurrentChartRow(rows);
+    if (!currentRow) {
+      return orderedRows;
+    }
+
+    return orderedRows.some(row => row.crop === currentRow.crop)
+      ? orderedRows
+      : [currentRow, ...orderedRows];
+  }
+
+  private resolveCurrentChartRow(rows: ProfitRiskCropRow[]): ProfitRiskCropRow | null {
+    const candidates = [
+      this.currentCrop()?.matched_crop,
+      this.currentCrop()?.requested_crop,
+      this.selectedBlock()?.crop,
+      this.profitData()?.block_crop
+    ];
+
+    for (const candidate of candidates) {
+      const match = this.findCropRow(rows, candidate);
+      if (match) {
+        return match;
+      }
+    }
+
+    return null;
+  }
+
+  private findCropRow(rows: ProfitRiskCropRow[], candidate: string | null | undefined): ProfitRiskCropRow | null {
+    const normalizedCandidate = this.normalizeCropKey(candidate);
+    if (!normalizedCandidate) {
+      return null;
+    }
+
+    return rows.find(row => {
+      const normalizedCrop = this.normalizeCropKey(row.crop);
+      return normalizedCrop === normalizedCandidate
+        || normalizedCrop.includes(normalizedCandidate)
+        || normalizedCandidate.includes(normalizedCrop);
+    }) ?? null;
+  }
+
+  private normalizeCropKey(value: string | null | undefined): string {
+    return (value ?? '')
+      .trim()
+      .toLowerCase()
+      .replaceAll('—', ' ')
+      .replaceAll('–', ' ')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   private reloadCurrentBlock(): void {

@@ -436,8 +436,8 @@ export class RentEquipmentComponent implements OnInit {
         return null;
       }
       return {
-        start: start.toISOString(),
-        end: endBase.toISOString(),
+        start: `${this.bookingStartDate}T00:00:00`,
+        end: `${this.toLocalDateString(endBase)}T00:00:00`,
       };
     }
 
@@ -452,8 +452,8 @@ export class RentEquipmentComponent implements OnInit {
       return null;
     }
     return {
-      start: start.toISOString(),
-      end: end.toISOString(),
+      start: `${this.bookingStartDate}T${this.bookingStartTime}:00`,
+      end: `${this.bookingEndDate}T${this.bookingEndTime}:00`,
     };
   }
 
