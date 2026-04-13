@@ -214,6 +214,9 @@
         </div>
 
         <div class="details-modal-actions">
+          <button class="btn btn-ghost" type="button" (click)="viewCalendar(listing); closeDetailsModal()">
+            View Booked Days
+          </button>
           <button class="btn btn-outline listing-edit-btn" type="button" (click)="openEditForm(listing); closeDetailsModal()">Edit</button>
           <button class="btn" type="button" [class.listing-pause-btn]="listing.is_active" [class.listing-activate-btn]="!listing.is_active" (click)="toggleListing(listing); closeDetailsModal()">
             {{ listing.is_active ? 'Deactivate' : 'Activate' }}
@@ -233,6 +236,20 @@
 
   <div class="calendar-box" *ngIf="selectedCalendarListingId && calendarSlots.length">
     <h3>Farmer Calendar View</h3>
+    <p class="calendar-caption">These are the upcoming booked and available days for your tool.</p>
+    <div class="calendar-day-strip" *ngIf="calendarDays.length">
+      <button
+        type="button"
+        class="calendar-day-pill"
+        *ngFor="let day of calendarDays"
+        [class.is-selected]="day.date === calendarDate"
+        [class.is-available]="day.status === 'available'"
+        [class.is-limited]="day.status === 'limited'"
+        [class.is-booked]="day.status === 'booked'"
+        (click)="selectCalendarDay(day.date)">
+        {{ day.label }} · {{ day.status }}
+      </button>
+    </div>
     <p *ngIf="nextAvailableSlot">Next available: {{ nextAvailableSlot }}</p>
     <div class="slot-grid">
       <div class="slot-item" *ngFor="let slot of calendarSlots" [class.booked]="slot.status === 'booked'" [class.buffer]="slot.status === 'buffer'" [class.available]="slot.status === 'available'">

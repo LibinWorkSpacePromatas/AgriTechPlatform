@@ -304,6 +304,22 @@ def reject_booking(
         raise HTTPException(status_code=500, detail=f"Database error while rejecting booking: {exc}") from exc
 
 
+@router.post("/bookings/{booking_id}/cancel", response_model=BookingResponse)
+def cancel_booking(
+    booking_id: UUID,
+    user_id: UUID = Query(..., description="Renter user ID"),
+    db: Session = Depends(get_db),
+):
+    try:
+        return rental_service.cancel_booking(db, booking_id, user_id)
+    except RentalServiceError as exc:
+        db.rollback()
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error while cancelling booking: {exc}") from exc
+
+
 @router.get("/my-bookings", response_model=list[BookingListItem])
 def my_bookings(
     user_id: UUID = Query(...),

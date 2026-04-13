@@ -115,6 +115,10 @@ def _validate_listing_rules(listing: dict, start: datetime, end: datetime) -> di
     return None
 
 
+def _is_slot_allowed_by_rules(listing: dict, start: datetime, end: datetime) -> bool:
+    return _validate_listing_rules(listing, start, end) is None
+
+
 def get_dashboard(db: Session, user_id: UUID) -> dict:
     _ensure_user_exists(db, user_id)
     row = db.execute(queries.DASHBOARD_SQL, {"user_id": str(user_id)}).mappings().first()
@@ -354,12 +358,18 @@ def check_availability_with_reason(
 ) -> dict:
     if start >= end:
         raise RentalServiceError("start_datetime must be earlier than end_datetime", status_code=400)
-    now_reference = datetime.now(start.tzinfo) if start.tzinfo else datetime.utcnow()
-    min_start = now_reference + timedelta(minutes=30)
-    if start < min_start:
-        raise RentalServiceError("start_datetime must be at least 30 minutes in the future", status_code=400)
 
     listing = _get_listing_or_404(db, listing_id)
+    now_reference = datetime.now(start.tzinfo) if start.tzinfo else datetime.utcnow()
+
+    if listing.get("price_type") == "daily":
+        if start.date() < now_reference.date():
+            raise RentalServiceError("start date cannot be in the past", status_code=400)
+    else:
+        min_start = now_reference + timedelta(minutes=30)
+        if start < min_start:
+            raise RentalServiceError("start_datetime must be at least 30 minutes in the future", status_code=400)
+
     if not listing.get("is_active", False):
         return {"available": False, "reason": "Listing is inactive", "available_quantity": 0}
 
@@ -505,6 +515,26 @@ def reject_booking(db: Session, booking_id: UUID, owner_id: UUID) -> dict:
     return _update_booking_status(db, booking_id, owner_id, "rejected")
 
 
+def cancel_booking(db: Session, booking_id: UUID, renter_id: UUID) -> dict:
+    _ensure_user_exists(db, renter_id)
+    booking = db.execute(queries.SELECT_BOOKING_SQL, {"booking_id": str(booking_id)}).mappings().first()
+    if not booking:
+        raise RentalServiceError("Booking not found", status_code=404)
+
+    if str(booking["renter_id"]) != str(renter_id):
+        raise RentalServiceError("Only renter can cancel this booking", status_code=403)
+
+    if booking["status"] not in {"pending", "approved"}:
+        raise RentalServiceError("Only pending or approved bookings can be cancelled", status_code=400)
+
+    updated = db.execute(
+        queries.UPDATE_BOOKING_STATUS_SQL,
+        {"booking_id": str(booking_id), "status": "cancelled"},
+    ).mappings().first()
+    db.commit()
+    return dict(updated)
+
+
 def get_my_bookings(db: Session, user_id: UUID) -> list[dict]:
     _ensure_user_exists(db, user_id)
     rows = db.execute(queries.MY_BOOKINGS_SQL, {"user_id": str(user_id)}).mappings().all()
@@ -551,7 +581,7 @@ def pay_booking(db: Session, booking_id: UUID, renter_id: UUID) -> dict:
 
 
 def get_listing_calendar(db: Session, listing_id: UUID, day: date) -> dict:
-    _get_listing_or_404(db, listing_id)
+    listing = _get_listing_or_404(db, listing_id)
     day_start = datetime.combine(day, datetime.min.time())
     day_end = day_start + timedelta(days=1)
     day_start_minus_buffer = day_start - timedelta(hours=1)
@@ -585,10 +615,14 @@ def get_listing_calendar(db: Session, listing_id: UUID, day: date) -> dict:
         slot_end = slot_start + timedelta(hours=1)
         status = "available"
 
-        for booking_start, booking_end in bookings:
-            if overlaps(slot_start, slot_end, booking_start, booking_end):
-                status = "booked"
-                break
+        if not _is_slot_allowed_by_rules(listing, slot_start, slot_end):
+            status = "unavailable"
+
+        if status == "available":
+            for booking_start, booking_end in bookings:
+                if overlaps(slot_start, slot_end, booking_start, booking_end):
+                    status = "booked"
+                    break
 
         if status == "available":
             for _, booking_end in bookings:
