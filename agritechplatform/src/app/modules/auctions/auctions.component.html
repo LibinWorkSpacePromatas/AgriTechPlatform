@@ -1,6 +1,6 @@
 <div class="auction-app" [class.page-ready]="pageAnimated()">
   <main class="auction-main">
-    <ng-container *ngIf="!isLoading(); else loadingShell">
+    <ng-container *ngIf="!showPageLoader(); else loadingShell">
       <section *ngIf="!isRegisteredSeller(); else dashboardSection" class="onboarding-shell">
         <section class="elite-board">
           <article class="hero-copy">
@@ -28,7 +28,7 @@
             </header>
             <div class="market-title">
               <h3>Shiraz Grapes</h3>
-              <img *ngIf="previewImageUrl; else previewInitials" [src]="previewImageUrl" alt="Shiraz grapes" />
+              <img *ngIf="!showInitialsPreview(); else previewInitials" [src]="previewImageUrl" alt="Shiraz grapes" />
               <ng-template #previewInitials>
                 <div class="market-title-thumb" aria-hidden="true">SG</div>
               </ng-template>
@@ -414,7 +414,7 @@
       <div class="modal-grid">
         <div class="modal-field">
           <span>Start Date & Time *</span>
-          <small>South Australia time (ACST/ACDT)</small>
+          <small>Uses your device's local time</small>
           <div class="dt-row">
             <input type="date" formControlName="start_date" [attr.min]="minStartDate()" class="dt-date-input" />
             <button type="button" class="dt-time-btn" (click)="$event.stopPropagation(); toggleTimePicker('start_time')">
@@ -439,7 +439,7 @@
 
         <div class="modal-field">
           <span>End Date & Time *</span>
-          <small>South Australia time (ACST/ACDT)</small>
+          <small>Uses your device's local time</small>
           <div class="dt-row">
             <input type="date" formControlName="end_date" [attr.min]="minEndDate()" class="dt-date-input" />
             <button type="button" class="dt-time-btn" (click)="$event.stopPropagation(); toggleTimePicker('end_time')">
@@ -504,5 +504,17 @@
 </div>
 
 <ng-template #loadingShell>
-  <div class="loading">Loading auctions...</div>
+  <section class="loading-shell" aria-label="Loading auctions">
+    <div class="loading-panel">
+      <div class="loading-mark">
+        <span class="loading-ring"></span>
+        <span class="loading-core"></span>
+      </div>
+      <p class="loading-kicker">Agritech Auctions</p>
+      <h2>Preparing your seller experience</h2>
+      <div class="loading-bar" aria-hidden="true">
+        <span class="loading-bar-fill"></span>
+      </div>
+    </div>
+  </section>
 </ng-template>
