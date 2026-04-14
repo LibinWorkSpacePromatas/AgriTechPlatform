@@ -1,5 +1,6 @@
 import { AfterViewInit, Component, ElementRef, HostListener, Inject, OnDestroy, OnInit, PLATFORM_ID, ViewChild } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { distinctUntilChanged, filter, interval, Subject, Subscription, takeUntil } from 'rxjs';
 import {
   AlertTriangle,
@@ -45,8 +46,9 @@ import {
   IotSensorsApiService
 } from '../../core/services/iot-sensors-api.service';
 import { SatelliteRefreshEvent, SatelliteRefreshEventsService } from '../../core/services/satellite-refresh-events.service';
-import { CropAdvisorService, FarmerAdvisory, FarmerAdvisoryTone, SensorData } from '../../core/services/crop-advisor.service';
+import { CropAdvisorService, FarmerAdvisory, FarmerAdvisoryTone, FarmerSignalCard, ProfitRiskAdvisoryData, SensorData } from '../../core/services/crop-advisor.service';
 import { RentalRecommendationResponse, RentalService } from '../../services/rental/rental.service';
+import { environment } from '../../../environments/environment';
 
 interface DashboardBlock extends Omit<SharedBlock, 'location'> {
   crop: string;
@@ -112,6 +114,53 @@ interface SatelliteTrendChartPoint {
 
 type SatelliteTrendSeriesKey = keyof Omit<SatelliteTrendChartPoint, 'dateKey'>;
 
+interface DashboardProfitRiskScenarioMargins {
+  low: number;
+  current: number;
+  high: number;
+  selected: number;
+}
+
+interface DashboardProfitRiskCropRow {
+  crop: string;
+  commodity: string;
+  current_price: number;
+  break_even_price: number;
+  price_trend: string;
+  yield_t_ha: number;
+  water_req_ml_ha: number;
+  cost_per_unit: number;
+  margins: DashboardProfitRiskScenarioMargins;
+}
+
+interface DashboardProfitRiskCurrentCrop {
+  requested_crop: string;
+  matched_crop: string;
+  commodity: string;
+  match_type: string;
+  note: string | null;
+  current_price: number;
+  break_even_price: number;
+  price_trend: string;
+  yield_t_ha: number;
+  water_req_ml_ha: number;
+  net_margin: number;
+}
+
+interface DashboardProfitRiskResponse {
+  block_id: string;
+  block_name: string;
+  block_crop: string;
+  water_price: number;
+  net_margin: number;
+  risk_level: string;
+  best_crop: string;
+  best_crop_margin: number;
+  updated_at: string;
+  current_crop: DashboardProfitRiskCurrentCrop;
+  margins: DashboardProfitRiskCropRow[];
+}
+
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -146,6 +195,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   private weatherInterval?: Subscription;
   private weatherRequest?: Subscription;
   private insightsRequest?: Subscription;
+  private profitRiskRequest?: Subscription;
   private iotSensorsRequest?: Subscription;
   private refreshEventsSubscription?: Subscription;
   private iotSensorInterval?: Subscription;
@@ -166,6 +216,8 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
 
   currentBlock: DashboardBlock | null = null;
   latestInsights: DashboardInsightsResponse | null = null;
+  profitRiskData: DashboardProfitRiskResponse | null = null;
+  readonly interpretationWaterPrice = 153;
 
   private readonly isBrowser: boolean;
   private ndviMap?: L.Map;
@@ -180,6 +232,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   iotSensorErrorMessage: string | null = null;
   farmerAdvisory: FarmerAdvisory | null = null;
   rentalRecommendation: RentalRecommendationResponse | null = null;
+  private readonly requiredSignalValueKeys = new Set<string>();
 
   hoveredSensor: DashboardSensor | null = null;
   lockedSensor: DashboardSensor | null = null;
@@ -191,6 +244,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   isTrendDataFromPopoverOpen = false;
 
   constructor(
+    private http: HttpClient,
     public weatherService: WeatherService,
     private blockService: BlockService,
     private dashboardApiService: DashboardApiService,
@@ -743,14 +797,16 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
       .pipe(
         takeUntil(this.destroy$),
         filter((block): block is SharedBlock => !!block),
-        distinctUntilChanged((previous, current) => previous.lan === current.lan)
+        distinctUntilChanged((previous, current) => (previous.id || previous.lan) === (current.id || current.lan))
       )
       .subscribe(block => {
         this.currentBlock = this.mapSharedBlock(block);
+        this.profitRiskData = null;
         this.pendingInsightReload = false;
         this.selectedIotSensor = null;
         this.isIotSensorModalOpen = false;
         this.subscribeToSatelliteRefreshEvents(this.currentBlock);
+        this.loadProfitRisk(this.currentBlock);
         this.refreshWeather();
         this.loadBlockInsights(this.currentBlock);
         this.loadIotSensors(this.currentBlock);
@@ -781,6 +837,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     this.weatherInterval?.unsubscribe();
     this.weatherRequest?.unsubscribe();
     this.insightsRequest?.unsubscribe();
+    this.profitRiskRequest?.unsubscribe();
     this.iotSensorsRequest?.unsubscribe();
     this.refreshEventsSubscription?.unsubscribe();
     this.iotSensorInterval?.unsubscribe();
@@ -817,7 +874,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.insightsRequest?.unsubscribe();
 
-    this.insightsRequest = this.dashboardApiService.getBlockInsights(block.lan || block.id)
+    this.insightsRequest = this.dashboardApiService.getBlockInsights(block.id || block.lan)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: insights => {
@@ -843,13 +900,13 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private subscribeToSatelliteRefreshEvents(block: DashboardBlock): void {
     this.refreshEventsSubscription?.unsubscribe();
-    this.refreshEventsSubscription = this.satelliteRefreshEventsService.watchBlock(block.lan || block.id)
+    this.refreshEventsSubscription = this.satelliteRefreshEventsService.watchBlock(block.id || block.lan)
       .pipe(takeUntil(this.destroy$))
       .subscribe(event => this.handleSatelliteRefreshEvent(block, event));
   }
 
   private handleSatelliteRefreshEvent(block: DashboardBlock, event: SatelliteRefreshEvent): void {
-    if (!this.currentBlock || this.currentBlock.lan !== block.lan) {
+    if (!this.currentBlock || (this.currentBlock.id || this.currentBlock.lan) !== (block.id || block.lan)) {
       return;
     }
 
@@ -996,6 +1053,26 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  private loadProfitRisk(block: DashboardBlock): void {
+    this.profitRiskRequest?.unsubscribe();
+    const blockId = block.lan || block.id;
+    const url = `${environment.apiBaseUrl}/api/blocks/${blockId}/profit-risk?water_price=${this.interpretationWaterPrice}`;
+
+    this.profitRiskRequest = this.http.get<DashboardProfitRiskResponse>(url)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: response => {
+          this.profitRiskData = response;
+          this.rebuildFarmerAdvisory();
+        },
+        error: error => {
+          console.error('Failed to fetch profit & risk data for dashboard interpretation.', error);
+          this.profitRiskData = null;
+          this.rebuildFarmerAdvisory();
+        }
+      });
+  }
+
   private mapIotSensors(response: BlockIotSensorsResponse): IotDashboardSensor[] {
     return response.sensors.map(sensor => ({
       sensorId: sensor.sensor_id,
@@ -1076,11 +1153,13 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private rebuildFarmerAdvisory(): void {
-    if (!this.currentBlock || !this.latestInsights) {
+    if (!this.currentBlock || !this.latestInsights || !this.profitRiskData) {
+      this.requiredSignalValueKeys.clear();
       this.farmerAdvisory = null;
       return;
     }
 
+    this.requiredSignalValueKeys.clear();
     this.farmerAdvisory = this.cropAdvisorService.buildFarmerAdvisory({
       currentCrop: this.currentBlock.crop || 'Shiraz',
       areaHa: this.currentBlock.area || 0,
@@ -1093,8 +1172,34 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
         evi: this.latestInsights.metrics.evi.raw,
         lai: this.latestInsights.metrics.lai.raw
       },
-      weatherData: this.weatherData
+      weatherData: this.weatherData,
+      profitRiskData: this.mapProfitRiskAdvisoryData(this.profitRiskData)
     });
+  }
+
+  private mapProfitRiskAdvisoryData(data: DashboardProfitRiskResponse | null): ProfitRiskAdvisoryData | null {
+    if (!data) {
+      return null;
+    }
+
+    return {
+      waterPrice: data.water_price,
+      riskLevel: data.risk_level,
+      currentCrop: {
+        crop: data.current_crop.requested_crop,
+        matchedCrop: data.current_crop.matched_crop,
+        netMarginPerHa: data.current_crop.net_margin,
+        waterReqMlHa: data.current_crop.water_req_ml_ha,
+        note: data.current_crop.note
+      },
+      bestCrop: data.best_crop,
+      bestCropMarginPerHa: data.best_crop_margin,
+      margins: data.margins.map(row => ({
+        crop: row.crop,
+        netMarginPerHa: row.margins.selected,
+        waterReqMlHa: row.water_req_ml_ha
+      }))
+    };
   }
 
   private buildAdvisorSensorData(): Partial<SensorData> {
@@ -1190,21 +1295,21 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     return 'score-risk';
   }
 
-  getInterpretationMetricTone(metric: 'currentProfit' | 'potentialProfit' | 'upside' | 'yield', advisory: FarmerAdvisory): string {
-    const currentProfitRatio = advisory.financial.potentialProfit > 0
-      ? advisory.financial.estimatedCurrentProfit / advisory.financial.potentialProfit
-      : 0;
-    const upsideRatio = advisory.financial.potentialProfit > 0
-      ? advisory.financial.profitOpportunity / advisory.financial.potentialProfit
-      : 0;
-
+  getInterpretationMetricTone(metric: 'currentProfit' | 'liveImpact' | 'riskLevel' | 'yield', advisory: FarmerAdvisory): string {
     switch (metric) {
       case 'currentProfit':
-        return currentProfitRatio >= 0.8 ? 'value-tone-good' : currentProfitRatio >= 0.6 ? 'value-tone-warning' : 'value-tone-critical';
-      case 'potentialProfit':
+        if ((this.profitRiskData?.current_crop.net_margin ?? advisory.financial.estimatedCurrentProfit) < 0) {
+          return 'value-tone-critical';
+        }
+        return advisory.financial.riskLevel === 'High' ? 'value-tone-warning' : 'value-tone-good';
+      case 'liveImpact':
+        if (this.getLiveImpactSeverity(advisory) === 'critical') return 'value-tone-critical';
+        if (this.getLiveImpactSeverity(advisory) === 'warning') return 'value-tone-warning';
         return 'value-tone-good';
-      case 'upside':
-        return upsideRatio <= 0.1 ? 'value-tone-good' : upsideRatio <= 0.25 ? 'value-tone-warning' : 'value-tone-critical';
+      case 'riskLevel':
+        if (advisory.financial.riskLevel === 'High') return 'value-tone-critical';
+        if (advisory.financial.riskLevel === 'Low') return 'value-tone-good';
+        return 'value-tone-warning';
       case 'yield':
         return advisory.financial.currentYieldPercent >= 80 ? 'value-tone-good' : advisory.financial.currentYieldPercent >= 60 ? 'value-tone-warning' : 'value-tone-critical';
       default:
@@ -1223,7 +1328,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
       case 'projectedProfit':
         return advisory.migrationSummary.projectedProfitAfterMigration >= advisory.financial.estimatedCurrentProfit
           ? 'value-tone-good'
-          : 'value-tone-warning';
+          : 'value-tone-critical';
       case 'gain':
         if (advisory.migrationSummary.gainVsCurrent > 0) return 'value-tone-good';
         if (advisory.migrationSummary.gainVsCurrent < 0) return 'value-tone-critical';
@@ -1238,7 +1343,9 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
 
     switch (metric) {
       case 'profit':
-        return option.expectedAnnualProfit > 0 ? 'value-tone-good' : 'value-tone-neutral';
+        if (option.expectedAnnualProfit > 0) return 'value-tone-good';
+        if (option.expectedAnnualProfit < 0) return 'value-tone-critical';
+        return 'value-tone-neutral';
       case 'lift':
         if (option.profitDelta > 0) return 'value-tone-good';
         if (option.profitDelta < 0) return 'value-tone-critical';
@@ -1258,24 +1365,191 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   getMigrationOptionProfitCaption(option: FarmerAdvisory['migrationOptions'][number]): string {
-    return `Trial-size estimate (${option.suggestedSharePct}%): ${this.formatCompactCurrency(option.trialAnnualProfit)}`;
+    return `Estimated result for a ${option.suggestedSharePct}% trial at the current water price`;
   }
 
-  formatCompactCurrency(value: number): string {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      notation: 'compact',
-      maximumFractionDigits: value >= 1000000 ? 2 : 1
-    }).format(value);
+  getSignalDisplayValue(signal: FarmerSignalCard, index: number): string {
+    return this.isShowingRequiredSignalValue(signal, index)
+      ? this.getSignalRequiredDisplayValue(signal)
+      : signal.value;
+  }
+
+  getSignalDisplayValueClass(signal: FarmerSignalCard, index: number): string {
+    return this.isShowingRequiredSignalValue(signal, index)
+      ? 'signal-value-required'
+      : this.getAdvisoryToneClass(signal.tone);
+  }
+
+  isShowingRequiredSignalValue(signal: FarmerSignalCard, index: number): boolean {
+    return !!signal.required && this.requiredSignalValueKeys.has(this.getSignalCardKey(signal, index));
+  }
+
+  toggleRequiredSignalValue(signal: FarmerSignalCard, index: number): void {
+    if (!signal.required) {
+      return;
+    }
+
+    const cardKey = this.getSignalCardKey(signal, index);
+    if (this.requiredSignalValueKeys.has(cardKey)) {
+      this.requiredSignalValueKeys.delete(cardKey);
+      return;
+    }
+
+    this.requiredSignalValueKeys.add(cardKey);
+  }
+
+  getSignalRequiredToggleLabel(signal: FarmerSignalCard, index: number): string {
+    return this.isShowingRequiredSignalValue(signal, index)
+      ? `Show current value for ${signal.label}`
+      : `Show required value for ${signal.label}`;
+  }
+
+  getRiskLevelLabel(advisory: FarmerAdvisory): string {
+    const currentMargin = this.profitRiskData?.current_crop.net_margin;
+    const currentPrice = this.profitRiskData?.current_crop.current_price;
+    const breakEvenPrice = this.profitRiskData?.current_crop.break_even_price;
+
+    if (
+      (typeof currentMargin === 'number' && currentMargin < 0)
+      || (
+        typeof currentPrice === 'number'
+        && typeof breakEvenPrice === 'number'
+        && currentPrice < breakEvenPrice
+      )
+      || advisory.financial.riskLevel === 'High'
+    ) {
+      return 'High risk';
+    }
+    if (advisory.financial.riskLevel === 'Low') {
+      return 'Low risk';
+    }
+    return 'Watch closely';
+  }
+
+  getRiskLevelSummary(advisory: FarmerAdvisory): string {
+    const currentMargin = this.profitRiskData?.current_crop.net_margin;
+    const currentPrice = this.profitRiskData?.current_crop.current_price;
+    const breakEvenPrice = this.profitRiskData?.current_crop.break_even_price;
+
+    if (
+      typeof currentMargin === 'number'
+      && currentMargin < 0
+      && typeof currentPrice === 'number'
+      && typeof breakEvenPrice === 'number'
+      && currentPrice < breakEvenPrice
+    ) {
+      return 'The margin is below zero and the current crop price is still below break-even.';
+    }
+    if (typeof currentMargin === 'number' && currentMargin < 0) {
+      return 'The margin is below zero at the current water price, so returns are under pressure.';
+    }
+    if (
+      typeof currentPrice === 'number'
+      && typeof breakEvenPrice === 'number'
+      && currentPrice < breakEvenPrice
+    ) {
+      return 'The current crop price is below break-even, so profitability is exposed.';
+    }
+    if (advisory.financial.riskLevel === 'Low') {
+      return 'Current price and margin are sitting in a more stable range.';
+    }
+    return 'Returns should be watched as market and field conditions continue to change.';
+  }
+
+  getCurrentResultLabel(advisory: FarmerAdvisory): string {
+    const perHaMargin = this.profitRiskData?.current_crop.net_margin;
+    if (typeof perHaMargin === 'number') {
+      return `${this.formatCurrency(perHaMargin)}/ha`;
+    }
+
+    return this.formatCurrency(advisory.financial.estimatedCurrentProfit);
+  }
+
+  getWaterPriceLabel(advisory: FarmerAdvisory): string {
+    return `${this.formatCurrency(advisory.financial.waterPrice || this.interpretationWaterPrice)}/ML`;
+  }
+
+  getLiveImpactLabel(advisory: FarmerAdvisory): string {
+    switch (this.getLiveImpactSeverity(advisory)) {
+      case 'critical':
+        return 'Needs attention';
+      case 'warning':
+        return 'Watch closely';
+      default:
+        return 'Mostly supportive';
+    }
+  }
+
+  getLiveImpactSummary(advisory: FarmerAdvisory): string {
+    const pressureSignals = advisory.signalCards.filter(signal => signal.tone === 'critical' || signal.tone === 'warning');
+    const labels = pressureSignals.map(signal => signal.label);
+
+    if (labels.includes('Soil moisture') && labels.includes('Water balance') && labels.includes('7-day rain')) {
+      return 'Soil is too dry, satellite water stress is showing, and little rain is expected this week.';
+    }
+    if (labels.includes('Soil moisture') && labels.includes('Water balance')) {
+      return 'Soil moisture is low and satellite water balance is confirming stress across the block.';
+    }
+    if (labels.includes('Soil moisture') && labels.includes('7-day rain')) {
+      return 'Soil moisture is low and the forecast is not bringing enough rain to ease that pressure soon.';
+    }
+    if (labels.includes('Water balance') && labels.includes('Heat outlook')) {
+      return 'Satellite water stress and the coming heat are both adding pressure on the crop.';
+    }
+    if (labels.includes('Soil pH')) {
+      return 'Soil pH is outside the preferred range, so nutrient use may be less efficient right now.';
+    }
+    if (pressureSignals.length >= 2) {
+      return `${pressureSignals[0].summary} ${pressureSignals[1].summary}`;
+    }
+    if (pressureSignals.length === 1) {
+      return pressureSignals[0].summary;
+    }
+    return 'Sensors, satellite, and forecast are mostly supportive right now.';
+  }
+
+  private getSignalCardKey(signal: FarmerSignalCard, index: number): string {
+    return `${index}:${signal.source}:${signal.label}`;
+  }
+
+  private getSignalRequiredDisplayValue(signal: FarmerSignalCard): string {
+    if (!signal.required) {
+      return signal.value;
+    }
+
+    switch (signal.label) {
+      case 'Canopy health':
+        return '0.50+';
+      case 'Water balance':
+        return '-0.05+';
+      case 'Heat outlook':
+        return '< 32.0°C';
+      case '7-day rain':
+        return '8.0+ mm';
+      default:
+        return signal.required;
+    }
+  }
+
+  private getLiveImpactSeverity(advisory: FarmerAdvisory): 'good' | 'warning' | 'critical' {
+    const criticalSignals = advisory.signalCards.filter(signal => signal.tone === 'critical').length;
+    const warningSignals = advisory.signalCards.filter(signal => signal.tone === 'warning').length;
+
+    if (criticalSignals >= 2 || (criticalSignals >= 1 && warningSignals >= 1)) {
+      return 'critical';
+    }
+    if (criticalSignals >= 1 || warningSignals >= 2) {
+      return 'warning';
+    }
+    return 'good';
   }
 
   formatCurrency(value: number): string {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    const formattedNumber = new Intl.NumberFormat('en-US', {
       maximumFractionDigits: 0
-    }).format(value);
+    }).format(Math.abs(value));
+
+    return `${value < 0 ? '-' : ''}$${formattedNumber}`;
   }
 
   private getPdfFitLabel(score: number): string {
@@ -1622,11 +1896,11 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
       ['Report updated', advisory.lastUpdated]
     ];
     const moneyRows = [
-      ['Estimated profit now', this.formatCurrency(advisory.financial.estimatedCurrentProfit)],
-      ['Best profit if the current block recovers', this.formatCurrency(advisory.financial.potentialProfit)],
-      ['Profit still recoverable without migration', this.formatCurrency(advisory.financial.profitOpportunity)],
-      ['Projected profit after the recommended plan', this.formatCurrency(advisory.migrationSummary.projectedProfitAfterMigration)],
-      ['Expected gain versus current position', this.formatCurrency(advisory.migrationSummary.gainVsCurrent)]
+      ['Current result', this.formatCurrency(advisory.financial.estimatedCurrentProfit)],
+      ['Water price used', this.getWaterPriceLabel(advisory)],
+      ['Profit & Risk status', this.getRiskLevelLabel(advisory)],
+      ['Projected annual margin after the recommended plan', this.formatCurrency(advisory.migrationSummary.projectedProfitAfterMigration)],
+      ['Expected change versus current position', this.formatCurrency(advisory.migrationSummary.gainVsCurrent)]
     ];
     const decisionRows = [
       ['Best current decision', this.getPdfMigrationDecisionText()],

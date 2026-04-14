@@ -31,6 +31,8 @@
   gap: 0.85rem;
   min-height: 0;
   justify-content: flex-start;
+  max-width: 560px;
+  width: 100%;
 }
 
 .full-width {
@@ -1032,6 +1034,7 @@
   overflow: hidden;
   transition: transform 0.28s ease, box-shadow 0.28s ease, border-color 0.28s ease;
   min-height: 100%;
+  padding: 0.95rem 1rem;
 }
 
 .ndwi-card::before {
@@ -1072,7 +1075,7 @@
 .ndwi-hero {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.5rem;
   position: relative;
   z-index: 1;
 }
@@ -1089,34 +1092,40 @@
 
 .ndwi-visual-row {
   display: grid;
-  grid-template-columns: minmax(185px, 220px) minmax(0, 1fr);
-  align-items: center;
-  gap: 1rem;
+  grid-template-columns: minmax(128px, 158px) minmax(0, 1fr);
+  align-items: start;
+  gap: 0.85rem;
 }
 
 .ndwi-value-group {
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+  gap: 0.5rem;
   align-items: flex-start;
   justify-content: center;
   min-width: 0;
-  padding: 0.2rem 0 0.1rem;
+  padding: 0.05rem 0 0;
 }
 
 .ndwi-value-copy {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  max-width: 300px;
-  padding-top: 0.1rem;
+  gap: 0.28rem;
+  width: 100%;
+  max-width: none;
+  padding-top: 0;
 }
 
 .irrigation-demo-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  margin-top: 0.45rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
+  width: 100%;
+  margin-top: 0.35rem;
+}
+
+.irrigation-demo-panel.has-override {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .irrigate-now-btn {
@@ -1131,11 +1140,31 @@
   cursor: pointer;
   transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
   box-shadow: 0 8px 16px rgba(2, 132, 199, 0.22);
+  width: 100%;
+  min-height: 42px;
+}
+
+.irrigate-now-btn.wait {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  box-shadow: 0 8px 16px rgba(217, 119, 6, 0.24);
+}
+
+.irrigate-now-btn.neutral {
+  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+  box-shadow: 0 8px 16px rgba(71, 85, 105, 0.22);
 }
 
 .irrigate-now-btn:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: 0 10px 20px rgba(2, 132, 199, 0.26);
+}
+
+.irrigate-now-btn.wait:hover:not(:disabled) {
+  box-shadow: 0 10px 20px rgba(217, 119, 6, 0.28);
+}
+
+.irrigate-now-btn.neutral:hover:not(:disabled) {
+  box-shadow: 0 10px 20px rgba(71, 85, 105, 0.25);
 }
 
 .irrigate-now-btn.running {
@@ -1155,6 +1184,72 @@
   font-size: 0.76rem;
   line-height: 1.35;
   color: #0f172a;
+  grid-column: 1 / -1;
+}
+
+.irrigation-secondary-btn {
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  border-radius: 0.7rem;
+  background: rgba(255, 255, 255, 0.82);
+  color: #0f172a;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.55rem 0.8rem;
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.08);
+  width: 100%;
+  min-height: 42px;
+}
+
+.irrigation-secondary-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
+}
+
+.irrigation-secondary-btn:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.decision-warning {
+  color: #b45309;
+  font-size: 0.92rem;
+  line-height: 1.3;
+}
+
+.decision-action-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.24rem;
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.decision-action-value {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.3;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.decision-action-value.primary {
+  color: #0f766e;
+}
+
+.decision-action-value.wait {
+  color: #b45309;
+}
+
+.decision-action-value.neutral {
+  color: #475569;
 }
 
 .ndwi-value-label {
@@ -1167,10 +1262,10 @@
 
 .ndwi-support-copy {
   margin: 0;
-  font-size: 1rem;
-  line-height: 1.4;
+  font-size: 0.92rem;
+  line-height: 1.32;
   color: #1e293b;
-  font-weight: 700;
+  font-weight: 650;
 }
 
 .ndwi-value {
@@ -1199,7 +1294,8 @@
   flex-direction: column;
   gap: 0.4rem;
   min-width: 0;
-  padding: 0.72rem;
+  padding: 0.55rem;
+  max-width: 158px;
   border-radius: 1.15rem;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.7));
   border: 1px solid rgba(255, 255, 255, 0.9);
@@ -1211,8 +1307,8 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  min-height: 132px;
-  padding: 0.62rem;
+  min-height: 104px;
+  padding: 0.45rem;
   border-radius: 0.95rem;
   border: 1px solid rgba(255, 255, 255, 0.88);
   background:
@@ -1661,6 +1757,7 @@
   .ndwi-card,
   .overview-card {
     width: 100%;
+    max-width: none;
   }
 
   .map-wrapper {
@@ -1690,6 +1787,10 @@
   .overview-grid,
   .feature-strip,
   .ndwi-visual-row {
+    grid-template-columns: 1fr;
+  }
+
+  .irrigation-demo-panel.has-override {
     grid-template-columns: 1fr;
   }
 
@@ -2656,8 +2757,8 @@
   }
 
   .ndwi-visual-row {
-    grid-template-columns: minmax(160px, 190px) minmax(0, 1fr);
-    gap: 1rem;
+    grid-template-columns: minmax(144px, 176px) minmax(0, 1fr);
+    gap: 0.8rem;
   }
 
   .ndwi-value {
@@ -2675,7 +2776,8 @@
   }
 
   .crop-visual-card {
-    padding: 0.68rem;
+    padding: 0.58rem;
+    max-width: 176px;
   }
 
   .tools-card {

@@ -4,7 +4,18 @@ import { Observable, catchError, map, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export type RentalPriceType = 'hourly' | 'daily';
-export type BookingStatus = 'pending' | 'approved' | 'rejected' | 'completed';
+export type BookingStatus = 'pending' | 'approved' | 'rejected' | 'completed' | 'cancelled';
+export type AvailabilityWeekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+
+export interface AvailabilitySettings {
+  available_all_days: boolean;
+  available_days: AvailabilityWeekday[];
+  working_hours_start?: string | null;
+  working_hours_end?: string | null;
+  unavailable_dates: string[];
+  minimum_booking_hours?: number | null;
+  advance_notice_hours?: number | null;
+}
 
 export interface RentalDashboardResponse {
   total_listings: number;
@@ -23,8 +34,13 @@ export interface RentalListing {
   block_id: string | null;
   equipment_name: string;
   description: string | null;
+  specifications?: Record<string, string> | null;
+  availability_settings?: AvailabilitySettings | null;
   price: number;
   price_type: RentalPriceType;
+  quantity_total: number;
+  image_url?: string | null;
+  image_public_id?: string | null;
   latitude: number | null;
   longitude: number | null;
   is_active: boolean;
@@ -38,8 +54,12 @@ export interface RentalListing {
 export interface CreateListingPayload {
   equipment_name: string;
   description?: string | null;
+  specifications?: Record<string, string> | null;
+  availability_settings?: AvailabilitySettings | null;
   price: number;
   price_type: RentalPriceType;
+  quantity_total?: number;
+  image?: File;
   latitude?: number | null;
   longitude?: number | null;
   block_id?: string | null;
@@ -52,6 +72,7 @@ export interface RentalBooking {
   owner_id: string;
   start_datetime: string;
   end_datetime: string;
+  quantity_requested: number;
   status: BookingStatus;
   total_price: number | null;
   created_at: string;
@@ -65,6 +86,7 @@ export interface CheckAvailabilityPayload {
   listing_id: string;
   start_datetime: string;
   end_datetime: string;
+  quantity_requested?: number;
 }
 
 export interface CheckAvailabilityResponse {
@@ -72,12 +94,15 @@ export interface CheckAvailabilityResponse {
   available: boolean;
   conflict: boolean;
   reason?: string | null;
+  requested_quantity?: number;
+  available_quantity?: number | null;
 }
 
 export interface CreateBookingPayload {
   listing_id: string;
   start_datetime: string;
   end_datetime: string;
+  quantity_requested?: number;
 }
 
 export interface RentalRecommendationListing {
@@ -103,7 +128,7 @@ export interface RentalRecommendationResponse {
 export interface RentalCalendarSlot {
   start_datetime: string;
   end_datetime: string;
-  status: 'booked' | 'buffer' | 'available';
+  status: 'booked' | 'buffer' | 'available' | 'unavailable';
 }
 
 export interface RentalCalendarResponse {
@@ -137,9 +162,17 @@ export class RentalService {
   }
 
   createListing(userId: string, payload: CreateListingPayload): Observable<RentalListing> {
+    const formData = this.buildListingFormData(payload);
     return this.http
-      .post<RentalListing>(`${this.baseUrl}/listings`, payload, { params: new HttpParams().set('user_id', userId) })
+      .post<RentalListing>(`${this.baseUrl}/listings`, formData, { params: new HttpParams().set('user_id', userId) })
       .pipe(catchError(error => this.handleError('POST /api/rental/listings', error)));
+  }
+
+  updateListing(userId: string, listingId: string, payload: CreateListingPayload): Observable<RentalListing> {
+    const formData = this.buildListingFormData(payload);
+    return this.http
+      .patch<RentalListing>(`${this.baseUrl}/listings/${listingId}`, formData, { params: new HttpParams().set('user_id', userId) })
+      .pipe(catchError(error => this.handleError('PATCH /api/rental/listings/{id}', error)));
   }
 
   getMyListings(userId: string): Observable<RentalListing[]> {
@@ -148,10 +181,16 @@ export class RentalService {
       .pipe(catchError(error => this.handleError('GET /api/rental/my-listings', error)));
   }
 
-  getListings(lat?: number, lon?: number, radiusKm?: number): Observable<RentalListing[]> {
+  getListings(lat?: number, lon?: number, radiusKm?: number, userId?: string): Observable<RentalListing[]> {
     let params = new HttpParams();
-    if (lat != null && lon != null && radiusKm != null) {
-      params = params.set('lat', lat).set('lon', lon).set('radius', radiusKm);
+    if (lat != null && lon != null) {
+      params = params.set('lat', lat).set('lon', lon);
+    }
+    if (radiusKm != null) {
+      params = params.set('radius', radiusKm);
+    }
+    if (userId) {
+      params = params.set('user_id', userId);
     }
 
     return this.http
@@ -207,6 +246,12 @@ export class RentalService {
       .pipe(catchError(error => this.handleError('POST /api/rental/bookings/{id}/reject', error)));
   }
 
+  cancelBooking(userId: string, bookingId: string): Observable<RentalBooking> {
+    return this.http
+      .post<RentalBooking>(`${this.baseUrl}/bookings/${bookingId}/cancel`, {}, { params: new HttpParams().set('user_id', userId) })
+      .pipe(catchError(error => this.handleError('POST /api/rental/bookings/{id}/cancel', error)));
+  }
+
   payBooking(userId: string, bookingId: string): Observable<RentalBooking> {
     return this.http
       .post<BookingPaymentResponse>(`${this.baseUrl}/pay/${bookingId}`, {}, { params: new HttpParams().set('user_id', userId) })
@@ -228,6 +273,38 @@ export class RentalService {
     return this.http
       .get<RentalRecommendationResponse>(`${this.baseUrl}/recommendations/${blockId}`)
       .pipe(catchError(error => this.handleError('GET /api/rental/recommendations/{blockId}', error)));
+  }
+
+  private buildListingFormData(payload: CreateListingPayload): FormData {
+    const formData = new FormData();
+    formData.append('equipment_name', payload.equipment_name);
+    formData.append('price', String(payload.price));
+    formData.append('price_type', payload.price_type);
+    formData.append('quantity_total', String(payload.quantity_total ?? 1));
+
+    if (payload.description) {
+      formData.append('description', payload.description);
+    }
+    if (payload.specifications && Object.keys(payload.specifications).length) {
+      formData.append('specifications', JSON.stringify(payload.specifications));
+    }
+    if (payload.availability_settings) {
+      formData.append('availability_settings', JSON.stringify(payload.availability_settings));
+    }
+    if (payload.latitude != null) {
+      formData.append('latitude', String(payload.latitude));
+    }
+    if (payload.longitude != null) {
+      formData.append('longitude', String(payload.longitude));
+    }
+    if (payload.block_id) {
+      formData.append('block_id', payload.block_id);
+    }
+    if (payload.image) {
+      formData.append('image', payload.image, payload.image.name);
+    }
+
+    return formData;
   }
 
   private handleError(operation: string, error: HttpErrorResponse): Observable<never> {

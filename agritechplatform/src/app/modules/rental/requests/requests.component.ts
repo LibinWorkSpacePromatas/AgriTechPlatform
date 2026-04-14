@@ -14,6 +14,8 @@ export class RequestsComponent implements OnInit {
   requests: RentalBooking[] = [];
   loading = false;
   error: string | null = null;
+  info: string | null = null;
+  selectedRequest: RentalBooking | null = null;
 
   constructor(
     private rentalService: RentalService,
@@ -40,6 +42,14 @@ export class RequestsComponent implements OnInit {
     });
   }
 
+  openDetails(booking: RentalBooking): void {
+    this.selectedRequest = booking;
+  }
+
+  closeDetails(): void {
+    this.selectedRequest = null;
+  }
+
   approve(booking: RentalBooking): void {
     const user = this.authService.getCurrentUser();
     if (!user) {
@@ -50,6 +60,10 @@ export class RequestsComponent implements OnInit {
     this.rentalService.approveBooking(user.userId, booking.id).subscribe({
       next: updated => {
         booking.status = updated.status;
+        this.info = 'Request approved successfully.';
+        if (this.selectedRequest?.id === booking.id) {
+          this.selectedRequest = { ...booking };
+        }
       },
       error: err => this.error = err.message || 'Approve failed',
     });
@@ -65,6 +79,10 @@ export class RequestsComponent implements OnInit {
     this.rentalService.rejectBooking(user.userId, booking.id).subscribe({
       next: updated => {
         booking.status = updated.status;
+        this.info = 'Request rejected successfully.';
+        if (this.selectedRequest?.id === booking.id) {
+          this.selectedRequest = { ...booking };
+        }
       },
       error: err => this.error = err.message || 'Reject failed',
     });
@@ -80,6 +98,8 @@ export class RequestsComponent implements OnInit {
         return 'status-rejected';
       case 'completed':
         return 'status-completed';
+      case 'cancelled':
+        return 'status-cancelled';
       default:
         return '';
     }

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date, datetime, timedelta, timezone
 import json
 import logging
 from typing import Any
@@ -8,11 +9,47 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-
+from app.core.config import get_settings
+from app.db.models import BlockDecision
 from app.services.weather_ingest import is_weather_fresh, fetch_weather, store_weather, get_block_info
 
 
 logger = logging.getLogger(__name__)
+
+
+def _clamp_confidence(value: float) -> float:
+    return round(max(0.0, min(1.0, value)), 2)
+
+
+def _calculate_decision_confidence(
+    *,
+    ndwi: float | None,
+    soil_moisture: float,
+    weather_available: bool,
+    satellite_data_age_days: int | None,
+    satellite_data_quality: str | None,
+    recent_rain_override: bool,
+    ndwi_stress: bool,
+    soil_wet_override: bool,
+) -> float:
+    confidence = 1.0
+
+    if ndwi is None:
+        confidence -= 0.3
+    if soil_moisture <= 0:
+        confidence -= 0.15
+    if not weather_available:
+        confidence -= 0.2
+
+    if satellite_data_age_days is None:
+        confidence -= 0.15
+
+    if satellite_data_quality == "degraded":
+        confidence -= 0.15
+    elif satellite_data_quality == "no_data":
+        confidence -= 0.35
+
+    return _clamp_confidence(confidence)
 
 
 def _get_weighted_soil_factor(data: dict[str, Any], db: Session) -> dict[str, Any]:
@@ -149,6 +186,23 @@ def trigger_block_decision(db: Session, block_id: UUID) -> dict[str, Any] | None
         return None
 
 
+def is_decision_stale(db: Session, block_id: UUID, *, max_age_minutes: int | None = None) -> bool:
+    settings = get_settings()
+    ttl_minutes = max_age_minutes if max_age_minutes is not None else settings.decision_ttl_minutes
+    decision = db.get(BlockDecision, block_id)
+    if decision is None or decision.decision_payload is None:
+        return True
+
+    created_at = decision.created_at
+    if created_at is None:
+        return True
+
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
+
+    return created_at <= datetime.now(timezone.utc) - timedelta(minutes=max(1, ttl_minutes))
+
+
 def _get_decision_data(db: Session, block_id: UUID) -> dict[str, Any] | None:
     """
     Fetches unified farm state, crop config, and weather data.
@@ -174,6 +228,8 @@ def _get_decision_data(db: Session, block_id: UUID) -> dict[str, Any] | None:
                 sr.secondary_soil_value,
                 sr.tertiary_soil_classification,
                 sr.tertiary_soil_value,
+                sc.data_quality AS satellite_data_quality,
+                sc.composite_date_to AS satellite_composite_date_to,
                 scc.drainage_class AS primary_drainage_class,
                 scc.label AS primary_soil_label
             FROM unified_farm_state ufs
@@ -181,6 +237,7 @@ def _get_decision_data(db: Session, block_id: UUID) -> dict[str, Any] | None:
             LEFT JOIN users u ON u.id = b.user_id
             JOIN crop_config cc ON cc.crop = COALESCE(b.crop, u.primary_crop)
             LEFT JOIN soil_reference sr ON sr.lanslu = b.lanslu
+            LEFT JOIN satellite_cache sc ON sc.block_id = ufs.block_id
             LEFT JOIN soil_class_config scc ON scc.code = sr.primary_soil_classification
             WHERE ufs.block_id = :block_id
         """),
@@ -198,7 +255,7 @@ def _get_decision_data(db: Session, block_id: UUID) -> dict[str, Any] | None:
                 AVG(temperature) as temperature_avg
             FROM weather_timeseries
             WHERE block_id = :block_id
-            AND observed_at >= NOW() - INTERVAL '24 hours'
+            AND observed_at BETWEEN NOW() - INTERVAL '24 hours' AND NOW()
         """),
         {"block_id": str(block_id)}
     ).mappings().first()
@@ -209,12 +266,19 @@ def _get_decision_data(db: Session, block_id: UUID) -> dict[str, Any] | None:
             SELECT COALESCE(SUM(precipitation), 0)
             FROM weather_timeseries
             WHERE block_id = :block_id
-            AND observed_at BETWEEN NOW() AND NOW() + INTERVAL '48 hours'
+            AND observed_at > NOW()
+            AND observed_at <= NOW() + INTERVAL '48 hours'
         """),
         {"block_id": str(block_id)}
     ).scalar()
 
     weather_available = weather_stats is not None and weather_stats["rain_24h"] is not None
+    satellite_composite_date_to = row["satellite_composite_date_to"]
+    satellite_data_age_days = (
+        (date.today() - satellite_composite_date_to).days
+        if satellite_composite_date_to is not None
+        else None
+    )
 
     return {
         "block_id": str(block_id),
@@ -238,6 +302,8 @@ def _get_decision_data(db: Session, block_id: UUID) -> dict[str, Any] | None:
         "secondary_soil_value": row["secondary_soil_value"],
         "tertiary_soil_classification": row["tertiary_soil_classification"],
         "tertiary_soil_value": row["tertiary_soil_value"],
+        "satellite_data_quality": row["satellite_data_quality"],
+        "satellite_data_age_days": satellite_data_age_days,
         "primary_drainage_class": row["primary_drainage_class"],
         "primary_soil_label": row["primary_soil_label"],
     }
@@ -266,24 +332,54 @@ def _compute_irrigation_decision(data: dict[str, Any], db: Session) -> dict[str,
     rain_next_48h = float(data["rain_next_48h"])
     temp_avg = float(data["temperature_avg"]) if data.get("temperature_avg") is not None else None
     area_ha = float(data.get("area_ha", 0.0))
+    satellite_data_quality = str(data.get("satellite_data_quality") or "unknown").lower()
+    satellite_data_age_days = data.get("satellite_data_age_days")
+    satellite_data_age_days = int(satellite_data_age_days) if satellite_data_age_days is not None else None
 
     # 🔧 Optimization: Cache soil_factor at the top
     soil_props = _get_weighted_soil_factor(data, db)
     soil_factor = float(soil_props["factor"])
     drainage_class = str(data.get("primary_drainage_class") or "MODERATE").upper()
+    settings = get_settings()
 
-    # ✅ Unify rain threshold usage
-    rain_threshold = root_depth_mm * 0.02 # 2% of root depth is a safe rain limit
+    forecast_threshold = float(settings.decision_weather_rain_forecast_trigger_mm)
+    recent_rain_threshold = 20.0
+    soil_wet_override = bool(optimal_max and soil_moisture >= optimal_max)
+    recent_rain_override = rain_24h >= recent_rain_threshold
+    ndwi_stress = ndwi is not None and ndwi < -0.1
+    severe_ndwi_stress = ndwi is not None and ndwi < -0.3
 
-    # 🔥 HARD STOP: Heavy rain coming (Dynamic threshold based on root depth)
-    if rain_next_48h > rain_threshold:
+    confidence = _calculate_decision_confidence(
+        ndwi=ndwi,
+        soil_moisture=soil_moisture,
+        weather_available=weather_available,
+        satellite_data_age_days=satellite_data_age_days,
+        satellite_data_quality=satellite_data_quality,
+        recent_rain_override=recent_rain_override,
+        ndwi_stress=ndwi_stress,
+        soil_wet_override=soil_wet_override,
+    )
+
+    score = 0
+    dominant_reason = "No significant water stress"
+    irrigation = "OFF"
+    urgency = "LOW"
+    warning = None
+    stale_satellite_data = satellite_data_age_days is not None and satellite_data_age_days > 3
+
+    if stale_satellite_data:
+        confidence = _clamp_confidence(confidence * 0.7)
+        warning = f"Satellite data is {satellite_data_age_days} days old - verify before irrigating"
+
+    if rain_next_48h >= forecast_threshold:
         return {
-            "irrigation": "OFF",
+            "irrigation": "WAIT",
             "urgency": "LOW",
             "water_needed_mm": 0,
             "water_needed_liters": 0.0,
-            "reason": f"Heavy rain expected ({rain_next_48h}mm > {rain_threshold:.1f}mm limit), irrigation skipped",
-            "confidence": 0.95,
+            "reason": "Rain expected in next 48 hours",
+            "warning": warning,
+            "confidence": round(confidence, 2),
             "metadata": {
                 "score": 0,
                 "soil_moisture": soil_moisture,
@@ -291,116 +387,57 @@ def _compute_irrigation_decision(data: dict[str, Any], db: Session) -> dict[str,
                 "ndwi": ndwi,
                 "rain_24h": rain_24h,
                 "rain_next_48h": rain_next_48h,
+                "satellite_data_quality": satellite_data_quality,
+                "satellite_data_age_days": satellite_data_age_days,
                 "soil_factor": soil_factor,
                 "soil_label": soil_props["soil_label"],
                 "soil_source": soil_props["source"],
                 "drainage_class": drainage_class,
                 "weather_available": weather_available,
+                "forecast_threshold": forecast_threshold,
+                "recent_rain_threshold": recent_rain_threshold,
+                "recent_rain_override": recent_rain_override,
+                "soil_wet_override": soil_wet_override,
+                "temp_avg": temp_avg,
                 "water_needed_liters": 0.0,
+                "warning": warning,
             }
         }
 
-    # 🛡️ NDWI PRIMARY DECISION (DOMAIN RULE)
-    # Refined: Only force irrigation if soil isn't already at max capacity
-    ndwi_decision = None
-    if ndwi is not None:
-        if ndwi < -0.3 and soil_moisture < optimal_max:
-            ndwi_decision = {
-                "irrigation": "ON",
-                "urgency": "HIGH",
-                "reason": "Severe water stress (NDWI < -0.3)"
-            }
-        elif ndwi < -0.1 and soil_moisture < optimal_max:
-            ndwi_decision = {
-                "irrigation": "ON",
-                "urgency": "MEDIUM",
-                
-                "reason": "Moderate water stress (NDWI)"
-            }
-        elif ndwi < 0.1:
-            ndwi_decision = {
-                "irrigation": "WAIT",
-                "urgency": "LOW",
-                
-                "reason": "Mild water stress (NDWI)"
-            }
-        else:
-            ndwi_decision = {
-                "irrigation": "OFF",
-                "urgency": "LOW",
-                "reason": "Well-watered (NDWI)"
-            }
-
-    score = None
-    reasons = []
-
-    # 🌱 Multisource refinement / fallback scoring (only if NDWI is missing)
-    if ndwi_decision is None:
-        score = 0
-        if soil_moisture < optimal_min:
-            score += 50
-            reasons.append("Soil moisture below optimal")
-        elif soil_moisture < optimal_min + 5:
-            score += 25
-            reasons.append("Soil moisture slightly low")
-        elif optimal_max and soil_moisture > optimal_max:
-            score -= 50
-            reasons.append("Soil moisture above optimal (over-irrigation risk)")
-        else:
-            score -= 20
-
-        # 🌿 NDVI (Secondary signal - used only if NDWI is missing)
-        if ndvi is not None:
-            if ndvi < 0.4:
-                score += 15
-                reasons.append("Vegetation stress (NDVI fallback)")
-            elif ndvi > 0.7:
-                score -= 5
-
-        # 🌧 Past rain
-        if rain_24h > 5:
-            score -= 30
-            reasons.append("Recent rainfall")
-
-        # 🌦 Forecast rain
-        if rain_next_48h > 5:
-            score -= 40
-            reasons.append("Rain expected soon")
-
-    # 🎯 FINAL DECISION (NDWI + multisource refinement)
-    if ndwi_decision:
-        irrigation = ndwi_decision["irrigation"]
-        urgency = ndwi_decision["urgency"]
-        reason = ndwi_decision["reason"]
-
-        # 🌧 Weather refinement (ONLY downgrade, never override severe stress)
-        # Medium rain (0.5 * threshold) triggers a downgrade to "WAIT"
-        if rain_next_48h > (rain_threshold * 0.5) and irrigation == "ON" and (ndwi is not None and ndwi > -0.3):
-            irrigation = "WAIT"
-            urgency = "LOW"
-            reason += " + Rain expected"
-
-        # 🌱 Soil refinement (increase confidence / adjust water)
-        # ⚠️ Priority check: Severe stress (NDWI < -0.3) overrides sensors
-        if optimal_max and soil_moisture > optimal_max and (ndwi is None or ndwi > -0.3):
-            irrigation = "OFF"
-            urgency = "LOW"
-            reason += " + Soil already wet"
+    if recent_rain_override:
+        irrigation = "WAIT"
+        urgency = "LOW"
+        dominant_reason = "Recent heavy rainfall detected"
+    elif soil_wet_override:
+        irrigation = "OFF"
+        urgency = "LOW"
+        dominant_reason = "Soil moisture is already sufficient"
+        score = -30
     else:
-        # Fallback to score system if no NDWI
-        if score >= 50:
+        if severe_ndwi_stress:
             irrigation = "ON"
             urgency = "HIGH"
-        elif score >= 20:
+            dominant_reason = "Severe water stress detected (NDWI)"
+            score = 70
+        elif ndwi_stress:
             irrigation = "ON"
             urgency = "MEDIUM"
-        elif score >= 0:
-            irrigation = "WAIT"
-            urgency = "LOW"
+            dominant_reason = "Moderate water stress detected (NDWI)"
+            score = 45
         else:
             irrigation = "OFF"
             urgency = "LOW"
-        reason = ", ".join(reasons) if reasons else "Conditions optimal"
+            dominant_reason = "No significant water stress"
+            score = -10
+
+    reason = dominant_reason
+    if stale_satellite_data:
+        if irrigation == "ON":
+            if urgency == "HIGH":
+                urgency = "MEDIUM"
+            reason = f"{reason}, but satellite data is {satellite_data_age_days} days old"
+        elif warning and irrigation != "WAIT":
+            reason = f"{reason}, but satellite data is {satellite_data_age_days} days old"
 
     # 💧 Scientific Water Quantity Calculation
     water_needed_mm = 0
@@ -460,26 +497,22 @@ def _compute_irrigation_decision(data: dict[str, Any], db: Session) -> dict[str,
         water_needed_mm = round(water_needed_mm, 1)
         water_needed_liters = round(water_needed_mm * area_ha * 10_000, 0) if area_ha > 0 else 0.0
 
-    # ⚠️ Data-Driven Confidence calculation (Step 3: Weights)
-    confidence = 0.0
-    if ndwi is not None:
-        confidence += 0.4
-    if soil_moisture is not None and soil_moisture > 0:
-        confidence += 0.3
-    if weather_available:
-        confidence += 0.3
-    confidence = min(1.0, confidence)
-
     # 🔥 Decision Logging (Step 4)
     logger.info(
-        "decision_debug block=%s soil=%.2f ndwi=%s rain24=%.2f rain48=%.2f temp=%.2f irrigation=%s",
+        "decision_debug block=%s soil=%.2f ndwi=%s rain24=%.2f rain48=%.2f temp=%.2f irrigation=%s confidence=%.2f score=%s recent_rain_override=%s soil_wet_override=%s data_age_days=%s data_quality=%s",
         data.get("block_id"),
         soil_moisture,
         ndwi,
         rain_24h,
         rain_next_48h,
         temp_avg if temp_avg is not None else -1,
-        irrigation
+        irrigation,
+        confidence,
+        score,
+        recent_rain_override,
+        soil_wet_override,
+        satellite_data_age_days,
+        satellite_data_quality,
     )
 
     return {
@@ -488,6 +521,7 @@ def _compute_irrigation_decision(data: dict[str, Any], db: Session) -> dict[str,
         "water_needed_mm": water_needed_mm,
         "water_needed_liters": water_needed_liters,
         "reason": reason,
+        "warning": warning,
         "confidence": round(confidence, 2),
         "metadata": {
             "score": score,
@@ -497,12 +531,19 @@ def _compute_irrigation_decision(data: dict[str, Any], db: Session) -> dict[str,
             "rain_24h": rain_24h,
             "rain_next_48h": rain_next_48h,
             "temp_avg": temp_avg,
+            "satellite_data_quality": satellite_data_quality,
+            "satellite_data_age_days": satellite_data_age_days,
             "soil_factor": soil_factor,
             "soil_label": soil_props["soil_label"],
             "soil_source": soil_props["source"],
             "drainage_class": drainage_class,
             "weather_available": weather_available,
+            "forecast_threshold": forecast_threshold,
+            "recent_rain_threshold": recent_rain_threshold,
+            "recent_rain_override": recent_rain_override,
+            "soil_wet_override": soil_wet_override,
             "water_needed_liters": water_needed_liters,
+            "warning": warning,
         }
     }
 

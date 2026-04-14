@@ -35,6 +35,16 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
   InfoIcon = Info;
 
   irrigationStatus: IrrigationStatus | null = null;
+  currentDecision: {
+    irrigation: 'ON' | 'OFF' | 'WAIT';
+    urgency: 'HIGH' | 'MEDIUM' | 'LOW';
+    reason: string;
+    warning?: string;
+    water_needed_mm?: number;
+    water_needed_liters?: number;
+    confidence?: number;
+    metadata?: { ndwi?: number | null };
+  } | null = null;
   isLoading = true;
   error: string | null = null;
   blocks: Block[] = [];
@@ -359,6 +369,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
           });
 
           this.blockService.setBlocks(nextBlocks);
+          this.refreshUserCache();
           this.renderSpatialLayers();
           this.map.invalidateSize();
           this.refreshAfterGeometryChange();
@@ -455,6 +466,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
             };
           });
           this.blockService.setBlocks(nextBlocks);
+          this.refreshUserCache();
           this.toggleMoveMode();
           this.renderSpatialLayers();
           this.map.invalidateSize();
@@ -503,6 +515,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
             };
           });
           this.blockService.setBlocks(nextBlocks);
+          this.refreshUserCache();
           if (this.drawLayerGroup) {
             this.drawLayerGroup.clearLayers();
           }
@@ -557,6 +570,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
           };
         });
         this.blockService.setBlocks(nextBlocks);
+        this.refreshUserCache();
         this.renderSpatialLayers();
         this.map.invalidateSize();
         this.refreshAfterGeometryChange();
@@ -601,6 +615,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
             this.drawLayerGroup.clearLayers();
           }
           this.blockService.setBlocks(remainingBlocks);
+          this.refreshUserCache();
         },
         error: (error: any) => {
           console.error('Failed to delete block', error);
@@ -621,6 +636,14 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
       },
       error: (error: any) => {
         console.error('Error fetching unified farm state:', error);
+      }
+    });
+  }
+
+  private refreshUserCache(): void {
+    this.userDataService.loadUsers(true).pipe(take(1)).subscribe({
+      error: (error: any) => {
+        console.error('Failed to refresh user cache after block mutation', error);
       }
     });
   }
@@ -657,8 +680,15 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     }
   }
 
-  canStartDemoIrrigation(): boolean {
-    return !!this.irrigationStatus && this.needsIrrigationNow() && !this.isPumpRunning;
+  canStartPrimaryDecisionAction(): boolean {
+    if (!this.currentDecision || this.isPumpRunning) {
+      return false;
+    }
+    return this.currentDecision.irrigation !== 'OFF';
+  }
+
+  canStartOverrideIrrigation(): boolean {
+    return !!this.currentDecision && this.currentDecision.irrigation === 'WAIT' && !this.isPumpRunning;
   }
 
   triggerIrrigationDemo(): void {
@@ -669,7 +699,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
       return;
     }
     if (!this.needsIrrigationNow()) {
-      this.pumpDemoMessage = 'Irrigation is not needed right now based on current NDWI and urgency.';
+      this.pumpDemoMessage = 'Final decision does not recommend irrigation right now.';
       return;
     }
 
@@ -684,13 +714,39 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     }, 8000);
   }
 
+  triggerPrimaryDecisionAction(): void {
+    if (!this.currentDecision) {
+      return;
+    }
+    if (this.currentDecision.irrigation === 'WAIT') {
+      this.pumpDemoMessage = 'Final decision recommends waiting for forecast rain. Use override only if field conditions require immediate action.';
+      return;
+    }
+
+    this.triggerIrrigationDemo();
+  }
+
+  triggerOverrideIrrigation(): void {
+    if (!this.canStartOverrideIrrigation()) {
+      return;
+    }
+
+    this.isPumpRunning = true;
+    this.pumpDemoMessage = 'Manual override enabled. Pump ON. Irrigation started despite wait recommendation (demo).';
+    if (this.pumpStopTimer) {
+      clearTimeout(this.pumpStopTimer);
+    }
+    this.pumpStopTimer = setTimeout(() => {
+      this.isPumpRunning = false;
+      this.pumpDemoMessage = 'Demo complete: Pump OFF. Field moisture is being monitored.';
+    }, 8000);
+  }
+
   private needsIrrigationNow(): boolean {
-    if (!this.irrigationStatus) {
+    if (!this.currentDecision) {
       return false;
     }
-    const statusNeedsWater = this.irrigationStatus.status === 'Severe stress' || this.irrigationStatus.status === 'Moderate stress';
-    const urgencyNeedsWater = this.irrigationStatus.urgency === 'HIGH' || this.irrigationStatus.urgency === 'MEDIUM';
-    return statusNeedsWater || urgencyNeedsWater;
+    return this.currentDecision.irrigation === 'ON';
   }
 
   private resetPumpDemoState(): void {
@@ -706,13 +762,14 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     this.isLoading = true;
     this.error = null;
 
-    const blockId = this.currentLan;
     const blockUUID = this.selectedBlock?.id;
+    const blockId = blockUUID || this.currentLan;
 
     // 1. Get basic irrigation status (NDWI etc)
     this.waterIrrigationService.getIrrigationStatus(blockId).pipe(
       switchMap(status => {
         this.irrigationStatus = status;
+        this.currentDecision = null;
         
         // 2. Try to get smart decision from Decision Engine
         if (blockUUID) {
@@ -725,18 +782,8 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
       next: (decision: any) => {
         console.log('Final Processed Irrigation Status + Decision:', { status: this.irrigationStatus, decision });
         
-        if (decision && this.irrigationStatus) {
-          // Replace basic status with smart decision logic
-          this.irrigationStatus = {
-            ...this.irrigationStatus,
-            ndwi: decision.metadata?.ndwi ?? this.irrigationStatus.ndwi,
-            status: this.mapDecisionToStatus(decision.irrigation, decision.urgency),
-            recommendation: decision.reason,
-            urgency: decision.urgency,
-            waterNeeded: decision.water_needed_mm,
-            waterNeededLiters: decision.water_needed_liters,
-            confidence: decision.confidence
-          };
+        if (decision) {
+          this.currentDecision = decision;
         }
 
         this.isLoading = false;
@@ -761,21 +808,15 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     });
   }
 
-  private mapDecisionToStatus(irrigation: string, urgency: string): IrrigationStatus['status'] {
-    if (irrigation === 'OFF' || irrigation === 'WAIT') return 'Well-watered';
-    if (urgency === 'HIGH') return 'Severe stress';
-    if (urgency === 'MEDIUM') return 'Moderate stress';
-    return 'Mild stress';
-  }
-
   private refreshAfterGeometryChange(): void {
-    const blockId = this.currentLan;
     const blockUUID = this.selectedBlock?.id;
+    const blockId = blockUUID || this.currentLan;
 
     // 1. Trigger the refresh (minimal?refresh=true)
     this.waterIrrigationService.getIrrigationStatus(blockId, true).subscribe({
       next: (initial) => {
         this.irrigationStatus = initial;
+        this.currentDecision = null;
         this.updateTileFromStatus();
 
         // 2. Wait for completion using SSE (Pro Level)
@@ -789,17 +830,8 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
             
             this.fetchUnifiedFarmState();
             this.waterIrrigationService.getDecision(blockUUID).pipe(take(1)).subscribe((decision: any) => {
-              if (decision && this.irrigationStatus) {
-                this.irrigationStatus = {
-                  ...this.irrigationStatus,
-                  ndwi: decision.metadata?.ndwi ?? this.irrigationStatus.ndwi,
-                  status: this.mapDecisionToStatus(decision.irrigation, decision.urgency),
-                  recommendation: decision.reason,
-                  urgency: decision.urgency,
-                  waterNeeded: decision.water_needed_mm,
-                  waterNeededLiters: decision.water_needed_liters,
-                  confidence: decision.confidence
-                };
+              if (decision) {
+                this.currentDecision = decision;
                 this.updateTileFromStatus();
               }
             });
@@ -835,17 +867,8 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
       filter((decision: any) => !!decision),
       take(1)
     ).subscribe((decision: any) => {
-      if (decision && this.irrigationStatus) {
-        this.irrigationStatus = {
-          ...this.irrigationStatus,
-          ndwi: decision.metadata?.ndwi ?? this.irrigationStatus.ndwi,
-          status: this.mapDecisionToStatus(decision.irrigation, decision.urgency),
-          recommendation: decision.reason,
-          urgency: decision.urgency,
-          waterNeeded: decision.water_needed_mm,
-          waterNeededLiters: decision.water_needed_liters,
-          confidence: decision.confidence
-        };
+      if (decision) {
+        this.currentDecision = decision;
         this.updateTileFromStatus();
       }
     });
@@ -973,6 +996,49 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
 
   getUrgencyTone(status: IrrigationStatus['status']): 'well-watered' | 'stress' | 'severe' | 'neutral' {
     return this.getNdwiTone(status);
+  }
+
+  getDecisionButtonLabel(): string {
+    if (this.isPumpRunning) return 'Pump Running';
+    if (!this.currentDecision) return 'Decision Loading';
+    if (this.currentDecision.irrigation === 'ON') return 'Irrigate Now';
+    if (this.currentDecision.irrigation === 'WAIT') return 'Wait / Delay Irrigation';
+    return 'No Irrigation Needed';
+  }
+
+  getDecisionButtonTone(): 'primary' | 'wait' | 'neutral' {
+    if (!this.currentDecision) return 'neutral';
+    if (this.currentDecision.irrigation === 'WAIT') return 'wait';
+    if (this.currentDecision.irrigation === 'ON') return 'primary';
+    return 'neutral';
+  }
+
+  getRecommendedActionLabel(): string {
+    if (!this.currentDecision) return 'Loading decision';
+    if (this.currentDecision.irrigation === 'WAIT') return 'WAIT';
+    if (this.currentDecision.irrigation === 'ON') return 'IRRIGATE NOW';
+    return 'NO IRRIGATION';
+  }
+
+  shouldShowOverrideButton(): boolean {
+    return this.currentDecision?.irrigation === 'WAIT';
+  }
+
+  getSatelliteInsightLabel(): IrrigationStatus['status'] {
+    if (!this.irrigationStatus?.ndwi && this.irrigationStatus?.ndwi !== 0) {
+      return 'No data';
+    }
+    const ndwi = this.irrigationStatus.ndwi;
+    if (ndwi === null) return 'No data';
+    if (ndwi < -0.3) return 'Severe stress';
+    if (ndwi < -0.1) return 'Moderate stress';
+    if (ndwi < 0.1) return 'Mild stress';
+    return 'Well-watered';
+  }
+
+  getDecisionSummary(): string {
+    if (!this.currentDecision) return 'Waiting for final decision.';
+    return this.currentDecision.reason;
   }
 
   getCropDisplayName(): string {

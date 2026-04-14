@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject, Observable, take } from 'rxjs';
 import { User } from '../models/user.model';
 import { UserDataService } from './user-data.service';
 import { BlockService } from '../../shared/services/block.service';
@@ -29,9 +29,16 @@ export class AuthService {
         const user = this.userDataService.getUserById(userId);
 
         if (user) {
-            this.activeUserSubject.next(user);
-            this.storeUser(user);
-            this.blockService.initializeForUser(user);
+            this.applyAuthenticatedUser(user);
+            this.userDataService
+                .loadUsers(true)
+                .pipe(take(1))
+                .subscribe((users) => {
+                    const refreshed = users.find(candidate => candidate.userId === userId);
+                    if (refreshed) {
+                        this.applyAuthenticatedUser(refreshed);
+                    }
+                });
             return true;
         }
 
@@ -70,6 +77,12 @@ export class AuthService {
 
     private storeUser(user: User): void {
         localStorage.setItem(this.STORAGE_KEY, JSON.stringify({ userId: user.userId }));
+    }
+
+    private applyAuthenticatedUser(user: User): void {
+        this.activeUserSubject.next(user);
+        this.storeUser(user);
+        this.blockService.initializeForUser(user);
     }
 
     private getStoredUser(): User | null {

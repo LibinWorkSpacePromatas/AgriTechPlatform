@@ -158,13 +158,50 @@ def ensure_equipment_marketplace_tables() -> None:
                     block_id UUID REFERENCES blocks(id) ON DELETE SET NULL,
                     equipment_name TEXT NOT NULL,
                     description TEXT,
+                    specifications JSONB,
+                    availability_settings JSONB,
                     price DOUBLE PRECISION NOT NULL,
                     price_type VARCHAR(10) NOT NULL CHECK (price_type IN ('hourly', 'daily')),
+                    quantity_total INTEGER NOT NULL DEFAULT 1,
+                    image_url TEXT,
+                    image_public_id TEXT,
                     latitude DOUBLE PRECISION,
                     longitude DOUBLE PRECISION,
                     is_active BOOLEAN DEFAULT true,
                     created_at TIMESTAMPTZ DEFAULT now()
                 )
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                ALTER TABLE equipment_listings
+                ADD COLUMN IF NOT EXISTS specifications JSONB
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                ALTER TABLE equipment_listings
+                ADD COLUMN IF NOT EXISTS availability_settings JSONB
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                ALTER TABLE equipment_listings
+                ADD COLUMN IF NOT EXISTS image_url TEXT
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                ALTER TABLE equipment_listings
+                ADD COLUMN IF NOT EXISTS image_public_id TEXT
                 """
             )
         )
@@ -178,6 +215,7 @@ def ensure_equipment_marketplace_tables() -> None:
                     owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                     start_datetime TIMESTAMPTZ NOT NULL,
                     end_datetime TIMESTAMPTZ NOT NULL,
+                    quantity_requested INTEGER NOT NULL DEFAULT 1,
                     status VARCHAR(20) NOT NULL CHECK (
                         status IN ('pending', 'approved', 'rejected', 'completed')
                     ),
@@ -185,6 +223,22 @@ def ensure_equipment_marketplace_tables() -> None:
                     created_at TIMESTAMPTZ DEFAULT now(),
                     CONSTRAINT ck_equipment_bookings_time_range CHECK (end_datetime > start_datetime)
                 )
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                ALTER TABLE equipment_listings
+                ADD COLUMN IF NOT EXISTS quantity_total INTEGER NOT NULL DEFAULT 1
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                ALTER TABLE equipment_bookings
+                ADD COLUMN IF NOT EXISTS quantity_requested INTEGER NOT NULL DEFAULT 1
                 """
             )
         )
@@ -300,11 +354,35 @@ def ensure_crop_config_table() -> None:
                 """
                 INSERT INTO crop_config (crop, optimal_moisture_min, optimal_moisture_max, root_depth_mm, mad)
                 VALUES
-                ('Shiraz', 20, 40, 800, 0.5),
-                ('Wheat', 18, 28, 600, 0.5),
                 ('Almond', 25, 45, 1000, 0.45),
-                ('Citrus', 30, 50, 900, 0.5)
-                ON CONFLICT (crop) DO NOTHING;
+                ('Citrus', 30, 50, 900, 0.5),
+                ('Olive', 20, 40, 1200, 0.6),
+                ('Avocado', 35, 55, 800, 0.4),
+                ('Wheat', 18, 28, 600, 0.5),
+                ('Maize', 30, 50, 700, 0.55),
+                ('Rice', 40, 70, 300, 0.2),
+                ('Barley', 18, 30, 600, 0.5),
+                ('Shiraz', 20, 40, 800, 0.5),
+                ('Grenache', 20, 40, 800, 0.5),
+                ('Cabernet Sauvignon', 20, 40, 800, 0.5),
+                ('Merlot', 20, 40, 800, 0.5),
+                ('Chardonnay', 20, 40, 800, 0.5),
+                ('Pinot Grigio', 20, 40, 800, 0.5),
+                ('Riesling', 20, 40, 800, 0.5),
+                ('Semillon', 20, 40, 800, 0.5),
+                ('Tomato', 35, 60, 500, 0.4),
+                ('Potato', 30, 55, 400, 0.35),
+                ('Onion', 30, 50, 300, 0.35),
+                ('Carrot', 25, 45, 300, 0.4),
+                ('Cotton', 25, 45, 1000, 0.55),
+                ('Sugarcane', 40, 70, 1200, 0.6),
+                ('Soybean', 25, 45, 600, 0.5),
+                ('Sunflower', 20, 40, 800, 0.5)
+                ON CONFLICT (crop) DO UPDATE SET
+                    optimal_moisture_min = EXCLUDED.optimal_moisture_min,
+                    optimal_moisture_max = EXCLUDED.optimal_moisture_max,
+                    root_depth_mm = EXCLUDED.root_depth_mm,
+                    mad = EXCLUDED.mad;
                 """
             )
         )
@@ -573,7 +651,14 @@ def ensure_unified_farm_state_view() -> None:
         connection.execute(
             text(
                 """
-                CREATE OR REPLACE VIEW unified_farm_state AS
+                DROP VIEW IF EXISTS unified_farm_state
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE VIEW unified_farm_state AS
                 SELECT
                     b.id AS block_id,
                     MAX(CASE WHEN sd.sensor_type = 'soil_moisture' THEN sl.value END) AS soil_moisture,

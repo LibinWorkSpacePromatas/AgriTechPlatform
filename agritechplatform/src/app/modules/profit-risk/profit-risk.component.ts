@@ -94,6 +94,8 @@ interface ProfitRiskResponse {
   styleUrls: ['./profit-risk.component.css']
 })
 export class ProfitRiskComponent implements OnInit {
+  private static readonly MIN_VIABLE_REVENUE_PER_ML = 700;
+
   readonly TrendingUp = TrendingUp;
   readonly AlertTriangle = AlertTriangle;
   readonly DollarSign = DollarSign;
@@ -115,6 +117,29 @@ export class ProfitRiskComponent implements OnInit {
   readonly scenarioOptions = [80, 153, 420];
 
   readonly currentCrop = computed(() => this.profitData()?.current_crop ?? null);
+  readonly displayCropLabel = computed(() => {
+    const selectedBlockCrop = this.selectedBlock()?.crop?.trim();
+    if (selectedBlockCrop) {
+      return this.getChartLabel(selectedBlockCrop);
+    }
+
+    const blockCrop = this.profitData()?.block_crop?.trim();
+    if (blockCrop) {
+      return this.getChartLabel(blockCrop);
+    }
+
+    const requestedCrop = this.currentCrop()?.requested_crop?.trim();
+    if (requestedCrop) {
+      return this.getChartLabel(requestedCrop);
+    }
+
+    const matchedCrop = this.currentCrop()?.matched_crop?.trim();
+    if (matchedCrop) {
+      return this.getChartLabel(matchedCrop);
+    }
+
+    return 'Crop';
+  });
   readonly heroBlockLabel = computed(() => {
     const name = this.selectedBlock()?.name?.trim();
     if (!name) {
@@ -124,13 +149,25 @@ export class ProfitRiskComponent implements OnInit {
     return name.split(' - ')[0]?.trim() || name;
   });
   readonly heroCropLabel = computed(() => {
-    const matchedCrop = this.currentCrop()?.matched_crop;
-    if (matchedCrop) {
-      return this.getChartLabel(matchedCrop);
+    return this.displayCropLabel();
+  });
+  readonly backendCropSummary = computed(() => {
+    const blockCrop = this.profitData()?.block_crop?.trim() || this.currentCrop()?.requested_crop?.trim();
+    const matchedCrop = this.currentCrop()?.matched_crop?.trim();
+    const matchType = this.currentCrop()?.match_type?.trim().toLowerCase();
+
+    if (!matchedCrop || !blockCrop || matchType === 'exact') {
+      return null;
     }
 
-    const blockCrop = this.selectedBlock()?.crop;
-    return blockCrop ? this.getChartLabel(blockCrop) : 'Crop';
+    const displayBlockCrop = this.getChartLabel(blockCrop);
+    const displayMatchedCrop = this.getChartLabel(matchedCrop);
+
+    if (this.normalizeCropKey(displayBlockCrop) === this.normalizeCropKey(displayMatchedCrop)) {
+      return null;
+    }
+
+    return `Workbook benchmark used: ${displayMatchedCrop}`;
   });
   readonly marginRows = computed(() => this.profitData()?.margins ?? []);
   readonly chartRows = computed(() => {
@@ -144,10 +181,7 @@ export class ProfitRiskComponent implements OnInit {
       'Peaches (fresh market — Riverland SA)'
     ];
 
-    const rowsByCrop = new Map(this.marginRows().map(row => [row.crop, row]));
-    return desiredOrder
-      .map(crop => rowsByCrop.get(crop))
-      .filter((row): row is ProfitRiskCropRow => !!row);
+    return this.buildOrderedChartRows(desiredOrder);
   });
   readonly marginChartData = computed<ChartData<'bar'>>(() => ({
     labels: this.chartRows().map(row => this.getChartLabel(row.crop)),
@@ -237,10 +271,7 @@ export class ProfitRiskComponent implements OnInit {
       'Shiraz (inland red — Riverland)'
     ];
 
-    const rowsByCrop = new Map(this.marginRows().map(row => [row.crop, row]));
-    return desiredOrder
-      .map(crop => rowsByCrop.get(crop))
-      .filter((row): row is ProfitRiskCropRow => !!row);
+    return this.buildOrderedChartRows(desiredOrder);
   });
   readonly priceChartData = computed<ChartData<'bar'>>(() => ({
     labels: this.priceChartRows().map(row => this.getChartLabel(row.crop)),
@@ -354,8 +385,8 @@ export class ProfitRiskComponent implements OnInit {
         label: 'Revenue per ML',
         data: this.chartRows().map(row => ({
           x: row.water_req_ml_ha,
-          y: row.current_price * row.yield_t_ha,
-          r: Math.max(8, Math.min(18, Math.abs(row.margins.selected) / 900))
+          y: this.getRevenuePerMl(row),
+          r: Math.max(10, Math.min(22, Math.abs(row.margins.selected) / 800))
         })),
         backgroundColor: this.chartRows().map(row => this.getPriceBarColor(row.crop)),
         borderColor: '#ffffff',
@@ -382,7 +413,7 @@ export class ProfitRiskComponent implements OnInit {
             const point = context.raw as { x: number; y: number; r: number };
             return [
               `Water use: ${point.x.toFixed(1)} ML/ha`,
-              `Revenue: ${this.formatCurrency(point.y)}/ha`
+              `Revenue per ML: ${this.formatCurrency(point.y)}/ML`
             ];
           }
         }
@@ -390,6 +421,8 @@ export class ProfitRiskComponent implements OnInit {
     },
     scales: {
       x: {
+        min: 2,
+        max: 14,
         title: {
           display: true,
           text: 'Water requirement (ML / ha)',
@@ -397,20 +430,24 @@ export class ProfitRiskComponent implements OnInit {
           font: { size: 12 }
         },
         ticks: {
-          color: '#111827'
+          color: '#111827',
+          stepSize: 2
         },
         grid: { color: '#e6e9ef' },
         border: { color: '#c7cfd8' }
       },
       y: {
+        min: -2000,
+        max: 14000,
         title: {
           display: true,
-          text: 'Revenue (AUD / ha)',
+          text: 'Revenue per ML of water (AUD / ML)',
           color: '#4b5563',
           font: { size: 12 }
         },
         ticks: {
           color: '#111827',
+          stepSize: 2000,
           callback: (value: string | number) => this.formatCompactCurrency(Number(value))
         },
         grid: { color: '#e6e9ef' },
@@ -421,18 +458,59 @@ export class ProfitRiskComponent implements OnInit {
   readonly revenueWaterGuidePlugin: Plugin<'bubble'> = {
     id: 'revenueWaterGuide',
     afterDraw: (chart: any) => {
-      const { ctx, chartArea } = chart;
+      const { ctx, chartArea, scales } = chart;
       if (!chartArea) {
         return;
       }
 
+      const yScale = scales?.y;
+      if (!yScale) {
+        return;
+      }
+
+      const guideY = yScale.getPixelForValue(ProfitRiskComponent.MIN_VIABLE_REVENUE_PER_ML);
+      if (!Number.isFinite(guideY)) {
+        return;
+      }
+
       ctx.save();
-      ctx.strokeStyle = 'rgba(107, 114, 128, 0.35)';
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.45)';
       ctx.setLineDash([5, 5]);
       ctx.beginPath();
-      ctx.moveTo(chartArea.left, chartArea.top + 28);
-      ctx.lineTo(chartArea.right, chartArea.top + 28);
+      ctx.moveTo(chartArea.left, guideY);
+      ctx.lineTo(chartArea.right, guideY);
       ctx.stroke();
+      ctx.setLineDash([]);
+
+      const legendText = `Approx. min viable ($${ProfitRiskComponent.MIN_VIABLE_REVENUE_PER_ML}/ML)`;
+      ctx.font = '600 11px Arial';
+      const textWidth = ctx.measureText(legendText).width;
+      const legendWidth = textWidth + 42;
+      const legendHeight = 24;
+      const legendX = chartArea.right - legendWidth - 6;
+      const legendY = chartArea.top + 6;
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+      ctx.strokeStyle = '#d1d5db';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(legendX, legendY, legendWidth, legendHeight, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.65)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.moveTo(legendX + 8, legendY + legendHeight / 2);
+      ctx.lineTo(legendX + 30, legendY + legendHeight / 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#3f3f46';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(legendText, legendX + 34, legendY + legendHeight / 2 + 0.5);
       ctx.restore();
     }
   };
@@ -447,7 +525,7 @@ export class ProfitRiskComponent implements OnInit {
       ? `${this.formatCurrency(data.net_margin)}/ha above zero`
       : `${this.formatCurrency(Math.abs(data.net_margin))}/ha below zero`;
 
-    return `${this.getChartLabel(current.matched_crop)} is currently running ${profitabilityText} at ${this.formatCurrency(data.water_price)}/ML water cost.`;
+    return `${this.displayCropLabel()} is currently running ${profitabilityText} at ${this.formatCurrency(data.water_price)}/ML water cost.`;
   });
 
   ngOnInit(): void {
@@ -623,6 +701,84 @@ export class ProfitRiskComponent implements OnInit {
     return tips[key];
   }
 
+  getRevenuePerHa(row: ProfitRiskCropRow): number {
+    const normalizedCrop = this.normalizeCropKey(row.crop);
+    if (normalizedCrop.includes('olive oil')) {
+      return row.current_price * 7000;
+    }
+
+    return row.current_price * row.yield_t_ha;
+  }
+
+  getRevenuePerMl(row: ProfitRiskCropRow): number {
+    const waterRequirement = Number(row.water_req_ml_ha);
+    if (!Number.isFinite(waterRequirement) || waterRequirement <= 0) {
+      return 0;
+    }
+
+    return this.getRevenuePerHa(row) / waterRequirement;
+  }
+
+  private buildOrderedChartRows(desiredOrder: string[]): ProfitRiskCropRow[] {
+    const rows = this.marginRows();
+    const rowsByCrop = new Map(rows.map(row => [row.crop, row]));
+    const orderedRows = desiredOrder
+      .map(crop => rowsByCrop.get(crop))
+      .filter((row): row is ProfitRiskCropRow => !!row);
+
+    const currentRow = this.resolveCurrentChartRow(rows);
+    if (!currentRow) {
+      return orderedRows;
+    }
+
+    return orderedRows.some(row => row.crop === currentRow.crop)
+      ? orderedRows
+      : [currentRow, ...orderedRows];
+  }
+
+  private resolveCurrentChartRow(rows: ProfitRiskCropRow[]): ProfitRiskCropRow | null {
+    const candidates = [
+      this.currentCrop()?.matched_crop,
+      this.currentCrop()?.requested_crop,
+      this.selectedBlock()?.crop,
+      this.profitData()?.block_crop
+    ];
+
+    for (const candidate of candidates) {
+      const match = this.findCropRow(rows, candidate);
+      if (match) {
+        return match;
+      }
+    }
+
+    return null;
+  }
+
+  private findCropRow(rows: ProfitRiskCropRow[], candidate: string | null | undefined): ProfitRiskCropRow | null {
+    const normalizedCandidate = this.normalizeCropKey(candidate);
+    if (!normalizedCandidate) {
+      return null;
+    }
+
+    return rows.find(row => {
+      const normalizedCrop = this.normalizeCropKey(row.crop);
+      return normalizedCrop === normalizedCandidate
+        || normalizedCrop.includes(normalizedCandidate)
+        || normalizedCandidate.includes(normalizedCrop);
+    }) ?? null;
+  }
+
+  private normalizeCropKey(value: string | null | undefined): string {
+    return (value ?? '')
+      .trim()
+      .toLowerCase()
+      .replaceAll('—', ' ')
+      .replaceAll('–', ' ')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   private reloadCurrentBlock(): void {
     const block = this.selectedBlock();
     if (block) {
@@ -635,7 +791,8 @@ export class ProfitRiskComponent implements OnInit {
     this.error.set(null);
 
     const waterPrice = this.waterPrice();
-    const url = `${environment.apiBaseUrl}/api/blocks/${block.lan || block.id}/profit-risk?water_price=${waterPrice}`;
+    const blockIdentifier = block.id || block.lan;
+    const url = `${environment.apiBaseUrl}/api/blocks/${blockIdentifier}/profit-risk?water_price=${waterPrice}`;
 
     this.http.get<ProfitRiskResponse>(url)
       .pipe(takeUntilDestroyed(this.destroyRef))

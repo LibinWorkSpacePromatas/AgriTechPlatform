@@ -46,6 +46,7 @@ h2 {
   background: var(--white);
   box-shadow: 0 10px 20px rgba(10, 30, 24, 0.06);
   transition: transform 180ms ease, box-shadow 180ms ease;
+  cursor: pointer;
 }
 
 .card:hover {
@@ -67,6 +68,24 @@ h2 {
   font-weight: 600;
 }
 
+.ok {
+  color: #15803d;
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 0.8rem;
+}
+
+.btn-ghost {
+  border: 1px solid rgba(3, 71, 68, 0.14);
+  background: rgba(3, 71, 68, 0.04);
+  color: var(--gray-800);
+}
+
 .status-pending {
   color: #a16207;
 }
@@ -81,4 +100,102 @@ h2 {
 
 .status-completed {
   color: #15803d;
+}
+
+.status-cancelled {
+  color: #6b7280;
+}
+
+.details-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 1200;
+}
+
+.details-modal {
+  width: min(720px, 100%);
+  background: var(--white);
+  border-radius: 24px;
+  padding: 1.25rem;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+}
+
+.details-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.details-header h3 {
+  margin-bottom: 0.2rem;
+}
+
+.details-header p {
+  margin: 0;
+  color: var(--gray-700);
+}
+
+.modal-close {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  border: 1px solid rgba(3, 71, 68, 0.14);
+  background: rgba(3, 71, 68, 0.04);
+  position: relative;
+}
+
+.modal-close::before,
+.modal-close::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--gray-800);
+}
+
+.modal-close::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.modal-close::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.9rem;
+}
+
+.detail-item {
+  padding: 0.9rem;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(246, 247, 243, 0.9) 0%, rgba(255, 255, 255, 1) 100%);
+  border: 1px solid rgba(3, 71, 68, 0.1);
+}
+
+.detail-item span {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--gray-600);
+  margin-bottom: 0.25rem;
+}
+
+.detail-item strong {
+  color: var(--gray-900);
+  word-break: break-word;
+}
+
+.modal-actions {
+  margin-top: 1rem;
 }

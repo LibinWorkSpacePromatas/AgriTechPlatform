@@ -1,4 +1,13 @@
 {
+  "/api/weather": {
+    "target": "https://api.open-meteo.com",
+    "secure": true,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/api/weather": "/v1/forecast"
+    },
+    "logLevel": "debug"
+  },
   "/api/ollama": {
     "target": "https://ollama.com",
     "secure": true,

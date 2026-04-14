@@ -6,7 +6,7 @@ import { LucideAngularModule, BookOpen, Search, Filter, ExternalLink, ChevronRig
   selector: 'app-knowledge-base',
   standalone: true,
   imports: [CommonModule, LucideAngularModule],
-  template: `
+  template: ` 
     <div class="page-container fade-in">
       <div class="page-header">
         <div class="header-title-section">

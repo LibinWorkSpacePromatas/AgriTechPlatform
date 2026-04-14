@@ -12,6 +12,18 @@ const BIDDER_NAV = [
   { label: 'Marketplace', route: '/bidder/dashboard', icon: 'store' },
 ];
 
+type NavItem = {
+  label: string;
+  route: string;
+  icon: string;
+};
+
+type NavGroup = {
+  label: string;
+  icon: string;
+  items: NavItem[];
+};
+
 @Component({
   selector: 'app-sidebar',
   standalone: true,
@@ -39,16 +51,47 @@ const BIDDER_NAV = [
       ></app-block-selector>
 
       <nav class="sidebar-nav">
-        <a
-          *ngFor="let item of activeNavItems"
-          [routerLink]="item.route"
-          routerLinkActive="active"
-          (click)="closeSidebar.emit()"
-          class="nav-item"
-        >
-          <i-lucide [img]="getIcon(item.icon)" class="nav-icon"></i-lucide>
-          <span class="nav-label">{{ item.label }}</span>
-        </a>
+        <ng-container *ngIf="!isBidder; else bidderNav">
+          <section
+            *ngFor="let group of navGroups; let last = last"
+            class="nav-group"
+            [class.nav-group--active]="isGroupActive(group)"
+          >
+            <div class="nav-group-header">
+              <div class="nav-group-title">
+                <i-lucide [img]="getIcon(group.icon)" class="nav-group-icon"></i-lucide>
+                <span>{{ group.label }}</span>
+              </div>
+            </div>
+
+            <a
+              *ngFor="let item of group.items"
+              [routerLink]="item.route"
+              routerLinkActive="active"
+              [routerLinkActiveOptions]="{ exact: item.route === '/dashboard' }"
+              (click)="closeSidebar.emit()"
+              class="nav-item"
+            >
+              <i-lucide [img]="getIcon(item.icon)" class="nav-icon"></i-lucide>
+              <span class="nav-label">{{ item.label }}</span>
+            </a>
+
+            <div *ngIf="!last" class="nav-separator" aria-hidden="true"></div>
+          </section>
+        </ng-container>
+
+        <ng-template #bidderNav>
+          <a
+            *ngFor="let item of activeNavItems"
+            [routerLink]="item.route"
+            routerLinkActive="active"
+            (click)="closeSidebar.emit()"
+            class="nav-item"
+          >
+            <i-lucide [img]="getIcon(item.icon)" class="nav-icon"></i-lucide>
+            <span class="nav-label">{{ item.label }}</span>
+          </a>
+        </ng-template>
       </nav>
 
       <div class="sidebar-footer">
@@ -90,10 +133,21 @@ const BIDDER_NAV = [
     .logo-subtitle { font-size: .7rem; color: rgba(255,255,255,.7); font-weight: 400; }
     .close-mobile-btn { background: transparent; border: none; color: var(--white); cursor: pointer; padding: .5rem; display: flex; align-items: center; justify-content: center; }
     .sidebar-nav { flex: 1; padding: 1rem 0; }
-    .nav-item { display: flex; align-items: center; gap: .75rem; padding: .75rem 1rem; color: rgba(255,255,255,.8); text-decoration: none; transition: all var(--transition-fast); font-size: .875rem; font-weight: 500; margin: .25rem .5rem; border-radius: var(--radius-md); }
+    .nav-group { padding: 0 .75rem; }
+    .nav-group-header { padding: .25rem .25rem .35rem; }
+    .nav-group-title {
+      display: flex; align-items: center; gap: .65rem; padding: .6rem .75rem; border-radius: var(--radius-md);
+      color: rgba(255,255,255,.76); font-size: .86rem; font-weight: 700; letter-spacing: .01em; transition: all var(--transition-fast);
+    }
+    .nav-group--active .nav-group-title {
+      background: rgba(234,243,222,.14); color: var(--white); box-shadow: inset 0 0 0 1px rgba(234,243,222,.22);
+    }
+    .nav-group-icon { width: 1rem; height: 1rem; flex-shrink: 0; }
+    .nav-item { display: flex; align-items: center; gap: .75rem; padding: .75rem 1rem; color: rgba(255,255,255,.8); text-decoration: none; transition: all var(--transition-fast); font-size: .875rem; font-weight: 500; margin: .2rem .25rem .2rem 1.6rem; border-radius: var(--radius-md); }
     .nav-item:hover { background-color: rgba(255,255,255,.1); color: var(--white); }
     .nav-item.active { background-color: var(--accent-green-active); color: var(--primary-green-dark); font-weight: 600; }
     .nav-icon { width: var(--icon-md); height: var(--icon-md); flex-shrink: 0; }
+    .nav-separator { height: 1px; margin: 1rem .75rem; background: linear-gradient(90deg, rgba(255,255,255,.18), rgba(255,255,255,.06)); }
     .sidebar-footer { padding: 1rem; border-top: 1px solid rgba(255,255,255,.1); }
     .user-profile { display: flex; align-items: center; gap: .75rem; padding: .75rem; margin-bottom: .75rem; background: rgba(255,255,255,.05); border-radius: var(--radius-md); }
     .user-avatar { width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,.2); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .875rem; color: var(--white); flex-shrink: 0; }
@@ -120,6 +174,39 @@ export class SidebarComponent {
   selectedBlock: Block | null = null;
   userProfile: any = MOCK_USER;
   isBidder = false;
+  navGroups: NavGroup[] = [
+    {
+      label: 'Farm',
+      icon: 'leaf',
+      items: [
+        { label: 'Dashboard', route: '/dashboard', icon: 'layout-dashboard' },
+        { label: 'Water & Irrigation', route: '/water-irrigation', icon: 'droplet' }
+      ]
+    },
+    {
+      label: 'Insights',
+      icon: 'trending-up',
+      items: [
+        { label: 'Profit & Risk', route: '/profit-risk', icon: 'trending-up' },
+        { label: 'Growing Opportunities', route: '/growing-opportunities', icon: 'sprout' }
+      ]
+    },
+    {
+      label: 'AI',
+      icon: 'message-circle',
+      items: [
+        { label: 'Grower GPT', route: '/grower-gpt', icon: 'message-circle' }
+      ]
+    },
+    {
+      label: 'Marketplace',
+      icon: 'shopping-bag',
+      items: [
+        { label: 'Rental', route: '/rental', icon: 'tractor' },
+        { label: 'Auctions', route: '/auctions', icon: 'store' }
+      ]
+    }
+  ];
 
   get activeNavItems() {
     return this.isBidder ? BIDDER_NAV : this.navigationItems;
@@ -143,6 +230,7 @@ export class SidebarComponent {
   XIcon = X;
 
   private iconMap: Record<string, any> = {
+    'leaf': Leaf,
     'layout-dashboard': LayoutDashboard,
     'droplet': Droplet,
     'trending-up': TrendingUp,
@@ -155,6 +243,17 @@ export class SidebarComponent {
 
   getIcon(iconName: string): any { return this.iconMap[iconName] || LayoutDashboard; }
   onBlockSelected(block: Block): void { this.blockService.setBlock(block); }
+
+  isGroupActive(group: NavGroup): boolean {
+    return group.items.some(item => this.isRouteActive(item.route));
+  }
+
+  private isRouteActive(route: string): boolean {
+    if (route === '/dashboard') {
+      return this.router.url === route;
+    }
+    return this.router.url === route || this.router.url.startsWith(`${route}/`);
+  }
 
   getUserInitials(): string {
     if (!this.userProfile?.userName) return 'U';
