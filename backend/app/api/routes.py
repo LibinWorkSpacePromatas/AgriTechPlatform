@@ -988,7 +988,9 @@ async def stream_block_satellite_events(block_id: str):
         raise HTTPException(status_code=500, detail=f"Error resolving block: {exc}") from exc
 
     async def event_generator():
-        last_event_id = None
+        # Start from the current tail so a new subscriber only sees events
+        # produced after this SSE connection is established.
+        last_event_id = satellite_event_broker.latest_event_id(block_id=block_reference.block_id)
         
         # Send initial connection event
         yield _format_sse_payload({

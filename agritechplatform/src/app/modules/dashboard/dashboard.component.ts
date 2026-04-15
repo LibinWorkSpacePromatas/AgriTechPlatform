@@ -923,6 +923,8 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (event.event === 'failed') {
       this.dashboardWarningMessage = event.error || 'Satellite refresh failed. Showing the latest successful result.';
+      this.isInsightsRefreshing = false;
+      return;
     }
 
     if (this.isInsightsLoading) {

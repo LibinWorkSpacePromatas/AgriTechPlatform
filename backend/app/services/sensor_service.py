@@ -151,21 +151,10 @@ class SensorService:
     def get_block_sensor_dashboard(self, db: Session, block_identifier: str) -> BlockSensorsResponse:
         block = resolve_block(db, block_identifier)
         definitions = self._ensure_sensor_state(db, block)
-        self._refresh_live_readings_if_needed(db, block, definitions)
+        _tick_time, readings_refreshed = self._refresh_live_readings_if_needed(db, block, definitions)
         db.commit()
 
-        # Update decision state for sensors
-        try:
-            from app.services.decision_engine import trigger_block_decision
-            decision = db.get(BlockDecision, block.id)
-            if not decision:
-                decision = BlockDecision(block_id=block.id)
-                db.add(decision)
-            decision.sensors_ready = True
-            db.commit()
-            trigger_block_decision(db, block.id)
-        except Exception:
-            pass
+        self._update_sensor_decision_state(db, block.id, sensor_data_changed=readings_refreshed)
 
         return self._build_block_response(db, block)
 
@@ -209,27 +198,35 @@ class SensorService:
     def simulate_block_readings(self, db: Session, block_identifier: str) -> SensorSimulationResponse:
         block = resolve_block(db, block_identifier)
         definitions = self._ensure_sensor_state(db, block)
-        tick_time = self._refresh_live_readings_if_needed(db, block, definitions, force=True)
+        tick_time, readings_refreshed = self._refresh_live_readings_if_needed(db, block, definitions, force=True)
         db.commit()
 
-        # Update decision state for sensors
-        try:
-            from app.services.decision_engine import trigger_block_decision
-            decision = db.get(BlockDecision, block.id)
-            if not decision:
-                decision = BlockDecision(block_id=block.id)
-                db.add(decision)
-            decision.sensors_ready = True
-            db.commit()
-            trigger_block_decision(db, block.id)
-        except Exception:
-            pass
+        self._update_sensor_decision_state(db, block.id, sensor_data_changed=readings_refreshed)
 
         return SensorSimulationResponse(
             block_id=str(block.id),
             updated_at=tick_time,
             sensor_count=len(definitions),
         )
+
+    def _update_sensor_decision_state(self, db: Session, block_id: object, *, sensor_data_changed: bool) -> None:
+        try:
+            from app.services.decision_engine import is_decision_stale, trigger_block_decision
+
+            decision = db.get(BlockDecision, block_id)
+            if not decision:
+                decision = BlockDecision(block_id=block_id)
+                db.add(decision)
+                db.flush()
+
+            decision.sensors_ready = True
+            should_trigger = sensor_data_changed or is_decision_stale(db, block_id)
+            db.commit()
+
+            if should_trigger:
+                trigger_block_decision(db, block_id)
+        except Exception:
+            pass
 
     def _ensure_sensor_state(self, db: Session, block: Block) -> list[SensorDefinition]:
         definitions = self._ensure_sensor_definitions(db, block)
@@ -331,7 +328,7 @@ class SensorService:
         definitions: list[SensorDefinition],
         *,
         force: bool = False,
-    ) -> datetime:
+    ) -> tuple[datetime, bool]:
         tick_time = datetime.now(timezone.utc)
         latest_rows = {
             row.sensor_id: row
@@ -347,7 +344,7 @@ class SensorService:
             if definition.is_active
         )
         if not should_refresh:
-            return tick_time
+            return tick_time, False
 
         for definition in definitions:
             if not definition.is_active:
@@ -366,7 +363,7 @@ class SensorService:
             )
 
         db.flush()
-        return tick_time
+        return tick_time, True
 
     def _build_block_response(self, db: Session, block: Block) -> BlockSensorsResponse:
         definitions = self._get_block_sensor_definitions(db, block.id)
