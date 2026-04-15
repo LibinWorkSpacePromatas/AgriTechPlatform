@@ -50,46 +50,89 @@
 
   <div class="details-modal-backdrop" *ngIf="selectedBooking" (click)="closeDetails()">
     <div class="details-modal" *ngIf="selectedBooking as booking" (click)="$event.stopPropagation()">
-      <div class="details-header">
-        <div>
+      <div class="details-hero">
+        <div class="details-hero-copy">
+          <span class="details-kicker">Booking details</span>
           <h3>{{ booking.equipment_name || booking.listing_id }}</h3>
-          <p>Owner: {{ booking.owner_name || booking.owner_id }}</p>
+          <p>{{ booking.owner_name || booking.owner_id }}</p>
         </div>
-        <button class="modal-close" type="button" (click)="closeDetails()" aria-label="Close booking details"></button>
+        <div class="details-hero-side">
+          <span class="status-chip" [ngClass]="getStatusClass(booking.status)">{{ booking.status | titlecase }}</span>
+          <button class="modal-close" type="button" (click)="closeDetails()" aria-label="Close booking details"></button>
+        </div>
       </div>
 
-      <div class="details-grid">
-        <div class="detail-item">
-          <span>Status</span>
-          <strong [ngClass]="getStatusClass(booking.status)">{{ booking.status }}</strong>
-        </div>
-        <div class="detail-item">
-          <span>Booking ID</span>
-          <strong>{{ booking.id }}</strong>
-        </div>
-        <div class="detail-item">
-          <span>Start</span>
-          <strong>{{ booking.start_datetime | date:'medium' }}</strong>
-        </div>
-        <div class="detail-item">
-          <span>End</span>
-          <strong>{{ booking.end_datetime | date:'medium' }}</strong>
-        </div>
-        <div class="detail-item">
-          <span>Units</span>
-          <strong>{{ booking.quantity_requested }}</strong>
-        </div>
-        <div class="detail-item">
-          <span>Total Price</span>
+      <div class="details-summary">
+        <div class="summary-card summary-card-emphasis">
+          <span>Total price</span>
           <strong>{{ booking.total_price || 0 | currency:'USD':'symbol':'1.0-2' }}</strong>
+          <small>{{ booking.quantity_requested }} unit{{ booking.quantity_requested > 1 ? 's' : '' }} booked</small>
         </div>
-        <div class="detail-item">
-          <span>Listing Active</span>
-          <strong>{{ booking.listing_is_active ? 'Yes' : 'No' }}</strong>
+        <div class="summary-card">
+          <span>Booking window</span>
+          <strong>{{ booking.start_datetime | date:'MMM d, y' }}</strong>
+          <small>{{ booking.start_datetime | date:'shortTime' }} to {{ booking.end_datetime | date:'shortTime' }}</small>
         </div>
-        <div class="detail-item">
-          <span>Booked On</span>
-          <strong>{{ booking.created_at | date:'medium' }}</strong>
+        <div class="summary-card">
+          <span>Booked on</span>
+          <strong>{{ booking.created_at | date:'MMM d, y' }}</strong>
+          <small>{{ booking.created_at | date:'shortTime' }}</small>
+        </div>
+      </div>
+
+      <div class="details-section">
+        <div class="details-section-head">
+          <h4>Booking snapshot</h4>
+          <span>Quick overview</span>
+        </div>
+
+        <div class="details-grid">
+          <div class="detail-item">
+            <span>Booking ID</span>
+            <strong>{{ booking.id }}</strong>
+          </div>
+          <div class="detail-item">
+            <span>Status</span>
+            <strong [ngClass]="getStatusClass(booking.status)">{{ booking.status | titlecase }}</strong>
+          </div>
+          <div class="detail-item">
+            <span>Owner</span>
+            <strong>{{ booking.owner_name || booking.owner_id }}</strong>
+          </div>
+          <div class="detail-item">
+            <span>Listing active</span>
+            <strong>{{ booking.listing_is_active ? 'Available' : 'Inactive' }}</strong>
+          </div>
+          <div class="detail-item">
+            <span>Start</span>
+            <strong>{{ booking.start_datetime | date:'medium' }}</strong>
+          </div>
+          <div class="detail-item">
+            <span>End</span>
+            <strong>{{ booking.end_datetime | date:'medium' }}</strong>
+          </div>
+          <div class="detail-item">
+            <span>Units</span>
+            <strong>{{ booking.quantity_requested }}</strong>
+          </div>
+          <div class="detail-item">
+            <span>Total price</span>
+            <strong>{{ booking.total_price || 0 | currency:'USD':'symbol':'1.0-2' }}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="details-timeline">
+        <div class="timeline-item">
+          <span>Starts</span>
+          <strong>{{ booking.start_datetime | date:'EEEE, MMM d' }}</strong>
+          <small>{{ booking.start_datetime | date:'shortTime' }}</small>
+        </div>
+        <div class="timeline-divider" aria-hidden="true"></div>
+        <div class="timeline-item">
+          <span>Ends</span>
+          <strong>{{ booking.end_datetime | date:'EEEE, MMM d' }}</strong>
+          <small>{{ booking.end_datetime | date:'shortTime' }}</small>
         </div>
       </div>
 

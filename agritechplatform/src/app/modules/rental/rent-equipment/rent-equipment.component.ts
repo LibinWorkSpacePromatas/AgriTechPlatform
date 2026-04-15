@@ -386,14 +386,32 @@ export class RentEquipmentComponent implements OnInit {
     this.bookingQuantity = 1;
   }
 
+  getMaxBookableUnits(listing: RentalListing): number {
+    const totalUnits = listing.quantity_total || 1;
+    const availableUnits = this.selectedListingId === listing.id ? this.availability?.available_quantity : null;
+    if (availableUnits == null) {
+      return totalUnits;
+    }
+    return Math.max(1, Math.min(totalUnits, availableUnits));
+  }
+
+  getAvailableUnitsLabel(listing: RentalListing): string {
+    const totalUnits = listing.quantity_total || 1;
+    const availableUnits = this.selectedListingId === listing.id ? this.availability?.available_quantity : null;
+    if (availableUnits == null) {
+      return `${totalUnits} unit${totalUnits > 1 ? 's' : ''} total`;
+    }
+    return `${availableUnits} of ${totalUnits} unit${totalUnits > 1 ? 's' : ''} available`;
+  }
+
+  onBookingQuantityChange(listing: RentalListing): void {
+    this.bookingQuantity = this.clampBookingQuantity(listing, this.bookingQuantity);
+    this.onTimeChange(listing);
+  }
+
   onTimeChange(listing: RentalListing): void {
     this.selectedListingId = listing.id;
-    if (!this.bookingQuantity || this.bookingQuantity < 1) {
-      this.bookingQuantity = 1;
-    }
-    if (this.bookingQuantity > (listing.quantity_total || 1)) {
-      this.bookingQuantity = listing.quantity_total || 1;
-    }
+    this.bookingQuantity = this.clampBookingQuantity(listing, this.bookingQuantity);
     this.availability = null;
     this.info = null;
     this.error = this.getBookingValidationMessage(listing);
@@ -418,7 +436,10 @@ export class RentEquipmentComponent implements OnInit {
     };
 
     this.rentalService.checkAvailability(payload).subscribe({
-      next: res => this.availability = res,
+      next: res => {
+        this.availability = res;
+        this.bookingQuantity = this.clampBookingQuantity(listing, this.bookingQuantity);
+      },
       error: err => this.error = err.message || 'Availability check failed',
     });
   }
@@ -448,6 +469,12 @@ export class RentEquipmentComponent implements OnInit {
     if (!window) {
       this.error = this.getBookingValidationMessage(listing)
         || (listing.price_type === 'daily' ? 'Select start and end date' : 'Select start and end time');
+      return;
+    }
+
+    this.bookingQuantity = this.clampBookingQuantity(listing, this.bookingQuantity);
+    if (this.availability?.available_quantity != null && this.bookingQuantity > this.availability.available_quantity) {
+      this.error = `Only ${this.availability.available_quantity} unit${this.availability.available_quantity === 1 ? '' : 's'} available for the selected slot.`;
       return;
     }
 
@@ -794,6 +821,12 @@ export class RentEquipmentComponent implements OnInit {
     }
 
     return null;
+  }
+
+  private clampBookingQuantity(listing: RentalListing, quantity: number): number {
+    const parsedQuantity = Number.isFinite(quantity) ? Math.floor(quantity) : 1;
+    const safeQuantity = Math.max(1, parsedQuantity || 1);
+    return Math.min(safeQuantity, this.getMaxBookableUnits(listing));
   }
 
   private syncLocationContext(selectedBlock: Block | null, user: User | null): void {

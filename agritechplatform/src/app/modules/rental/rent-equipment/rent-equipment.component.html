@@ -284,8 +284,14 @@
   <div class="details-modal-backdrop" *ngIf="detailsModalListing">
     <div class="details-modal" *ngIf="detailsModalListing as listing" (click)="$event.stopPropagation()">
       <div class="details-modal-media">
-        <img *ngIf="listing.image_url" class="details-modal-image" [src]="listing.image_url" [alt]="listing.equipment_name">
         <span class="details-modal-badge">{{ listing.price_type | uppercase }}</span>
+        <div class="details-modal-image-frame">
+          <img *ngIf="listing.image_url" class="details-modal-image" [src]="listing.image_url" [alt]="listing.equipment_name">
+        </div>
+        <div class="details-modal-media-caption">
+          <span>Equipment preview</span>
+          <strong>{{ getListingDisplayName(listing) }}</strong>
+        </div>
       </div>
 
       <div class="details-modal-content">
@@ -299,6 +305,16 @@
         </div>
 
         <p class="details-modal-price">{{ listing.price | currency:'USD':'symbol':'1.0-2' }} / {{ listing.price_type }}</p>
+        <div class="details-modal-highlights">
+          <div class="details-highlight-card">
+            <span>Owner</span>
+            <strong>{{ listing.owner_name || 'Farmer' }}</strong>
+          </div>
+          <div class="details-highlight-card">
+            <span>Availability</span>
+            <strong>{{ getAvailabilityLabel(listing.id) }}</strong>
+          </div>
+        </div>
         <p class="details-modal-description">
           {{ listing.description || 'No description available for this equipment yet.' }}
         </p>
@@ -399,10 +415,14 @@
           <input
             type="number"
             min="1"
-            [max]="listing.quantity_total || 1"
+            [max]="getMaxBookableUnits(listing)"
+            [disabled]="availability?.available_quantity === 0"
             [(ngModel)]="bookingQuantity"
-            (change)="onTimeChange(listing)">
+            (change)="onBookingQuantityChange(listing)">
         </label>
+        <p class="booking-helper-text booking-units-note">
+          {{ getAvailableUnitsLabel(listing) }}
+        </p>
 
         <p class="booking-helper-text">
           {{ listing.price_type === 'daily'
@@ -472,7 +492,11 @@
           </div>
         </div>
 
-        <button class="btn btn-primary booking-submit" type="button" (click)="bookNow(listing)">
+        <button
+          class="btn btn-primary booking-submit"
+          type="button"
+          [disabled]="availability?.available_quantity === 0"
+          (click)="bookNow(listing)">
           Confirm Booking
         </button>
       </div>
