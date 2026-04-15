@@ -1,12 +1,13 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
 import { RentalBooking, RentalService } from '../../../services/rental/rental.service';
 
 @Component({
   selector: 'app-requests',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './requests.component.html',
   styleUrl: './requests.component.css'
 })
@@ -14,6 +15,7 @@ export class RequestsComponent implements OnInit {
   requests: RentalBooking[] = [];
   loading = false;
   error: string | null = null;
+  selectedDate = this.toDateInputValue(new Date());
 
   constructor(
     private rentalService: RentalService,
@@ -70,6 +72,15 @@ export class RequestsComponent implements OnInit {
     });
   }
 
+  get filteredRequests(): RentalBooking[] {
+    if (!this.selectedDate) {
+      return this.requests;
+    }
+
+    const selected = new Date(`${this.selectedDate}T00:00:00`);
+    return this.requests.filter(booking => this.isBookingOnDate(booking, selected));
+  }
+
   getStatusClass(status: string): string {
     switch (status) {
       case 'pending':
@@ -83,6 +94,28 @@ export class RequestsComponent implements OnInit {
       default:
         return '';
     }
+  }
+
+  private isBookingOnDate(booking: RentalBooking, date: Date): boolean {
+    if (booking.status === 'rejected') {
+      return false;
+    }
+
+    const start = new Date(booking.start_datetime);
+    const end = new Date(booking.end_datetime);
+    const dayStart = new Date(date);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayEnd.getDate() + 1);
+
+    return start < dayEnd && end > dayStart;
+  }
+
+  private toDateInputValue(value: Date): string {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
 }

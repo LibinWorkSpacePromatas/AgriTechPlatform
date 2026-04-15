@@ -2,9 +2,42 @@
   padding: 1rem 0 0.6rem;
 }
 
-h2 {
+.section-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
   margin-bottom: 0.75rem;
+}
+
+h2 {
+  margin-bottom: 0.2rem;
   color: var(--gray-900);
+}
+
+.section-copy {
+  margin: 0;
+  color: var(--gray-600);
+}
+
+.date-filter {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 220px;
+}
+
+.date-filter span {
+  color: var(--gray-700);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.date-filter input {
+  min-height: 42px;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  background: var(--white);
 }
 
 .calendar-grid {
@@ -39,6 +72,12 @@ h2 {
   gap: 0.8rem;
 }
 
+.date-summary {
+  margin: 0 0 0.85rem;
+  color: #0f766e;
+  font-weight: 700;
+}
+
 .card {
   padding: 0.95rem;
   border: 1px solid rgba(3, 71, 68, 0.12);
@@ -62,6 +101,22 @@ h2 {
   color: var(--gray-700);
 }
 
+.empty-state {
+  padding: 1rem 1.1rem;
+  border: 1px dashed rgba(148, 163, 184, 0.45);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 252, 0.98));
+}
+
+.empty-state h3 {
+  margin: 0 0 0.3rem;
+}
+
+.empty-state p {
+  margin: 0;
+  color: var(--gray-600);
+}
+
 .error {
   color: var(--status-high);
   font-weight: 600;
@@ -81,4 +136,19 @@ h2 {
 
 .status-completed {
   color: #15803d;
+}
+
+@media (max-width: 768px) {
+  .section-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .date-filter {
+    min-width: 0;
+  }
+
+  .calendar-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }

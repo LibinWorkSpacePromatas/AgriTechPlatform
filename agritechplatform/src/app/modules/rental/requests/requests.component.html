@@ -1,10 +1,24 @@
 <section class="section">
-  <h2>Requests</h2>
+  <div class="section-head">
+    <div>
+      <h2>Requests</h2>
+      <p class="section-copy">Review booking requests for a selected date.</p>
+    </div>
+
+    <label class="date-filter">
+      <span>Booking Date</span>
+      <input type="date" [(ngModel)]="selectedDate">
+    </label>
+  </div>
   <p *ngIf="loading">Loading requests...</p>
   <p *ngIf="error" class="error">{{ error }}</p>
 
-  <div class="cards">
-    <article class="card" *ngFor="let booking of requests">
+  <p class="date-summary" *ngIf="selectedDate">
+    {{ filteredRequests.length }} request{{ filteredRequests.length === 1 ? '' : 's' }} on {{ selectedDate | date:'mediumDate' }}
+  </p>
+
+  <div class="cards" *ngIf="filteredRequests.length; else noRequestsForDate">
+    <article class="card" *ngFor="let booking of filteredRequests">
       <h3>{{ booking.equipment_name || booking.listing_id }}</h3>
       <p>Renter: {{ booking.renter_name || booking.renter_id }}</p>
       <p>{{ booking.start_datetime | date:'short' }} - {{ booking.end_datetime | date:'short' }}</p>
@@ -15,4 +29,11 @@
       </div>
     </article>
   </div>
+
+  <ng-template #noRequestsForDate>
+    <section class="empty-state">
+      <h3>No requests for this date</h3>
+      <p>Choose another day to review provider-side bookings.</p>
+    </section>
+  </ng-template>
 </section>

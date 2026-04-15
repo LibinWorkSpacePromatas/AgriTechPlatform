@@ -213,6 +213,91 @@
           </div>
         </div>
 
+        <section class="details-modal-section">
+          <div class="details-modal-section-head">
+            <h4>Availability</h4>
+            <span>{{ getAvailabilitySummary(listing) }}</span>
+          </div>
+
+          <div class="availability-overview">
+            <div class="availability-overview-item">
+              <span>Rental Mode</span>
+              <strong>{{ listing.price_type === 'daily' ? 'Daily booking' : 'Hourly booking' }}</strong>
+            </div>
+            <div class="availability-overview-item">
+              <span>Schedule</span>
+              <strong>{{ getAvailabilitySummary(listing) }}</strong>
+            </div>
+            <div class="availability-overview-item">
+              <span>Total Units</span>
+              <strong>{{ listing.quantity_total || 1 }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="details-modal-section">
+          <div class="details-modal-section-head">
+            <h4>Booking Availability</h4>
+            <span>Check a date</span>
+          </div>
+
+          <label class="calendar-date-field">
+            <span>Select date</span>
+            <input type="date" [(ngModel)]="calendarDate" (change)="onCalendarDateChange(listing)">
+          </label>
+
+          <p class="calendar-loading" *ngIf="calendarLoading">Loading booking availability...</p>
+
+          <div class="calendar-summary" *ngIf="!calendarLoading && selectedCalendarListingId === listing.id">
+            <div class="calendar-summary-item">
+              <span>Booked</span>
+              <strong>{{ getBookedSlotCount() }}</strong>
+            </div>
+            <div class="calendar-summary-item">
+              <span>Buffer</span>
+              <strong>{{ getBufferSlotCount() }}</strong>
+            </div>
+            <div class="calendar-summary-item">
+              <span>Open</span>
+              <strong>{{ getAvailableSlotCount() }}</strong>
+            </div>
+          </div>
+
+          <p *ngIf="!calendarLoading && nextAvailableSlot" class="next-availability">
+            Next available slot: {{ nextAvailableSlot }}
+          </p>
+
+          <div class="calendar-box details-calendar" *ngIf="!calendarLoading && selectedCalendarListingId === listing.id && calendarSlots.length; else noCalendarSlots">
+            <h3>Availability for {{ calendarDate | date:'mediumDate' }}</h3>
+            <div class="slot-grid">
+              <div class="slot-item" *ngFor="let slot of calendarSlots" [class.booked]="slot.status === 'booked'" [class.buffer]="slot.status === 'buffer'" [class.available]="slot.status === 'available'">
+                {{ slot.start_datetime | date:'HH:mm' }}-{{ slot.end_datetime | date:'HH:mm' }} {{ slot.status | uppercase }}
+              </div>
+            </div>
+          </div>
+
+          <ng-template #noCalendarSlots>
+            <section class="calendar-empty" *ngIf="!calendarLoading && selectedCalendarListingId === listing.id">
+              <h3>No slot data for this date</h3>
+              <p>Pick another date to review the listing's booking availability.</p>
+            </section>
+          </ng-template>
+        </section>
+
+        <section class="details-modal-section" *ngIf="listing.specifications && (listing.specifications | keyvalue).length">
+          <div class="details-modal-section-head">
+            <h4>Equipment Details</h4>
+            <span>{{ (listing.specifications | keyvalue).length }} fields</span>
+          </div>
+
+          <div class="details-spec-grid">
+            <div class="details-spec-item" *ngFor="let spec of listing.specifications | keyvalue">
+              <span>{{ spec.key }}</span>
+              <strong>{{ spec.value || 'Not provided' }}</strong>
+            </div>
+          </div>
+        </section>
+
         <div class="details-modal-actions">
           <button class="btn btn-outline listing-edit-btn" type="button" (click)="openEditForm(listing); closeDetailsModal()">Edit</button>
           <button class="btn" type="button" [class.listing-pause-btn]="listing.is_active" [class.listing-activate-btn]="!listing.is_active" (click)="toggleListing(listing); closeDetailsModal()">
@@ -227,17 +312,6 @@
     <section class="empty-state">
       <h3>No listings yet</h3>
       <p>Create your first rental listing to start getting booking requests from nearby growers.</p>
-      <button type="button" class="btn btn-primary" (click)="openCreateForm()">Create Listing</button>
     </section>
   </ng-template>
-
-  <div class="calendar-box" *ngIf="selectedCalendarListingId && calendarSlots.length">
-    <h3>Farmer Calendar View</h3>
-    <p *ngIf="nextAvailableSlot">Next available: {{ nextAvailableSlot }}</p>
-    <div class="slot-grid">
-      <div class="slot-item" *ngFor="let slot of calendarSlots" [class.booked]="slot.status === 'booked'" [class.buffer]="slot.status === 'buffer'" [class.available]="slot.status === 'available'">
-        {{ slot.start_datetime | date:'HH:mm' }}-{{ slot.end_datetime | date:'HH:mm' }} {{ slot.status | uppercase }}
-      </div>
-    </div>
-  </div>
 </section>

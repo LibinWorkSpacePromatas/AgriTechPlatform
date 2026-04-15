@@ -1,5 +1,15 @@
 <section class="section">
-  <h2>My Bookings</h2>
+  <div class="section-head">
+    <div>
+      <h2>My Bookings</h2>
+      <p class="section-copy">Check which rentals are active on a selected date.</p>
+    </div>
+
+    <label class="date-filter">
+      <span>Booking Date</span>
+      <input type="date" [(ngModel)]="selectedDate">
+    </label>
+  </div>
   <p *ngIf="loading">Loading bookings...</p>
   <p *ngIf="error" class="error">{{ error }}</p>
 
@@ -14,8 +24,12 @@
     </div>
   </div>
 
-  <div class="cards">
-    <article class="card" *ngFor="let booking of bookings">
+  <p class="date-summary" *ngIf="selectedDate">
+    {{ filteredBookings.length }} booking{{ filteredBookings.length === 1 ? '' : 's' }} on {{ selectedDate | date:'mediumDate' }}
+  </p>
+
+  <div class="cards" *ngIf="filteredBookings.length; else noBookingsForDate">
+    <article class="card" *ngFor="let booking of filteredBookings">
       <h3>{{ booking.equipment_name || booking.listing_id }}</h3>
       <p>Owner: {{ booking.owner_name || booking.owner_id }}</p>
       <p>{{ booking.start_datetime | date:'medium' }} - {{ booking.end_datetime | date:'medium' }}</p>
@@ -30,4 +44,11 @@
       </button>
     </article>
   </div>
+
+  <ng-template #noBookingsForDate>
+    <section class="empty-state">
+      <h3>No bookings for this date</h3>
+      <p>Select another day to see your rental schedule.</p>
+    </section>
+  </ng-template>
 </section>
