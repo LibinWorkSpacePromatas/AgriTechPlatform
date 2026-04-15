@@ -42,6 +42,28 @@ h1 {
   transition: all 180ms ease;
 }
 
+.tab-btn-notify {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.32rem;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
+}
+
 .tab-btn:hover {
   border-color: rgba(3, 71, 68, 0.25);
   background: #ffffff;
@@ -54,6 +76,12 @@ h1 {
   color: var(--white);
   border-color: #0d3f3b;
   box-shadow: 0 10px 20px rgba(12, 91, 87, 0.26);
+}
+
+.tab-btn.active .tab-badge {
+  background: #fef2f2;
+  color: #b91c1c;
+  box-shadow: none;
 }
 
 .tab-content {

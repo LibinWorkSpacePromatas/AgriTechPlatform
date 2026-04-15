@@ -15,7 +15,8 @@ export class RequestsComponent implements OnInit {
   requests: RentalBooking[] = [];
   loading = false;
   error: string | null = null;
-  selectedDate = this.toDateInputValue(new Date());
+  info: string | null = null;
+  selectedRequest: RentalBooking | null = null;
 
   constructor(
     private rentalService: RentalService,
@@ -42,6 +43,15 @@ export class RequestsComponent implements OnInit {
     });
   }
 
+  openDetails(booking: RentalBooking): void {
+    this.info = null;
+    this.selectedRequest = booking;
+  }
+
+  closeDetails(): void {
+    this.selectedRequest = null;
+  }
+
   approve(booking: RentalBooking): void {
     const user = this.authService.getCurrentUser();
     if (!user) {
@@ -49,9 +59,15 @@ export class RequestsComponent implements OnInit {
       return;
     }
 
+    this.error = null;
+    this.info = null;
     this.rentalService.approveBooking(user.userId, booking.id).subscribe({
       next: updated => {
         booking.status = updated.status;
+        this.info = 'Request approved successfully.';
+        if (this.selectedRequest?.id === booking.id) {
+          this.selectedRequest = { ...booking };
+        }
       },
       error: err => this.error = err.message || 'Approve failed',
     });
@@ -64,21 +80,24 @@ export class RequestsComponent implements OnInit {
       return;
     }
 
+    this.error = null;
+    this.info = null;
     this.rentalService.rejectBooking(user.userId, booking.id).subscribe({
       next: updated => {
         booking.status = updated.status;
+        this.info = 'Request rejected successfully.';
+        if (this.selectedRequest?.id === booking.id) {
+          this.selectedRequest = { ...booking };
+        }
       },
       error: err => this.error = err.message || 'Reject failed',
     });
   }
 
-  get filteredRequests(): RentalBooking[] {
-    if (!this.selectedDate) {
-      return this.requests;
-    }
-
-    const selected = new Date(`${this.selectedDate}T00:00:00`);
-    return this.requests.filter(booking => this.isBookingOnDate(booking, selected));
+  get sortedRequests(): RentalBooking[] {
+    return [...this.requests].sort((left, right) =>
+      new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
+    );
   }
 
   getStatusClass(status: string): string {
@@ -91,31 +110,22 @@ export class RequestsComponent implements OnInit {
         return 'status-rejected';
       case 'completed':
         return 'status-completed';
+      case 'cancelled':
+        return 'status-cancelled';
       default:
         return '';
     }
   }
 
-  private isBookingOnDate(booking: RentalBooking, date: Date): boolean {
-    if (booking.status === 'rejected') {
-      return false;
-    }
-
-    const start = new Date(booking.start_datetime);
-    const end = new Date(booking.end_datetime);
-    const dayStart = new Date(date);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(dayStart);
-    dayEnd.setDate(dayEnd.getDate() + 1);
-
-    return start < dayEnd && end > dayStart;
-  }
-
-  private toDateInputValue(value: Date): string {
-    const year = value.getFullYear();
-    const month = String(value.getMonth() + 1).padStart(2, '0');
-    const day = String(value.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+  getDetailRows(booking: RentalBooking): Array<{ label: string; value: string }> {
+    return [
+      { label: 'Request ID', value: booking.id },
+      { label: 'Renter', value: booking.renter_name || booking.renter_id },
+      { label: 'Start', value: new Date(booking.start_datetime).toLocaleString() },
+      { label: 'End', value: new Date(booking.end_datetime).toLocaleString() },
+      { label: 'Units', value: String(booking.quantity_requested) },
+      { label: 'Status', value: booking.status },
+    ];
   }
 
 }

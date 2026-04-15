@@ -2,53 +2,99 @@
   <div class="section-head">
     <div>
       <h2>My Bookings</h2>
-      <p class="section-copy">Check which rentals are active on a selected date.</p>
+      <p class="section-copy">See all your equipment booking requests and manage them in one place.</p>
     </div>
-
-    <label class="date-filter">
-      <span>Booking Date</span>
-      <input type="date" [(ngModel)]="selectedDate">
-    </label>
   </div>
   <p *ngIf="loading">Loading bookings...</p>
   <p *ngIf="error" class="error">{{ error }}</p>
+  <p *ngIf="info" class="ok">{{ info }}</p>
 
-  <div class="calendar-grid">
-    <div
-      *ngFor="let day of calendarDays"
-      class="day-cell"
-      [class.booked]="day.hasBooking"
-      [class.buffer]="day.hasBuffer"
-    >
-      {{ day.date | date:'EEE dd' }}
-    </div>
-  </div>
-
-  <p class="date-summary" *ngIf="selectedDate">
-    {{ filteredBookings.length }} booking{{ filteredBookings.length === 1 ? '' : 's' }} on {{ selectedDate | date:'mediumDate' }}
-  </p>
-
-  <div class="cards" *ngIf="filteredBookings.length; else noBookingsForDate">
-    <article class="card" *ngFor="let booking of filteredBookings">
-      <h3>{{ booking.equipment_name || booking.listing_id }}</h3>
-      <p>Owner: {{ booking.owner_name || booking.owner_id }}</p>
-      <p>{{ booking.start_datetime | date:'medium' }} - {{ booking.end_datetime | date:'medium' }}</p>
+  <div class="cards" *ngIf="sortedBookings.length; else noBookings">
+    <article class="card" *ngFor="let booking of sortedBookings" (click)="openDetails(booking)">
+      <div class="card-top">
+        <div class="booking-thumb" [class.booking-thumb-placeholder]="!booking.image_url">
+          <img *ngIf="booking.image_url" [src]="booking.image_url" [alt]="booking.equipment_name || booking.listing_id">
+          <span *ngIf="!booking.image_url">{{ (booking.equipment_name || 'EQ').slice(0, 2).toUpperCase() }}</span>
+        </div>
+        <div class="card-top-copy">
+          <h3>{{ booking.equipment_name || booking.listing_id }}</h3>
+          <p>Owner: {{ booking.owner_name || booking.owner_id }}</p>
+          <p>{{ booking.start_datetime | date:'medium' }} - {{ booking.end_datetime | date:'medium' }}</p>
+        </div>
+      </div>
       <p>Status: <strong [ngClass]="getStatusClass(booking.status)">{{ booking.status }}</strong></p>
+      <p>Units: {{ booking.quantity_requested }}</p>
       <p>Total: {{ booking.total_price || 0 | currency:'USD':'symbol':'1.0-2' }}</p>
-      <button
-        *ngIf="booking.status === 'approved'"
-        class="btn btn-primary"
-        (click)="pay(booking)"
-      >
-        Pay Now
-      </button>
+      <div class="actions">
+        <button
+          *ngIf="booking.status === 'approved'"
+          class="btn btn-primary"
+          (click)="pay(booking); $event.stopPropagation()"
+        >
+          Pay Now
+        </button>
+        <button
+          *ngIf="canCancel(booking)"
+          class="btn btn-outline"
+          (click)="cancel(booking); $event.stopPropagation()"
+        >
+          Cancel Booking
+        </button>
+        <button
+          class="btn btn-ghost"
+          (click)="openDetails(booking); $event.stopPropagation()"
+        >
+          View Details
+        </button>
+      </div>
     </article>
   </div>
 
-  <ng-template #noBookingsForDate>
+  <ng-template #noBookings>
     <section class="empty-state">
-      <h3>No bookings for this date</h3>
-      <p>Select another day to see your rental schedule.</p>
+      <h3>No bookings yet</h3>
+      <p>Your booking requests will appear here after you book equipment.</p>
     </section>
   </ng-template>
+
+  <div class="details-modal-backdrop" *ngIf="selectedBooking" (click)="closeDetails()">
+    <section class="details-modal" *ngIf="selectedBooking as booking" (click)="$event.stopPropagation()">
+      <div class="details-modal-header">
+        <div>
+          <h3>{{ booking.equipment_name || booking.listing_id }}</h3>
+          <p>{{ booking.owner_name || booking.owner_id }}</p>
+          <span class="details-person-chip">Owner</span>
+        </div>
+        <button class="modal-close" type="button" (click)="closeDetails()" aria-label="Close booking details">x</button>
+      </div>
+
+      <div class="details-highlight-row">
+        <div class="details-highlight-card">
+          <span>Status</span>
+          <strong [ngClass]="getStatusClass(booking.status)">{{ booking.status }}</strong>
+        </div>
+        <div class="details-highlight-card">
+          <span>Total</span>
+          <strong>{{ booking.total_price || 0 | currency:'USD':'symbol':'1.0-2' }}</strong>
+        </div>
+      </div>
+
+      <div class="details-grid">
+        <div class="details-item" *ngFor="let row of getDetailRows(booking)">
+          <span>{{ row.label }}</span>
+          <strong>
+            <ng-container [ngSwitch]="row.label">
+              <span *ngSwitchDefault [ngClass]="row.label === 'Status' ? getStatusClass(booking.status) : ''">{{ row.value }}</span>
+            </ng-container>
+          </strong>
+        </div>
+      </div>
+
+      <div class="details-modal-actions">
+        <button *ngIf="booking.status === 'approved'" class="btn btn-primary" type="button" (click)="pay(booking); closeDetails()">Pay Now</button>
+        <button *ngIf="canCancel(booking)" class="btn btn-outline" type="button" (click)="cancel(booking); closeDetails()">Cancel Booking</button>
+        <button class="btn btn-ghost" type="button" (click)="closeDetails()">Close</button>
+      </div>
+    </section>
+  </div>
 </section>

@@ -2,38 +2,98 @@
   <div class="section-head">
     <div>
       <h2>Requests</h2>
-      <p class="section-copy">Review booking requests for a selected date.</p>
+      <p class="section-copy">Review every booking request sent to your rental listings.</p>
     </div>
-
-    <label class="date-filter">
-      <span>Booking Date</span>
-      <input type="date" [(ngModel)]="selectedDate">
-    </label>
   </div>
   <p *ngIf="loading">Loading requests...</p>
   <p *ngIf="error" class="error">{{ error }}</p>
+  <p *ngIf="info" class="ok">{{ info }}</p>
 
-  <p class="date-summary" *ngIf="selectedDate">
-    {{ filteredRequests.length }} request{{ filteredRequests.length === 1 ? '' : 's' }} on {{ selectedDate | date:'mediumDate' }}
-  </p>
-
-  <div class="cards" *ngIf="filteredRequests.length; else noRequestsForDate">
-    <article class="card" *ngFor="let booking of filteredRequests">
-      <h3>{{ booking.equipment_name || booking.listing_id }}</h3>
-      <p>Renter: {{ booking.renter_name || booking.renter_id }}</p>
-      <p>{{ booking.start_datetime | date:'short' }} - {{ booking.end_datetime | date:'short' }}</p>
+  <div class="cards" *ngIf="sortedRequests.length; else noRequests">
+    <article class="card" *ngFor="let booking of sortedRequests" (click)="openDetails(booking)">
+      <div class="card-top">
+        <div class="booking-thumb" [class.booking-thumb-placeholder]="!booking.image_url">
+          <img *ngIf="booking.image_url" [src]="booking.image_url" [alt]="booking.equipment_name || booking.listing_id">
+          <span *ngIf="!booking.image_url">{{ (booking.equipment_name || 'EQ').slice(0, 2).toUpperCase() }}</span>
+        </div>
+        <div class="card-top-copy">
+          <h3>{{ booking.equipment_name || booking.listing_id }}</h3>
+          <p>Renter: {{ booking.renter_name || booking.renter_id }}</p>
+          <p>{{ booking.start_datetime | date:'short' }} - {{ booking.end_datetime | date:'short' }}</p>
+        </div>
+      </div>
+      <p>Units: {{ booking.quantity_requested }}</p>
+      <p>Total: {{ booking.total_price || 0 | currency:'USD':'symbol':'1.0-2' }}</p>
       <p>Status: <strong [ngClass]="getStatusClass(booking.status)">{{ booking.status }}</strong></p>
-      <div class="actions" *ngIf="booking.status === 'pending'">
-        <button class="btn btn-primary" (click)="approve(booking)">Approve</button>
-        <button class="btn btn-outline" (click)="reject(booking)">Reject</button>
+      <div class="actions">
+        <button
+          *ngIf="booking.status === 'pending'"
+          class="btn btn-primary"
+          type="button"
+          (click)="approve(booking); $event.stopPropagation()"
+        >
+          Approve
+        </button>
+        <button
+          *ngIf="booking.status === 'pending'"
+          class="btn btn-outline"
+          type="button"
+          (click)="reject(booking); $event.stopPropagation()"
+        >
+          Reject
+        </button>
+        <button
+          class="btn btn-ghost"
+          type="button"
+          (click)="openDetails(booking); $event.stopPropagation()"
+        >
+          View Details
+        </button>
       </div>
     </article>
   </div>
 
-  <ng-template #noRequestsForDate>
+  <ng-template #noRequests>
     <section class="empty-state">
-      <h3>No requests for this date</h3>
-      <p>Choose another day to review provider-side bookings.</p>
+      <h3>No requests yet</h3>
+      <p>Incoming booking requests from renters will appear here.</p>
     </section>
   </ng-template>
+
+  <div class="details-modal-backdrop" *ngIf="selectedRequest" (click)="closeDetails()">
+    <section class="details-modal" *ngIf="selectedRequest as booking" (click)="$event.stopPropagation()">
+      <div class="details-modal-header">
+        <div>
+          <h3>{{ booking.equipment_name || booking.listing_id }}</h3>
+          <p>{{ booking.renter_name || booking.renter_id }}</p>
+          <span class="details-person-chip">Renter</span>
+        </div>
+        <button class="modal-close" type="button" (click)="closeDetails()" aria-label="Close request details">x</button>
+      </div>
+
+      <div class="details-highlight-row">
+        <div class="details-highlight-card">
+          <span>Status</span>
+          <strong [ngClass]="getStatusClass(booking.status)">{{ booking.status }}</strong>
+        </div>
+        <div class="details-highlight-card">
+          <span>Total</span>
+          <strong>{{ booking.total_price || 0 | currency:'USD':'symbol':'1.0-2' }}</strong>
+        </div>
+      </div>
+
+      <div class="details-grid">
+        <div class="details-item" *ngFor="let row of getDetailRows(booking)">
+          <span>{{ row.label }}</span>
+          <strong [ngClass]="row.label === 'Status' ? getStatusClass(booking.status) : ''">{{ row.value }}</strong>
+        </div>
+      </div>
+
+      <div class="details-modal-actions">
+        <button *ngIf="booking.status === 'pending'" class="btn btn-primary" type="button" (click)="approve(booking); closeDetails()">Approve</button>
+        <button *ngIf="booking.status === 'pending'" class="btn btn-outline" type="button" (click)="reject(booking); closeDetails()">Reject</button>
+        <button class="btn btn-ghost" type="button" (click)="closeDetails()">Close</button>
+      </div>
+    </section>
+  </div>
 </section>

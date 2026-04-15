@@ -2,6 +2,7 @@ import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { forkJoin } from 'rxjs';
 import { AuthService } from '../../../core/services/auth.service';
 import { BlockService } from '../../../shared/services/block.service';
 import { User, UserBlock } from '../../../core/models/user.model';
@@ -17,6 +18,16 @@ import {
   RentalService,
 } from '../../../services/rental/rental.service';
 
+interface BookingDaySummary {
+  date: string;
+  label: string;
+  status: 'available' | 'limited' | 'booked' | 'unavailable';
+}
+
+interface ListingAvailabilitySummary {
+  availableDayCount: number;
+}
+
 @Component({
   selector: 'app-rent-equipment',
   standalone: true,
@@ -28,6 +39,9 @@ export class RentEquipmentComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   readonly maxRadiusKm = 250;
   readonly defaultRadiusKm = 50;
+  readonly bookingLeadMinutes = 30;
+  readonly availabilityWindowDays = 7;
+  readonly quickDistanceOptions = [25, 50, 100, 150, 250];
   readonly baseToolOptions = [
     'Tractor',
     'Irrigation Pump',
@@ -73,6 +87,7 @@ export class RentEquipmentComponent implements OnInit {
   categoryFilter = '';
   locationFilter = '';
   onlyWithImage = false;
+  onlyAvailable = false;
   sortBy: 'distance' | 'price_low' | 'price_high' | 'name' = 'distance';
   machineSearchTerm = '';
   appliedMachineSearchTerm = '';
@@ -85,6 +100,7 @@ export class RentEquipmentComponent implements OnInit {
   draftCategoryFilter = '';
   draftLocationFilter = '';
   draftOnlyWithImage = false;
+  draftOnlyAvailable = false;
   draftSortBy: 'distance' | 'price_low' | 'price_high' | 'name' = 'distance';
   detailsModalListing: RentalListing | null = null;
   bookingModalListing: RentalListing | null = null;
@@ -100,10 +116,13 @@ export class RentEquipmentComponent implements OnInit {
   availability: CheckAvailabilityResponse | null = null;
   calendarSlots: RentalCalendarSlot[] = [];
   calendarDate = '';
+  calendarPreviewDate = '';
+  availableDays: BookingDaySummary[] = [];
   nextAvailableSlot: string | null = null;
   recommendation: RentalRecommendationResponse | null = null;
   recommendationLoading = false;
   blockId: string | null = null;
+  listingAvailabilityMap: Record<string, ListingAvailabilitySummary> = {};
 
   constructor(
     private rentalService: RentalService,
@@ -136,10 +155,11 @@ export class RentEquipmentComponent implements OnInit {
       this.lat ?? undefined,
       this.lon ?? undefined,
       this.useRadiusFilter ? this.radiusKm : undefined,
-      currentUser?.userId
+      currentUser?.userId,
     ).subscribe({
       next: response => {
         this.listings = response;
+        this.loadListingAvailability(response);
         this.loading = false;
       },
       error: err => {
@@ -169,8 +189,9 @@ export class RentEquipmentComponent implements OnInit {
       const categoryMatch = !categorySearch || category === categorySearch;
       const locationMatch = !locationSearch || (listing.location_label || '').toLowerCase().includes(locationSearch);
       const imageMatch = !this.onlyWithImage || !!listing.image_url;
+      const availableMatch = !this.onlyAvailable || this.isListingAvailable(listing.id);
 
-      return typeMatch && priceMatch && machineMatch && categoryMatch && locationMatch && imageMatch;
+      return typeMatch && priceMatch && machineMatch && categoryMatch && locationMatch && imageMatch && availableMatch;
     }).sort((left, right) => {
       if (this.sortBy === 'price_low') {
         return left.price - right.price;
@@ -227,11 +248,18 @@ export class RentEquipmentComponent implements OnInit {
     if (this.onlyWithImage) {
       count += 1;
     }
+    if (this.onlyAvailable) {
+      count += 1;
+    }
     if (this.sortBy !== 'distance') {
       count += 1;
     }
 
     return count;
+  }
+
+  get minBookingDate(): string {
+    return this.toLocalDateString(new Date());
   }
 
   applyMachineSearch(): void {
@@ -265,6 +293,7 @@ export class RentEquipmentComponent implements OnInit {
     this.categoryFilter = this.draftCategoryFilter;
     this.locationFilter = this.draftLocationFilter;
     this.onlyWithImage = this.draftOnlyWithImage;
+    this.onlyAvailable = this.draftOnlyAvailable;
     this.sortBy = this.draftSortBy;
     this.showFilterPanel = false;
     this.loadListings();
@@ -279,6 +308,7 @@ export class RentEquipmentComponent implements OnInit {
     this.draftCategoryFilter = '';
     this.draftLocationFilter = '';
     this.draftOnlyWithImage = false;
+    this.draftOnlyAvailable = false;
     this.draftSortBy = 'distance';
   }
 
@@ -293,6 +323,7 @@ export class RentEquipmentComponent implements OnInit {
     this.categoryFilter = '';
     this.locationFilter = '';
     this.onlyWithImage = false;
+    this.onlyAvailable = false;
     this.sortBy = 'distance';
     this.resetFilters();
     this.loadListings();
@@ -330,9 +361,12 @@ export class RentEquipmentComponent implements OnInit {
     this.bookingEndTime = '';
     this.bookingQuantity = 1;
     this.calendarDate = '';
+    this.calendarPreviewDate = '';
     this.calendarSlots = [];
+    this.availableDays = [];
     this.nextAvailableSlot = null;
     this.detailsModalListing = null;
+    this.loadAvailableDays(listing.id);
   }
 
   closeBookingModal(): void {
@@ -340,7 +374,9 @@ export class RentEquipmentComponent implements OnInit {
     this.selectedListingId = null;
     this.availability = null;
     this.calendarSlots = [];
+    this.availableDays = [];
     this.nextAvailableSlot = null;
+    this.calendarPreviewDate = '';
     this.bookingStart = '';
     this.bookingEnd = '';
     this.bookingStartDate = '';
@@ -352,14 +388,10 @@ export class RentEquipmentComponent implements OnInit {
 
   onTimeChange(listing: RentalListing): void {
     this.selectedListingId = listing.id;
-    if (!this.bookingQuantity || this.bookingQuantity < 1) {
-      this.bookingQuantity = 1;
-    }
-    if (this.bookingQuantity > (listing.quantity_total || 1)) {
-      this.bookingQuantity = listing.quantity_total || 1;
-    }
+    this.enforceBookingBounds(listing);
     this.availability = null;
     this.info = null;
+    this.error = this.getBookingValidationMessage(listing);
     const window = this.buildBookingWindow(listing);
     this.calendarDate = this.resolveCalendarDate(listing, window);
     if (this.calendarDate) {
@@ -381,9 +413,26 @@ export class RentEquipmentComponent implements OnInit {
     };
 
     this.rentalService.checkAvailability(payload).subscribe({
-      next: res => this.availability = res,
+      next: res => {
+        this.availability = res;
+        this.enforceBookingBounds(listing);
+      },
       error: err => this.error = err.message || 'Availability check failed',
     });
+  }
+
+  onBookingDateChange(listing: RentalListing, dateValue: string): void {
+    this.calendarPreviewDate = dateValue;
+    this.onTimeChange(listing);
+  }
+
+  selectAvailableDay(listing: RentalListing, day: BookingDaySummary): void {
+    this.calendarPreviewDate = day.date;
+    this.bookingStartDate = day.date;
+    if (!this.bookingEndDate || this.bookingEndDate < day.date) {
+      this.bookingEndDate = day.date;
+    }
+    this.onTimeChange(listing);
   }
 
   bookNow(listing: RentalListing): void {
@@ -395,7 +444,8 @@ export class RentEquipmentComponent implements OnInit {
 
     const window = this.buildBookingWindow(listing);
     if (!window) {
-      this.error = listing.price_type === 'daily' ? 'Select start and end date' : 'Select start and end time';
+      this.error = this.getBookingValidationMessage(listing)
+        || (listing.price_type === 'daily' ? 'Select start and end date' : 'Select start and end time');
       return;
     }
 
@@ -440,9 +490,128 @@ export class RentEquipmentComponent implements OnInit {
     return { start, end, duration, total };
   }
 
+  getMinimumEndDate(): string {
+    return this.bookingStartDate || this.minBookingDate;
+  }
+
+  getMaximumBookableUnits(listing: RentalListing): number {
+    const providerLimit = listing.quantity_total || 1;
+    const availabilityLimit = this.selectedListingId === listing.id && this.availability?.available_quantity != null
+      ? this.availability.available_quantity
+      : null;
+
+    if (availabilityLimit == null) {
+      return providerLimit;
+    }
+
+    return Math.max(1, Math.min(providerLimit, availabilityLimit));
+  }
+
+  getAvailableUnitsLabel(listing: RentalListing): string {
+    const providerLimit = listing.quantity_total || 1;
+    const availableQuantity = this.selectedListingId === listing.id ? this.availability?.available_quantity : null;
+
+    if (availableQuantity == null) {
+      return `${providerLimit} unit${providerLimit === 1 ? '' : 's'} total available`;
+    }
+
+    return `${availableQuantity} of ${providerLimit} unit${providerLimit === 1 ? '' : 's'} available for this selection`;
+  }
+
+  getMinimumStartTime(): string | null {
+    if (this.bookingStartDate !== this.minBookingDate) {
+      return null;
+    }
+
+    return this.toTimeInputValue(this.getMinimumHourlyStart());
+  }
+
+  getMinimumEndTime(): string | null {
+    if (!this.bookingEndDate) {
+      return null;
+    }
+
+    if (this.bookingStartDate && this.bookingEndDate === this.bookingStartDate && this.bookingStartTime) {
+      return this.bookingStartTime;
+    }
+
+    if (this.bookingEndDate === this.minBookingDate) {
+      return this.toTimeInputValue(this.getMinimumHourlyStart());
+    }
+
+    return null;
+  }
+
+  getCalendarHeadingDate(): string {
+    return this.calendarPreviewDate || this.calendarDate;
+  }
+
+  getSelectedDaySummary(): BookingDaySummary | null {
+    const selectedDate = this.getCalendarHeadingDate();
+    if (!selectedDate) {
+      return null;
+    }
+    return this.availableDays.find(day => day.date === selectedDate) ?? null;
+  }
+
+  getSelectedDayStatusLabel(): string {
+    const selectedDay = this.getSelectedDaySummary();
+    if (!selectedDay) {
+      return 'Pick a date to instantly see whether this equipment is free, limited, or occupied.';
+    }
+
+    switch (selectedDay.status) {
+      case 'available':
+        return 'Good choice. This date has open availability.';
+      case 'limited':
+        return 'Partly available. Some time slots are already taken.';
+      case 'booked':
+        return 'This date is occupied. Please choose another day or time.';
+      case 'unavailable':
+        return 'This date is not offered by the provider.';
+      default:
+        return '';
+    }
+  }
+
+  getSelectedDayStatusClass(): string {
+    const selectedDay = this.getSelectedDaySummary();
+    return selectedDay ? `selected-day-status-${selectedDay.status}` : 'selected-day-status-idle';
+  }
+
+  isListingAvailable(listingId: string): boolean {
+    return (this.listingAvailabilityMap[listingId]?.availableDayCount ?? 0) > 0;
+  }
+
+  getAvailabilityLabel(listingId: string): string {
+    const availableDayCount = this.listingAvailabilityMap[listingId]?.availableDayCount ?? 0;
+    if (availableDayCount <= 0) {
+      return 'No available days in next 7 days';
+    }
+    if (availableDayCount === this.availabilityWindowDays) {
+      return `Available all ${this.availabilityWindowDays} days`;
+    }
+    if (availableDayCount === 1) {
+      return 'Available 1 day in next 7 days';
+    }
+    return `Available ${availableDayCount} days in next 7 days`;
+  }
+
+  setDraftRadiusMode(enabled: boolean): void {
+    this.draftUseRadiusFilter = enabled;
+  }
+
+  setDraftRadius(distanceKm: number): void {
+    this.draftRadiusKm = distanceKm;
+    this.draftUseRadiusFilter = true;
+  }
+
   private buildBookingWindow(listing: RentalListing): { start: string; end: string } | null {
     if (listing.price_type === 'daily') {
       if (!this.bookingStartDate || !this.bookingEndDate) {
+        return null;
+      }
+      if (this.bookingStartDate < this.minBookingDate || this.bookingEndDate < this.minBookingDate) {
         return null;
       }
       const start = new Date(`${this.bookingStartDate}T00:00:00`);
@@ -464,7 +633,7 @@ export class RentEquipmentComponent implements OnInit {
     this.bookingEnd = `${this.bookingEndDate}T${this.bookingEndTime}`;
     const start = new Date(this.bookingStart);
     const end = new Date(this.bookingEnd);
-    if (start >= end) {
+    if (start >= end || start < this.getMinimumHourlyStart()) {
       return null;
     }
     return {
@@ -487,6 +656,69 @@ export class RentEquipmentComponent implements OnInit {
     });
   }
 
+  private loadAvailableDays(listingId: string): void {
+    const requests = Array.from({ length: this.availabilityWindowDays }, (_, index) => {
+      const date = new Date();
+      date.setDate(date.getDate() + index);
+      const dayValue = this.toLocalDateString(date);
+      return this.rentalService.getListingCalendar(listingId, dayValue);
+    });
+
+    forkJoin(requests).subscribe({
+      next: responses => {
+        this.availableDays = responses.map(response => {
+          const date = new Date(`${response.date}T00:00:00`);
+          return {
+            date: response.date,
+            label: date.toLocaleDateString([], { weekday: 'short', day: '2-digit' }),
+            status: this.buildDayAvailabilityStatus(response.slots),
+          };
+        });
+      },
+      error: () => {
+        this.availableDays = [];
+      },
+    });
+  }
+
+  private loadListingAvailability(listings: RentalListing[]): void {
+    if (!listings.length) {
+      this.listingAvailabilityMap = {};
+      return;
+    }
+
+    const requests = listings.map(listing => {
+      const dayRequests = Array.from({ length: this.availabilityWindowDays }, (_, index) => {
+        const date = new Date();
+        date.setDate(date.getDate() + index);
+        return this.rentalService.getListingCalendar(listing.id, this.toLocalDateString(date));
+      });
+
+      return forkJoin(dayRequests);
+    });
+
+    forkJoin(requests)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: responses => {
+          this.listingAvailabilityMap = listings.reduce<Record<string, ListingAvailabilitySummary>>((accumulator, listing, index) => {
+            accumulator[listing.id] = {
+              availableDayCount: responses[index].filter(response =>
+                response.slots.some(slot => slot.status === 'available')
+              ).length,
+            };
+            return accumulator;
+          }, {});
+        },
+        error: () => {
+          this.listingAvailabilityMap = listings.reduce<Record<string, ListingAvailabilitySummary>>((accumulator, listing) => {
+            accumulator[listing.id] = { availableDayCount: this.availabilityWindowDays };
+            return accumulator;
+          }, {});
+        },
+      });
+  }
+
   private loadRecommendations(blockId: string): void {
     this.recommendationLoading = true;
     this.rentalService.getRecommendations(blockId).subscribe({
@@ -502,6 +734,10 @@ export class RentEquipmentComponent implements OnInit {
   }
 
   private resolveCalendarDate(listing: RentalListing, window: { start: string; end: string } | null): string {
+    if (this.calendarPreviewDate) {
+      return this.calendarPreviewDate;
+    }
+
     if (listing.price_type === 'daily') {
       return this.bookingStartDate || this.bookingEndDate || '';
     }
@@ -520,6 +756,115 @@ export class RentEquipmentComponent implements OnInit {
     const month = String(value.getMonth() + 1).padStart(2, '0');
     const day = String(value.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  }
+
+  private toTimeInputValue(value: Date): string {
+    const hours = String(value.getHours()).padStart(2, '0');
+    const minutes = String(value.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  }
+
+  private buildDayAvailabilityStatus(slots: RentalCalendarSlot[]): 'available' | 'limited' | 'booked' | 'unavailable' {
+    const availableCount = slots.filter(slot => slot.status === 'available').length;
+    if (availableCount === 0) {
+      const hasBookedOrBuffer = slots.some(slot => slot.status === 'booked' || slot.status === 'buffer');
+      return hasBookedOrBuffer ? 'booked' : 'unavailable';
+    }
+    if (availableCount === slots.length) {
+      return 'available';
+    }
+    return 'limited';
+  }
+
+  private getMinimumHourlyStart(): Date {
+    const minimum = new Date(Date.now() + this.bookingLeadMinutes * 60 * 1000);
+    minimum.setSeconds(0, 0);
+    return minimum;
+  }
+
+  private enforceBookingBounds(listing: RentalListing): void {
+    const minimumDate = this.minBookingDate;
+
+    if (this.bookingStartDate && this.bookingStartDate < minimumDate) {
+      this.bookingStartDate = minimumDate;
+    }
+    if (this.bookingEndDate && this.bookingEndDate < minimumDate) {
+      this.bookingEndDate = minimumDate;
+    }
+
+    if (listing.price_type === 'daily') {
+      if (this.bookingEndDate && this.bookingStartDate && this.bookingEndDate < this.bookingStartDate) {
+        this.bookingEndDate = this.bookingStartDate;
+      }
+    } else {
+      const minimumStart = this.getMinimumHourlyStart();
+      const minimumStartDate = this.toLocalDateString(minimumStart);
+      const minimumStartTime = this.toTimeInputValue(minimumStart);
+
+      if (this.bookingStartDate && this.bookingStartDate < minimumStartDate) {
+        this.bookingStartDate = minimumStartDate;
+      }
+      if (this.bookingEndDate && this.bookingEndDate < (this.bookingStartDate || minimumStartDate)) {
+        this.bookingEndDate = this.bookingStartDate || minimumStartDate;
+      }
+      if (this.bookingStartDate === minimumStartDate && this.bookingStartTime && this.bookingStartTime < minimumStartTime) {
+        this.bookingStartTime = minimumStartTime;
+      }
+      if (this.bookingEndDate === minimumStartDate && this.bookingEndTime && this.bookingEndTime < minimumStartTime) {
+        this.bookingEndTime = minimumStartTime;
+      }
+      if (this.bookingStartDate && this.bookingEndDate && this.bookingEndDate < this.bookingStartDate) {
+        this.bookingEndDate = this.bookingStartDate;
+      }
+      if (this.bookingStartDate && this.bookingEndDate && this.bookingStartDate === this.bookingEndDate
+        && this.bookingStartTime && this.bookingEndTime && this.bookingEndTime <= this.bookingStartTime) {
+        this.bookingEndTime = this.bookingStartTime;
+      }
+    }
+
+    const maximumUnits = this.getMaximumBookableUnits(listing);
+    if (!this.bookingQuantity || this.bookingQuantity < 1) {
+      this.bookingQuantity = 1;
+    }
+    if (this.bookingQuantity > maximumUnits) {
+      this.bookingQuantity = maximumUnits;
+    }
+  }
+
+  private getBookingValidationMessage(listing: RentalListing): string | null {
+    if (listing.price_type === 'daily') {
+      if ((this.bookingStartDate && this.bookingStartDate < this.minBookingDate)
+        || (this.bookingEndDate && this.bookingEndDate < this.minBookingDate)) {
+        return 'Past dates cannot be booked.';
+      }
+      if (this.bookingStartDate && this.bookingEndDate && this.bookingEndDate < this.bookingStartDate) {
+        return 'End date must be on or after the start date.';
+      }
+      return null;
+    }
+
+    if ((this.bookingStartDate && this.bookingStartDate < this.minBookingDate)
+      || (this.bookingEndDate && this.bookingEndDate < this.minBookingDate)) {
+      return 'Past dates cannot be booked.';
+    }
+
+    if (!this.bookingStartDate || !this.bookingStartTime) {
+      return null;
+    }
+
+    const start = new Date(`${this.bookingStartDate}T${this.bookingStartTime}`);
+    if (start < this.getMinimumHourlyStart()) {
+      return 'Start time must be at least 30 minutes in the future.';
+    }
+
+    if (this.bookingEndDate && this.bookingEndTime) {
+      const end = new Date(`${this.bookingEndDate}T${this.bookingEndTime}`);
+      if (end <= start) {
+        return 'End time must be later than the start time.';
+      }
+    }
+
+    return null;
   }
 
   private syncLocationContext(selectedBlock: Block | null, user: User | null): void {
@@ -549,6 +894,7 @@ export class RentEquipmentComponent implements OnInit {
     this.draftCategoryFilter = this.categoryFilter;
     this.draftLocationFilter = this.locationFilter;
     this.draftOnlyWithImage = this.onlyWithImage;
+    this.draftOnlyAvailable = this.onlyAvailable;
     this.draftSortBy = this.sortBy;
   }
 

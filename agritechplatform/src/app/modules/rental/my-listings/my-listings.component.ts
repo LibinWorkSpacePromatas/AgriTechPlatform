@@ -1,6 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { forkJoin } from 'rxjs';
 import { AuthService } from '../../../core/services/auth.service';
 import { BlockService } from '../../../shared/services/block.service';
 import {
@@ -24,6 +25,12 @@ interface EquipmentSubtypeOption {
   value: string;
 }
 
+interface ListingCalendarDaySummary {
+  date: string;
+  label: string;
+  status: 'available' | 'limited' | 'booked';
+}
+
 @Component({
   selector: 'app-my-listings',
   standalone: true,
@@ -44,6 +51,7 @@ export class MyListingsComponent implements OnInit, OnDestroy {
   selectedCalendarListingId: string | null = null;
   calendarDate = new Date().toISOString().slice(0, 10);
   calendarSlots: RentalCalendarSlot[] = [];
+  calendarDays: ListingCalendarDaySummary[] = [];
   nextAvailableSlot: string | null = null;
   calendarLoading = false;
   selectedImageName: string | null = null;
@@ -501,6 +509,14 @@ export class MyListingsComponent implements OnInit, OnDestroy {
     return this.calendarSlots.filter(slot => slot.status === 'available').length;
   }
 
+  get relevantCalendarSlots(): RentalCalendarSlot[] {
+    return this.calendarSlots.filter(slot => slot.status === 'booked' || slot.status === 'buffer' || slot.status === 'available');
+  }
+
+  get hasRelevantCalendarSlots(): boolean {
+    return this.relevantCalendarSlots.length > 0;
+  }
+
   private buildSpecificationsPayload(): Record<string, string> | null {
     const entries = this.currentSpecFields
       .map(field => [field.label, (this.specValues[field.key] || '').trim()] as const)
@@ -629,5 +645,41 @@ export class MyListingsComponent implements OnInit, OnDestroy {
   private readSpecification(specifications: Record<string, string> | null, label: string): string | null {
     const value = specifications?.[label]?.trim();
     return value ? value : null;
+  }
+
+  private loadCalendarDays(listingId: string): void {
+    const requests = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date();
+      date.setDate(date.getDate() + index);
+      const dayValue = date.toISOString().slice(0, 10);
+      return this.rentalService.getListingCalendar(listingId, dayValue);
+    });
+
+    forkJoin(requests).subscribe({
+      next: responses => {
+        this.calendarDays = responses.map(response => {
+          const dayDate = new Date(`${response.date}T00:00:00`);
+          return {
+            date: response.date,
+            label: dayDate.toLocaleDateString([], { weekday: 'short', day: '2-digit' }),
+            status: this.buildDayStatus(response.slots),
+          };
+        });
+      },
+      error: () => {
+        this.calendarDays = [];
+      },
+    });
+  }
+
+  private buildDayStatus(slots: RentalCalendarSlot[]): 'available' | 'limited' | 'booked' {
+    const availableCount = slots.filter(slot => slot.status === 'available').length;
+    if (availableCount === 0) {
+      return 'booked';
+    }
+    if (availableCount === slots.length) {
+      return 'available';
+    }
+    return 'limited';
   }
 }

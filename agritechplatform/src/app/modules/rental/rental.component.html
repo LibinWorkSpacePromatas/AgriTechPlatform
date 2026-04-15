@@ -1,11 +1,17 @@
 <section class="rental-shell">
   <h1>Rental Marketplace</h1>
   <nav class="tabs">
-    <button class="tab-btn" [class.active]="activeTab === 'overview'" (click)="activeTab = 'overview'">Overview</button>
-    <button class="tab-btn" [class.active]="activeTab === 'my-listings'" (click)="activeTab = 'my-listings'">My Listings</button>
-    <button class="tab-btn" [class.active]="activeTab === 'rent-equipment'" (click)="activeTab = 'rent-equipment'">Rent Equipment</button>
-    <button class="tab-btn" [class.active]="activeTab === 'my-bookings'" (click)="activeTab = 'my-bookings'">My Bookings</button>
-    <button class="tab-btn" [class.active]="activeTab === 'requests'" (click)="activeTab = 'requests'">Requests</button>
+    <button class="tab-btn" [class.active]="activeTab === 'overview'" (click)="selectTab('overview')">Overview</button>
+    <button class="tab-btn" [class.active]="activeTab === 'my-listings'" (click)="selectTab('my-listings')">My Listings</button>
+    <button class="tab-btn" [class.active]="activeTab === 'rent-equipment'" (click)="selectTab('rent-equipment')">Rent Equipment</button>
+    <button class="tab-btn tab-btn-notify" [class.active]="activeTab === 'my-bookings'" (click)="selectTab('my-bookings')">
+      <span>My Bookings</span>
+      <span class="tab-badge" *ngIf="approvedBookingCount > 0">{{ approvedBookingCount }}</span>
+    </button>
+    <button class="tab-btn tab-btn-notify" [class.active]="activeTab === 'requests'" (click)="selectTab('requests')">
+      <span>Requests</span>
+      <span class="tab-badge" *ngIf="pendingRequestCount > 0">{{ pendingRequestCount }}</span>
+    </button>
   </nav>
 
   <section class="tab-content" *ngIf="activeTab === 'overview'">

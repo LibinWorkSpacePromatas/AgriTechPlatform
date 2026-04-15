@@ -175,7 +175,9 @@
   <div class="details-modal-backdrop" *ngIf="detailsModalListing" (click)="closeDetailsModal()">
     <div class="details-modal" *ngIf="detailsModalListing as listing" (click)="$event.stopPropagation()">
       <div class="details-modal-media">
-        <img *ngIf="listing.image_url" class="details-modal-image" [src]="listing.image_url" [alt]="listing.equipment_name">
+        <div class="details-modal-image-frame">
+          <img *ngIf="listing.image_url" class="details-modal-image" [src]="listing.image_url" [alt]="listing.equipment_name">
+        </div>
         <span class="details-modal-badge" [class.inactive]="!listing.is_active">{{ listing.is_active ? 'ACTIVE' : 'PAUSED' }}</span>
       </div>
 
@@ -196,53 +198,31 @@
 
         <div class="details-modal-grid">
           <div class="details-modal-item">
-            <span>Location</span>
-            <strong>{{ listing.location_label || 'Unknown' }}</strong>
-          </div>
-          <div class="details-modal-item">
-            <span>Bookings</span>
-            <strong>{{ listing.bookings_count || 0 }}</strong>
-          </div>
-          <div class="details-modal-item">
             <span>Pricing</span>
             <strong>{{ listing.price_type === 'daily' ? 'Per day' : 'Per hour' }}</strong>
+          </div>
+          <div class="details-modal-item">
+            <span>Rate</span>
+            <strong>{{ listing.price | currency:'USD':'symbol':'1.0-2' }}</strong>
           </div>
           <div class="details-modal-item">
             <span>Status</span>
             <strong>{{ listing.is_active ? 'Active' : 'Paused' }}</strong>
           </div>
+          <div class="details-modal-item">
+            <span>Units</span>
+            <strong>{{ listing.quantity_total || 1 }}</strong>
+          </div>
         </div>
 
         <section class="details-modal-section">
           <div class="details-modal-section-head">
-            <h4>Availability</h4>
+            <h4>Booked And Available Hours</h4>
             <span>{{ getAvailabilitySummary(listing) }}</span>
           </div>
 
-          <div class="availability-overview">
-            <div class="availability-overview-item">
-              <span>Rental Mode</span>
-              <strong>{{ listing.price_type === 'daily' ? 'Daily booking' : 'Hourly booking' }}</strong>
-            </div>
-            <div class="availability-overview-item">
-              <span>Schedule</span>
-              <strong>{{ getAvailabilitySummary(listing) }}</strong>
-            </div>
-            <div class="availability-overview-item">
-              <span>Total Units</span>
-              <strong>{{ listing.quantity_total || 1 }}</strong>
-            </div>
-          </div>
-        </section>
-
-        <section class="details-modal-section">
-          <div class="details-modal-section-head">
-            <h4>Booking Availability</h4>
-            <span>Check a date</span>
-          </div>
-
           <label class="calendar-date-field">
-            <span>Select date</span>
+            <span>Choose a day to check this listing</span>
             <input type="date" [(ngModel)]="calendarDate" (change)="onCalendarDateChange(listing)">
           </label>
 
@@ -267,38 +247,37 @@
             Next available slot: {{ nextAvailableSlot }}
           </p>
 
-          <div class="calendar-box details-calendar" *ngIf="!calendarLoading && selectedCalendarListingId === listing.id && calendarSlots.length; else noCalendarSlots">
+          <div class="calendar-box details-calendar" *ngIf="!calendarLoading && selectedCalendarListingId === listing.id && hasRelevantCalendarSlots; else noCalendarSlots">
             <h3>Availability for {{ calendarDate | date:'mediumDate' }}</h3>
-            <div class="slot-grid">
-              <div class="slot-item" *ngFor="let slot of calendarSlots" [class.booked]="slot.status === 'booked'" [class.buffer]="slot.status === 'buffer'" [class.available]="slot.status === 'available'">
-                {{ slot.start_datetime | date:'HH:mm' }}-{{ slot.end_datetime | date:'HH:mm' }} {{ slot.status | uppercase }}
+            <div class="slot-scroll">
+              <div class="slot-grid">
+                <div
+                  class="slot-item"
+                  *ngFor="let slot of relevantCalendarSlots"
+                  [class.booked]="slot.status === 'booked'"
+                  [class.buffer]="slot.status === 'buffer'"
+                  [class.available]="slot.status === 'available'">
+                  <strong>{{ slot.start_datetime | date:'HH:mm' }}-{{ slot.end_datetime | date:'HH:mm' }}</strong>
+                  <span>
+                    {{ slot.status === 'booked' ? 'Booked'
+                      : slot.status === 'buffer' ? 'Buffer'
+                      : 'Open' }}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
           <ng-template #noCalendarSlots>
             <section class="calendar-empty" *ngIf="!calendarLoading && selectedCalendarListingId === listing.id">
-              <h3>No slot data for this date</h3>
-              <p>Pick another date to review the listing's booking availability.</p>
+              <h3>No booked or open slots to show</h3>
+              <p>This day does not have any booking activity or open rental windows worth showing here.</p>
             </section>
           </ng-template>
         </section>
 
-        <section class="details-modal-section" *ngIf="listing.specifications && (listing.specifications | keyvalue).length">
-          <div class="details-modal-section-head">
-            <h4>Equipment Details</h4>
-            <span>{{ (listing.specifications | keyvalue).length }} fields</span>
-          </div>
-
-          <div class="details-spec-grid">
-            <div class="details-spec-item" *ngFor="let spec of listing.specifications | keyvalue">
-              <span>{{ spec.key }}</span>
-              <strong>{{ spec.value || 'Not provided' }}</strong>
-            </div>
-          </div>
-        </section>
-
         <div class="details-modal-actions">
+          <button class="btn btn-ghost" type="button" (click)="closeDetailsModal()">Close</button>
           <button class="btn btn-outline listing-edit-btn" type="button" (click)="openEditForm(listing); closeDetailsModal()">Edit</button>
           <button class="btn" type="button" [class.listing-pause-btn]="listing.is_active" [class.listing-activate-btn]="!listing.is_active" (click)="toggleListing(listing); closeDetailsModal()">
             {{ listing.is_active ? 'Deactivate' : 'Activate' }}

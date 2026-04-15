@@ -4,7 +4,7 @@ import { Observable, catchError, map, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export type RentalPriceType = 'hourly' | 'daily';
-export type BookingStatus = 'pending' | 'approved' | 'rejected' | 'completed';
+export type BookingStatus = 'pending' | 'approved' | 'rejected' | 'completed' | 'cancelled';
 export type AvailabilityWeekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 
 export interface AvailabilitySettings {
@@ -77,6 +77,7 @@ export interface RentalBooking {
   total_price: number | null;
   created_at: string;
   equipment_name?: string;
+  image_url?: string | null;
   listing_is_active?: boolean;
   owner_name?: string;
   renter_name?: string;
@@ -128,7 +129,7 @@ export interface RentalRecommendationResponse {
 export interface RentalCalendarSlot {
   start_datetime: string;
   end_datetime: string;
-  status: 'booked' | 'buffer' | 'available';
+  status: 'booked' | 'buffer' | 'available' | 'unavailable';
 }
 
 export interface RentalCalendarResponse {
@@ -244,6 +245,12 @@ export class RentalService {
     return this.http
       .post<RentalBooking>(`${this.baseUrl}/bookings/${bookingId}/reject`, {}, { params: new HttpParams().set('user_id', userId) })
       .pipe(catchError(error => this.handleError('POST /api/rental/bookings/{id}/reject', error)));
+  }
+
+  cancelBooking(userId: string, bookingId: string): Observable<RentalBooking> {
+    return this.http
+      .post<RentalBooking>(`${this.baseUrl}/bookings/${bookingId}/cancel`, {}, { params: new HttpParams().set('user_id', userId) })
+      .pipe(catchError(error => this.handleError('POST /api/rental/bookings/{id}/cancel', error)));
   }
 
   payBooking(userId: string, bookingId: string): Observable<RentalBooking> {

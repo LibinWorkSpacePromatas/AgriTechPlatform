@@ -83,10 +83,10 @@
 
   <section class="results-context" *ngIf="useRadiusFilter || lat != null || lon != null">
     <p *ngIf="useRadiusFilter; else nearestSortContext">
-      Showing tools within <strong>{{ radiusKm }} km</strong> of your selected block, with nearest matches first.
+      Showing tools within <strong>{{ radiusKm }} km</strong> of your selected block{{ onlyAvailable ? ' that are available in the next 7 days' : '' }}, with nearest matches first.
     </p>
     <ng-template #nearestSortContext>
-      <p>Showing all tools and sorting the closest matches to your selected block first.</p>
+      <p>Showing all tools{{ onlyAvailable ? ' that are available in the next 7 days' : '' }} and sorting the closest matches to your selected block first.</p>
     </ng-template>
   </section>
 
@@ -103,21 +103,45 @@
       <div class="filter-drawer-body">
         <div class="filter-field filter-range-panel">
           <span>Distance</span>
-          <label class="filter-toggle filter-toggle-compact">
-            <input type="checkbox" [(ngModel)]="draftUseRadiusFilter">
-            <div>
-              <strong>Limit results by distance</strong>
-              <small>Turn this on only when you want to hide farther equipment.</small>
+          <div class="distance-filter-card">
+            <div class="distance-mode-toggle" role="group" aria-label="Distance filter mode">
+              <button
+                type="button"
+                class="distance-mode-btn"
+                [class.is-active]="!draftUseRadiusFilter"
+                (click)="setDraftRadiusMode(false)">
+                Any distance
+              </button>
+              <button
+                type="button"
+                class="distance-mode-btn"
+                [class.is-active]="draftUseRadiusFilter"
+                (click)="setDraftRadiusMode(true)">
+                Limit distance
+              </button>
             </div>
-          </label>
-          <div class="range-wrap">
-            <div class="range-meta">
-              <strong>{{ draftUseRadiusFilter ? (draftRadiusKm + ' km') : 'All distances' }}</strong>
-              <small>
-                {{ draftUseRadiusFilter ? ('within your selected block, up to ' + maxRadiusKm + ' km') : 'Nearest listings still appear first' }}
-              </small>
+
+            <div class="range-wrap" [class.range-wrap-disabled]="!draftUseRadiusFilter">
+              <div class="range-meta range-meta-compact">
+                <strong>{{ draftUseRadiusFilter ? (draftRadiusKm + ' km') : 'Showing all farmer listings' }}</strong>
+                <small>
+                  {{ draftUseRadiusFilter ? 'Only equipment within this distance will be shown.' : 'Turn on distance limit only when you want to hide farther listings.' }}
+                </small>
+              </div>
+
+              <input type="range" min="5" [max]="maxRadiusKm" [(ngModel)]="draftRadiusKm" [disabled]="!draftUseRadiusFilter">
+
+              <div class="distance-chip-row" *ngIf="draftUseRadiusFilter">
+                <button
+                  *ngFor="let option of quickDistanceOptions"
+                  type="button"
+                  class="distance-chip"
+                  [class.is-active]="draftRadiusKm === option"
+                  (click)="setDraftRadius(option)">
+                  {{ option }} km
+                </button>
+              </div>
             </div>
-            <input type="range" min="5" [max]="maxRadiusKm" [(ngModel)]="draftRadiusKm" [disabled]="!draftUseRadiusFilter">
           </div>
         </div>
 
@@ -160,6 +184,14 @@
           <select [(ngModel)]="draftSortBy">
             <option *ngFor="let option of sortOptions" [value]="option.value">{{ option.label }}</option>
           </select>
+        </label>
+
+        <label class="filter-toggle">
+          <input type="checkbox" [(ngModel)]="draftOnlyAvailable">
+          <div>
+            <strong>Show available equipment only</strong>
+            <small>Checks whether the tool has at least one open slot in the next 7 days.</small>
+          </div>
         </label>
 
         <label class="filter-toggle">
@@ -207,6 +239,9 @@
           <ng-template #noDistanceCard>
             <p class="card-meta">Distance unavailable</p>
           </ng-template>
+          <p class="card-meta availability-chip" [class.availability-chip-off]="!isListingAvailable(listing.id)">
+            {{ getAvailabilityLabel(listing.id) }}
+          </p>
         </div>
         <div class="card-actions">
           <button class="btn btn-primary compact-book-btn" type="button" (click)="openBooking(listing); $event.stopPropagation()">
@@ -258,12 +293,22 @@
           <div>
             <h3>{{ getListingDisplayName(listing) }}</h3>
             <p *ngIf="getListingDisplayDetail(listing)">{{ getListingDisplayDetail(listing) }}</p>
-            <p>{{ listing.owner_name || 'Farmer' }}</p>
+            <span class="details-owner-chip">{{ listing.owner_name || 'Farmer' }}</span>
           </div>
           <button class="modal-close" type="button" (click)="closeDetailsModal()" aria-label="Close details"></button>
         </div>
 
-        <p class="details-modal-price">{{ listing.price | currency:'USD':'symbol':'1.0-2' }} / {{ listing.price_type }}</p>
+        <div class="details-modal-highlights">
+          <div class="details-highlight-card details-highlight-price">
+            <span>Rate</span>
+            <strong>{{ listing.price | currency:'USD':'symbol':'1.0-2' }} / {{ listing.price_type }}</strong>
+          </div>
+          <div class="details-highlight-card">
+            <span>Availability</span>
+            <strong>{{ getAvailabilityLabel(listing.id) }}</strong>
+          </div>
+        </div>
+
         <p class="details-modal-description">
           {{ listing.description || 'No description available for this equipment yet.' }}
         </p>
@@ -283,6 +328,10 @@
               <strong>Unavailable</strong>
             </div>
           </ng-template>
+          <div class="details-modal-item">
+            <span>Owner</span>
+            <strong>{{ listing.owner_name || 'Farmer' }}</strong>
+          </div>
         </div>
 
         <section class="details-modal-section" *ngIf="listing.specifications && (listing.specifications | keyvalue).length">
@@ -318,22 +367,27 @@
       </div>
 
       <div class="booking-modal-body">
+        <section class="booking-section">
+          <div class="booking-section-head">
+            <h4>Schedule</h4>
+            <p>{{ listing.price_type === 'daily' ? 'Choose your rental dates.' : 'Choose date and time, then check availability.' }}</p>
+          </div>
         <div class="booking-field-grid" *ngIf="listing.price_type === 'hourly'; else dailyBookingModal">
           <label class="booking-field">
             <span>Start Date</span>
-            <input type="date" [(ngModel)]="bookingStartDate" (change)="onTimeChange(listing)">
+            <input type="date" [min]="minBookingDate" [(ngModel)]="bookingStartDate" (change)="onBookingDateChange(listing, bookingStartDate)">
           </label>
           <label class="booking-field">
             <span>Start Time</span>
-            <input type="time" [(ngModel)]="bookingStartTime" step="3600" (change)="onTimeChange(listing)">
+            <input type="time" [min]="getMinimumStartTime()" [(ngModel)]="bookingStartTime" step="3600" (change)="onTimeChange(listing)">
           </label>
           <label class="booking-field">
             <span>End Date</span>
-            <input type="date" [(ngModel)]="bookingEndDate" (change)="onTimeChange(listing)">
+            <input type="date" [min]="getMinimumEndDate()" [(ngModel)]="bookingEndDate" (change)="onBookingDateChange(listing, bookingEndDate)">
           </label>
           <label class="booking-field">
             <span>End Time</span>
-            <input type="time" [(ngModel)]="bookingEndTime" step="3600" (change)="onTimeChange(listing)">
+            <input type="time" [min]="getMinimumEndTime()" [(ngModel)]="bookingEndTime" step="3600" (change)="onTimeChange(listing)">
           </label>
         </div>
 
@@ -341,48 +395,75 @@
           <div class="booking-field-grid">
             <label class="booking-field">
               <span>Start Date</span>
-              <input type="date" [(ngModel)]="bookingStartDate" (change)="onTimeChange(listing)">
+              <input type="date" [min]="minBookingDate" [(ngModel)]="bookingStartDate" (change)="onBookingDateChange(listing, bookingStartDate)">
             </label>
             <label class="booking-field">
               <span>End Date</span>
-              <input type="date" [(ngModel)]="bookingEndDate" (change)="onTimeChange(listing)">
+              <input type="date" [min]="getMinimumEndDate()" [(ngModel)]="bookingEndDate" (change)="onBookingDateChange(listing, bookingEndDate)">
             </label>
           </div>
         </ng-template>
+        </section>
 
-        <div class="booking-rate-row">
-          <span>Rate per {{ listing.price_type === 'daily' ? 'day' : 'hour' }}</span>
-          <strong>{{ listing.price | currency:'USD':'symbol':'1.0-2' }}</strong>
+        <section class="booking-section booking-topline">
+          <div class="booking-mini-card">
+            <span>Rate</span>
+            <strong>{{ listing.price | currency:'USD':'symbol':'1.0-2' }} / {{ listing.price_type === 'daily' ? 'day' : 'hour' }}</strong>
+          </div>
+
+          <div class="booking-mini-card booking-mini-card-input">
+            <label class="booking-field booking-field-inline">
+              <span>Units</span>
+              <input
+                type="number"
+                min="1"
+                [max]="getMaximumBookableUnits(listing)"
+                [(ngModel)]="bookingQuantity"
+                (change)="onTimeChange(listing)">
+            </label>
+            <small>{{ getAvailableUnitsLabel(listing) }}</small>
+          </div>
+        </section>
+
+        <div class="selected-day-status-card" [ngClass]="getSelectedDayStatusClass()">
+          <div class="selected-day-status-head">
+            <p class="selected-day-status-title">
+              {{ getSelectedDaySummary()?.date ? ('Selected date: ' + (getCalendarHeadingDate() | date:'mediumDate')) : 'Selected date availability' }}
+            </p>
+            <span *ngIf="getSelectedDaySummary() as selectedDay" class="selected-day-status-badge">
+              {{ selectedDay.status | uppercase }}
+            </span>
+          </div>
+          <p class="selected-day-status-text">{{ getSelectedDayStatusLabel() }}</p>
+          <p *ngIf="nextAvailableSlot && getSelectedDaySummary()?.status !== 'available'" class="selected-day-status-next">
+            Next open time on this date: {{ nextAvailableSlot }}
+          </p>
         </div>
 
-        <label class="booking-field">
-          <span>Units to Book</span>
-          <input
-            type="number"
-            min="1"
-            [max]="listing.quantity_total || 1"
-            [(ngModel)]="bookingQuantity"
-            (change)="onTimeChange(listing)">
-        </label>
+        <div class="availability-day-strip" *ngIf="availableDays.length">
+          <p class="availability-day-title">Upcoming day availability</p>
+          <button
+            type="button"
+            class="availability-day-pill"
+            *ngFor="let day of availableDays"
+            [class.is-selected]="day.date === getCalendarHeadingDate()"
+            [class.is-available]="day.status === 'available'"
+            [class.is-limited]="day.status === 'limited'"
+            [class.is-booked]="day.status === 'booked'"
+            [class.is-unavailable]="day.status === 'unavailable'"
+            (click)="selectAvailableDay(listing, day)">
+            {{ day.label }} · {{ day.status }}
+          </button>
+        </div>
 
-        <p class="booking-helper-text">
-          {{ listing.price_type === 'daily'
-            ? 'Choose the rental start and end dates to check availability.'
-            : 'Choose start and end dates first, then pick the booking times to check availability.' }}
-        </p>
-
-        <p class="booking-helper-text" *ngIf="listing.price_type === 'hourly' && !calendarDate">
-          Select a start date to see that day's booked and available time slots.
+        <p class="booking-helper-text booking-helper-inline" *ngIf="listing.price_type === 'hourly' && !calendarDate">
+          Select either date field to see that day's booked and available time slots.
         </p>
 
         <p *ngIf="selectedListingId === listing.id && availability?.available" class="ok booking-status">Available for booking</p>
         <p *ngIf="selectedListingId === listing.id && availability && !availability.available" class="error booking-status">
           Not Available ({{ availability.reason || 'Overlapping / Buffer' }})
         </p>
-        <p *ngIf="selectedListingId === listing.id && availability?.available_quantity != null" class="booking-helper-text">
-          Remaining units for this slot: {{ availability?.available_quantity }}
-        </p>
-
         <div class="booking-summary" *ngIf="selectedListingId === listing.id && getBookingSummary(listing) as summary">
           <h4>Booking Summary</h4>
           <p>Start: {{ summary.start | date:'medium' }}</p>
@@ -394,13 +475,17 @@
         </div>
 
         <div class="slot-strip" *ngIf="selectedListingId === listing.id && calendarDate && calendarSlots.length">
-          <p class="slot-date-label">Availability for {{ calendarDate | date:'mediumDate' }}</p>
-          <p *ngIf="nextAvailableSlot" class="next-slot">Next available: {{ nextAvailableSlot }}</p>
-          <div class="slot-pill" *ngFor="let slot of calendarSlots" [class.booked]="slot.status === 'booked'" [class.buffer]="slot.status === 'buffer'" [class.available]="slot.status === 'available'">
+          <p class="slot-date-label">Availability for {{ getCalendarHeadingDate() | date:'mediumDate' }}</p>
+          <p *ngIf="nextAvailableSlot" class="next-slot">Next available slot: {{ nextAvailableSlot }}</p>
+          <div class="slot-pill" *ngFor="let slot of calendarSlots" [class.booked]="slot.status === 'booked'" [class.buffer]="slot.status === 'buffer'" [class.available]="slot.status === 'available'" [class.unavailable]="slot.status === 'unavailable'">
             {{ slot.start_datetime | date:'HH:mm' }}-{{ slot.end_datetime | date:'HH:mm' }} -> {{ slot.status | uppercase }}
           </div>
         </div>
 
+      </div>
+
+      <div class="booking-modal-footer">
+        <button class="btn btn-outline booking-secondary-btn" type="button" (click)="closeBookingModal()">Cancel</button>
         <button class="btn btn-primary booking-submit" type="button" (click)="bookNow(listing)">
           Confirm Booking
         </button>
