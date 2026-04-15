@@ -30,6 +30,8 @@ class User(Base):
 
     id = Column(UUID, primary_key=True)
     name = Column(String)
+    email = Column(String, unique=True, index=True)
+    password_hash = Column(String)
     region = Column(String)
     council = Column(String)
     farm_name = Column(String)
