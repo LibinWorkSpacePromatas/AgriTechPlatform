@@ -815,6 +815,33 @@ def _ensure_sensor_support_tables() -> None:
                 """
             )
         )
+        connection.execute(
+            text(
+                """
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1
+                        FROM information_schema.table_constraints
+                        WHERE constraint_name = 'ck_sensor_definitions_sensor_type'
+                          AND table_name = 'sensor_definitions'
+                    ) THEN
+                        ALTER TABLE sensor_definitions DROP CONSTRAINT ck_sensor_definitions_sensor_type;
+                    END IF;
+                END
+                $$;
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                ALTER TABLE sensor_definitions
+                ADD CONSTRAINT ck_sensor_definitions_sensor_type
+                CHECK (sensor_type IN ('soil_moisture', 'soil_temperature', 'air_temperature', 'humidity', 'ph_level', 'sunlight', 'fertility'))
+                """
+            )
+        )
 
 
 def ensure_satellite_cache_table() -> None:
