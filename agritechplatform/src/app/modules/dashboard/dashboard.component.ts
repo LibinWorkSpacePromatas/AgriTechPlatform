@@ -1077,7 +1077,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private mapIotSensors(response: BlockIotSensorsResponse): IotDashboardSensor[] {
     return response.sensors
-      .filter(sensor => sensor.sensor_type !== 'air_temperature')
+      .filter(sensor => !['air_temperature', 'sunlight', 'fertility'].includes(sensor.sensor_type))
       .map(sensor => ({
         sensorId: sensor.sensor_id,
         sensorType: sensor.sensor_type,
