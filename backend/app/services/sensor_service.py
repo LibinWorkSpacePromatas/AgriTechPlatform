@@ -170,17 +170,16 @@ def calculate_sensor_status(value: float, threshold_low: float | None, threshold
 class SensorService:
     def get_block_sensor_dashboard(self, db: Session, block_identifier: str) -> BlockSensorsResponse:
         block = resolve_block(db, block_identifier)
-        definitions = self._ensure_sensor_state(db, block)
-        _tick_time, readings_refreshed = self._refresh_live_readings_if_needed(db, block, definitions)
+        self._ensure_sensor_state(db, block)
         db.commit()
 
-        self._update_sensor_decision_state(db, block.id, sensor_data_changed=readings_refreshed)
+        self._update_sensor_decision_state(db, block.id, sensor_data_changed=False)
 
         return self._build_block_response(db, block)
 
     def get_block_sensor_snapshot(self, db: Session, block_identifier: str) -> BlockSensorsResponse:
         block = resolve_block(db, block_identifier)
-        definitions = self._ensure_sensor_state(db, block)
+        self._ensure_sensor_state(db, block)
         db.commit()
 
         self._update_sensor_decision_state(db, block.id, sensor_data_changed=False)
@@ -370,6 +369,8 @@ class SensorService:
         force: bool = False,
     ) -> tuple[datetime, bool]:
         tick_time = datetime.now(timezone.utc)
+        tick_boundary = tick_time - timedelta(seconds=LIVE_TICK_INTERVAL_SECONDS)
+
         latest_rows = {
             row.sensor_id: row
             for row in db.query(SensorLatest)
@@ -377,27 +378,42 @@ class SensorService:
             .all()
         }
 
-        should_refresh = force or any(
-            definition.id not in latest_rows
-            or (tick_time - latest_rows[definition.id].observed_at).total_seconds() >= LIVE_TICK_INTERVAL_SECONDS
-            for definition in definitions
-            if definition.is_active
-        )
-        if not should_refresh:
+        # Only simulate sensors whose SensorLatest is missing or older than the tick interval.
+        # If the mobile app saved a real value within the current tick window (observed_at > tick_boundary),
+        # skip simulation for that sensor so the real reading is preserved.
+        sensors_needing_sim = [
+            definition for definition in definitions
+            if definition.is_active and (
+                force
+                or definition.id not in latest_rows
+                or latest_rows[definition.id].observed_at <= tick_boundary
+            )
+        ]
+
+        if not sensors_needing_sim:
             return tick_time, False
 
-        for definition in definitions:
-            if not definition.is_active:
-                continue
-
+        for definition in sensors_needing_sim:
             latest_row = latest_rows.get(definition.id)
             next_value = self._next_live_value(block, definition, latest_row.value if latest_row else None, tick_time)
+            status = calculate_sensor_status(next_value, definition.threshold_low, definition.threshold_high)
+
             db.add(
                 SensorReading(
                     sensor_id=definition.id,
                     value=next_value,
-                    status=calculate_sensor_status(next_value, definition.threshold_low, definition.threshold_high),
+                    status=status,
                     granularity="raw",
+                    observed_at=tick_time,
+                )
+            )
+
+            # Only overwrite SensorLatest for sensors that were actually simulated
+            db.merge(
+                SensorLatest(
+                    sensor_id=definition.id,
+                    value=next_value,
+                    status=status,
                     observed_at=tick_time,
                 )
             )
@@ -448,10 +464,16 @@ class SensorService:
                 )
             )
 
+        # Find the latest observation timestamp among the sensors
+        max_observed_at = max(
+            (sensor.observed_at for sensor in sensors if sensor.observed_at),
+            default=datetime.now(timezone.utc)
+        )
+
         return BlockSensorsResponse(
             block_id=str(block.id),
             block_name=f"{block.lanslu} - {block.crop or 'Block'}",
-            generated_at=datetime.now(timezone.utc),
+            generated_at=max_observed_at,
             sensors=sensors,
         )
 

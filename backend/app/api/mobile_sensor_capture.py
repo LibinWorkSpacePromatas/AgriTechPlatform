@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.db.models import SensorReading
+from app.db.models import SensorLatest, SensorReading
 from app.db.session import SessionLocal
 from app.schemas.sensors import BlockSensorsResponse
 from app.services.block_lookup import resolve_block
@@ -69,12 +69,24 @@ def insert_mobile_sensor_snapshot(
             if definition is None:
                 raise HTTPException(status_code=404, detail=f"Sensor definition not found for {sensor_type}")
 
+            status = calculate_sensor_status(value, definition.threshold_low, definition.threshold_high)
+
             db.add(
                 SensorReading(
                     sensor_id=definition.id,
                     value=value,
-                    status=calculate_sensor_status(value, definition.threshold_low, definition.threshold_high),
+                    status=status,
                     granularity="raw",
+                    observed_at=observed_at,
+                )
+            )
+
+            # Upsert SensorLatest so the website immediately sees the real mobile value
+            db.merge(
+                SensorLatest(
+                    sensor_id=definition.id,
+                    value=value,
+                    status=status,
                     observed_at=observed_at,
                 )
             )
