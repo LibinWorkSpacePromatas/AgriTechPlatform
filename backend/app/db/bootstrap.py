@@ -124,6 +124,7 @@ def ensure_blocks_timezone_column() -> None:
 
 def ensure_satellite_support_tables() -> None:
     _rebuild_satellite_cache_table_if_needed()
+    ensure_user_auth_columns()
     Base.metadata.create_all(
         bind=engine,
         tables=[
@@ -858,6 +859,31 @@ def _ensure_user_role_column() -> None:
             connection.execute(
                 text("ALTER TABLE users ADD COLUMN role VARCHAR(32) NOT NULL DEFAULT 'farmer'")
             )
+
+
+def ensure_user_auth_columns() -> None:
+    inspector = inspect(engine)
+    if not inspector.has_table("users"):
+        return
+
+    existing_columns = {col["name"] for col in inspector.get_columns("users")}
+
+    with engine.begin() as connection:
+        if "email" not in existing_columns:
+            connection.execute(text("ALTER TABLE users ADD COLUMN email TEXT"))
+
+        if "password_hash" not in existing_columns:
+            connection.execute(text("ALTER TABLE users ADD COLUMN password_hash TEXT"))
+
+        connection.execute(
+            text(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS ix_users_email
+                ON users (email)
+                WHERE email IS NOT NULL
+                """
+            )
+        )
 
 
 def _seed_bidder_user() -> None:
