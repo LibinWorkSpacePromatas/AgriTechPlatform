@@ -2451,7 +2451,7 @@
 
 .iot-sensors-grid {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 0.72rem;
 }
 
@@ -3249,7 +3249,8 @@
     .overview-reading-grid,
     .detail-summary-grid,
     .supporting-grid,
-    .weather-stats-grid {
+    .weather-stats-grid,
+    .iot-sensors-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 

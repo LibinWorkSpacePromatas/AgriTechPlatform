@@ -664,9 +664,10 @@ def ensure_unified_farm_state_view() -> None:
                     b.id AS block_id,
                     MAX(CASE WHEN sd.sensor_type = 'soil_moisture' THEN sl.value END) AS soil_moisture,
                     MAX(CASE WHEN sd.sensor_type = 'soil_temperature' THEN sl.value END) AS soil_temperature,
-                    MAX(CASE WHEN sd.sensor_type = 'air_temperature' THEN sl.value END) AS air_temperature,
                     MAX(CASE WHEN sd.sensor_type = 'humidity' THEN sl.value END) AS humidity,
                     MAX(CASE WHEN sd.sensor_type = 'ph_level' THEN sl.value END) AS ph_level,
+                    MAX(CASE WHEN sd.sensor_type = 'sunlight' THEN sl.value END) AS sunlight,
+                    MAX(CASE WHEN sd.sensor_type = 'fertility' THEN sl.value END) AS fertility,
                     (sc.payload->>'ndvi')::float AS ndvi,
                     (sc.payload->>'ndwi')::float AS ndwi,
                     (sc.payload->>'evi')::float AS evi,
@@ -818,6 +819,14 @@ def _ensure_sensor_support_tables() -> None:
         connection.execute(
             text(
                 """
+                DELETE FROM sensor_definitions
+                WHERE sensor_type = 'air_temperature'
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
                 DO $$
                 BEGIN
                     IF EXISTS (
@@ -838,7 +847,7 @@ def _ensure_sensor_support_tables() -> None:
                 """
                 ALTER TABLE sensor_definitions
                 ADD CONSTRAINT ck_sensor_definitions_sensor_type
-                CHECK (sensor_type IN ('soil_moisture', 'soil_temperature', 'air_temperature', 'humidity', 'ph_level', 'sunlight', 'fertility'))
+                CHECK (sensor_type IN ('soil_moisture', 'soil_temperature', 'humidity', 'ph_level', 'sunlight', 'fertility'))
                 """
             )
         )
