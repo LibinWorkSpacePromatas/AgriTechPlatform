@@ -30,6 +30,8 @@ SENSOR_ORDER: tuple[SensorType, ...] = (
     "air_temperature",
     "humidity",
     "ph_level",
+    "sunlight",
+    "fertility",
 )
 
 
@@ -122,7 +124,7 @@ SENSOR_TEMPLATES: dict[SensorType, SensorTemplate] = {
     "ph_level": SensorTemplate(
         sensor_type="ph_level",
         label="pH Level",
-        unit="",
+        unit="pH",
         threshold_low=5,
         threshold_high=8,
         suggested_min=0,
@@ -135,6 +137,42 @@ SENSOR_TEMPLATES: dict[SensorType, SensorTemplate] = {
         daily=(7.2, 7.1, 7.0, 6.9, 6.9, 6.8, 6.7),
         weekly=(7.2, 7.0, 6.9, 6.7),
         variation_scale=0.35,
+    ),
+    "sunlight": SensorTemplate(
+        sensor_type="sunlight",
+        label="Sunlight",
+        unit="W/m2",
+        threshold_low=150,
+        threshold_high=1100,
+        suggested_min=0,
+        suggested_max=1400,
+        current=640.0,
+        hourly=(
+            0.0, 0.0, 0.0, 30.0, 120.0, 260.0, 420.0, 580.0, 760.0, 890.0, 960.0, 1010.0,
+            1040.0, 1020.0, 930.0, 790.0, 610.0, 420.0, 220.0, 80.0, 10.0, 0.0, 0.0, 640.0,
+        ),
+        daily=(520.0, 560.0, 610.0, 640.0, 680.0, 620.0, 640.0),
+        weekly=(500.0, 560.0, 610.0, 640.0),
+        variation_scale=120.0,
+        rounding=1,
+    ),
+    "fertility": SensorTemplate(
+        sensor_type="fertility",
+        label="Fertility",
+        unit="EC",
+        threshold_low=0.8,
+        threshold_high=2.4,
+        suggested_min=0,
+        suggested_max=5,
+        current=1.6,
+        hourly=(
+            1.5, 1.5, 1.4, 1.4, 1.4, 1.5, 1.5, 1.6, 1.6, 1.7, 1.7, 1.7,
+            1.8, 1.8, 1.7, 1.7, 1.6, 1.6, 1.6, 1.5, 1.5, 1.5, 1.5, 1.6,
+        ),
+        daily=(1.4, 1.5, 1.5, 1.6, 1.7, 1.6, 1.6),
+        weekly=(1.3, 1.5, 1.6, 1.6),
+        variation_scale=0.25,
+        rounding=2,
     ),
 }
 
@@ -156,6 +194,14 @@ class SensorService:
 
         self._update_sensor_decision_state(db, block.id, sensor_data_changed=readings_refreshed)
 
+        return self._build_block_response(db, block)
+
+    def get_block_sensor_snapshot(self, db: Session, block_identifier: str) -> BlockSensorsResponse:
+        block = resolve_block(db, block_identifier)
+        definitions = self._ensure_sensor_state(db, block)
+        db.commit()
+
+        self._update_sensor_decision_state(db, block.id, sensor_data_changed=False)
         return self._build_block_response(db, block)
 
     def get_sensor_history(
@@ -532,6 +578,8 @@ class SensorService:
             "air_temperature": 3.0,
             "humidity": 8.0,
             "ph_level": 0.45,
+            "sunlight": 140.0,
+            "fertility": 0.3,
         }[template.sensor_type]
         return centered_fraction * scale
 
