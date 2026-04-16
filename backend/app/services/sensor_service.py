@@ -27,7 +27,6 @@ LIVE_TICK_INTERVAL_SECONDS = 30
 SENSOR_ORDER: tuple[SensorType, ...] = (
     "soil_moisture",
     "soil_temperature",
-    "air_temperature",
     "humidity",
     "ph_level",
     "sunlight",
@@ -86,23 +85,6 @@ SENSOR_TEMPLATES: dict[SensorType, SensorTemplate] = {
         daily=(18.0, 19.0, 21.0, 20.0, 19.0, 18.0, 23.4),
         weekly=(22.0, 20.0, 18.0, 23.4),
         variation_scale=2.0,
-    ),
-    "air_temperature": SensorTemplate(
-        sensor_type="air_temperature",
-        label="Air Temperature",
-        unit="C",
-        threshold_low=15,
-        threshold_high=35,
-        suggested_min=0,
-        suggested_max=50,
-        current=29.8,
-        hourly=(
-            20.0, 21.0, 23.0, 25.0, 28.0, 30.0, 32.0, 33.0, 34.0, 33.0, 32.0, 31.0,
-            30.0, 29.0, 28.0, 27.0, 26.0, 27.0, 28.0, 29.0, 30.0, 31.0, 31.4, 29.8,
-        ),
-        daily=(25.0, 28.0, 30.0, 32.0, 34.0, 33.0, 29.8),
-        weekly=(28.0, 30.0, 32.0, 29.8),
-        variation_scale=2.5,
     ),
     "humidity": SensorTemplate(
         sensor_type="humidity",
@@ -281,6 +263,7 @@ class SensorService:
         return definitions
 
     def _ensure_sensor_definitions(self, db: Session, block: Block) -> list[SensorDefinition]:
+        self._remove_legacy_sensor_definitions(db, block.id)
         definitions = self._get_block_sensor_definitions(db, block.id)
         existing_types = {definition.sensor_type for definition in definitions}
 
@@ -306,6 +289,17 @@ class SensorService:
 
         db.flush()
         return self._get_block_sensor_definitions(db, block.id)
+
+    def _remove_legacy_sensor_definitions(self, db: Session, block_id: object) -> None:
+        (
+            db.query(SensorDefinition)
+            .filter(
+                SensorDefinition.block_id == block_id,
+                SensorDefinition.sensor_type == "air_temperature",
+            )
+            .delete(synchronize_session=False)
+        )
+        db.flush()
 
     def _ensure_seed_history(self, db: Session, block: Block, definitions: list[SensorDefinition]) -> None:
         sensor_ids = [definition.id for definition in definitions]
@@ -575,7 +569,6 @@ class SensorService:
         scale = {
             "soil_moisture": 5.5,
             "soil_temperature": 2.5,
-            "air_temperature": 3.0,
             "humidity": 8.0,
             "ph_level": 0.45,
             "sunlight": 140.0,

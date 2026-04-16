@@ -949,6 +949,8 @@ def get_block_unified_state(block_id: str, db: Session = Depends(get_db)):
             "air_temperature": _float(row.get("air_temperature")),
             "humidity": _float(row.get("humidity")),
             "ph": _float(row.get("ph_level")),
+            "sunlight": _float(row.get("sunlight")),
+            "fertility": _float(row.get("fertility")),
         },
         "satellite": {
             "ndvi": _float(row.get("ndvi")),

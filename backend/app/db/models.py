@@ -141,7 +141,7 @@ class SensorDefinition(Base):
     __tablename__ = "sensor_definitions"
     __table_args__ = (
         CheckConstraint(
-            "sensor_type IN ('soil_moisture', 'soil_temperature', 'air_temperature', 'humidity', 'ph_level', 'sunlight', 'fertility')",
+            "sensor_type IN ('soil_moisture', 'soil_temperature', 'humidity', 'ph_level', 'sunlight', 'fertility')",
             name="ck_sensor_definitions_sensor_type",
         ),
         UniqueConstraint("block_id", "sensor_type", name="uq_sensor_definitions_block_sensor_type"),

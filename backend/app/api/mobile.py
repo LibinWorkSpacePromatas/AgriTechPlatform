@@ -4,11 +4,11 @@ import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
-from passlib.context import CryptContext
 from pydantic import BaseModel
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.core.password_security import verify_password
 from app.db.models import User
 from app.db.session import SessionLocal
 from app.schemas.sensors import BlockSensorsResponse
@@ -16,7 +16,6 @@ from app.services.sensor_service import sensor_service
 
 
 router = APIRouter(tags=["mobile"])
-password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 logger = logging.getLogger(__name__)
 
 
@@ -93,7 +92,7 @@ def mobile_login(payload: MobileLoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     try:
-        password_valid = password_context.verify(payload.password, user.password_hash)
+        password_valid = verify_password(payload.password, user.password_hash)
     except Exception as exc:
         logger.exception("Mobile login password verification error for email=%s", normalized_email)
         raise HTTPException(status_code=500, detail=f"Unable to verify password: {exc}") from exc
