@@ -30,6 +30,8 @@ class User(Base):
 
     id = Column(UUID, primary_key=True)
     name = Column(String)
+    email = Column(String, unique=True, index=True)
+    password_hash = Column(String)
     region = Column(String)
     council = Column(String)
     farm_name = Column(String)
@@ -139,7 +141,7 @@ class SensorDefinition(Base):
     __tablename__ = "sensor_definitions"
     __table_args__ = (
         CheckConstraint(
-            "sensor_type IN ('soil_moisture', 'soil_temperature', 'air_temperature', 'humidity', 'ph_level')",
+            "sensor_type IN ('soil_moisture', 'soil_temperature', 'air_temperature', 'humidity', 'ph_level', 'sunlight', 'fertility')",
             name="ck_sensor_definitions_sensor_type",
         ),
         UniqueConstraint("block_id", "sensor_type", name="uq_sensor_definitions_block_sensor_type"),

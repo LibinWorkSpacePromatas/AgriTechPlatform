@@ -124,6 +124,7 @@ def ensure_blocks_timezone_column() -> None:
 
 def ensure_satellite_support_tables() -> None:
     _rebuild_satellite_cache_table_if_needed()
+    ensure_user_auth_columns()
     Base.metadata.create_all(
         bind=engine,
         tables=[
@@ -814,6 +815,33 @@ def _ensure_sensor_support_tables() -> None:
                 """
             )
         )
+        connection.execute(
+            text(
+                """
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1
+                        FROM information_schema.table_constraints
+                        WHERE constraint_name = 'ck_sensor_definitions_sensor_type'
+                          AND table_name = 'sensor_definitions'
+                    ) THEN
+                        ALTER TABLE sensor_definitions DROP CONSTRAINT ck_sensor_definitions_sensor_type;
+                    END IF;
+                END
+                $$;
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                ALTER TABLE sensor_definitions
+                ADD CONSTRAINT ck_sensor_definitions_sensor_type
+                CHECK (sensor_type IN ('soil_moisture', 'soil_temperature', 'air_temperature', 'humidity', 'ph_level', 'sunlight', 'fertility'))
+                """
+            )
+        )
 
 
 def ensure_satellite_cache_table() -> None:
@@ -858,6 +886,31 @@ def _ensure_user_role_column() -> None:
             connection.execute(
                 text("ALTER TABLE users ADD COLUMN role VARCHAR(32) NOT NULL DEFAULT 'farmer'")
             )
+
+
+def ensure_user_auth_columns() -> None:
+    inspector = inspect(engine)
+    if not inspector.has_table("users"):
+        return
+
+    existing_columns = {col["name"] for col in inspector.get_columns("users")}
+
+    with engine.begin() as connection:
+        if "email" not in existing_columns:
+            connection.execute(text("ALTER TABLE users ADD COLUMN email TEXT"))
+
+        if "password_hash" not in existing_columns:
+            connection.execute(text("ALTER TABLE users ADD COLUMN password_hash TEXT"))
+
+        connection.execute(
+            text(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS ix_users_email
+                ON users (email)
+                WHERE email IS NOT NULL
+                """
+            )
+        )
 
 
 def _seed_bidder_user() -> None:
