@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
-from app.api import auctions, gpt, mobile, mobile_sensor_capture, mobile_users, profit_risk, rental, water
+from app.api import auctions, gpt, mobile, mobile_history, mobile_sensor_capture, mobile_users, profit_risk, rental, water
 from app.core.config import get_settings
 from app.db.bootstrap import ensure_auction_tables, ensure_satellite_support_tables
 from app.services.profit_risk import get_profit_risk_service
@@ -59,6 +59,7 @@ app.include_router(router)
 app.include_router(auctions.router, prefix="/api")
 app.include_router(gpt.router, prefix="/api")
 app.include_router(mobile.router, prefix="/api/mobile")
+app.include_router(mobile_history.router, prefix="/api/mobile")
 app.include_router(mobile_sensor_capture.router, prefix="/api/mobile")
 app.include_router(mobile_users.router, prefix="/api/mobile")
 app.include_router(profit_risk.router, prefix="/api")
