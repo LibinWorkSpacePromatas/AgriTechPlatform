@@ -343,7 +343,6 @@ def _get_block_sensor_context(db: Session, block_id: str) -> GrowerGPTSensorData
             SELECT
                 ufs.soil_moisture,
                 ufs.soil_temperature,
-                ufs.air_temperature,
                 ufs.humidity,
                 ufs.ph_level
             FROM unified_farm_state ufs
@@ -368,9 +367,8 @@ def _get_block_sensor_context(db: Session, block_id: str) -> GrowerGPTSensorData
         {"block_id": str(block_id)},
     ).scalar()
 
-    air_temperature = row.get("air_temperature")
     soil_temperature = row.get("soil_temperature")
-    chosen_temperature = air_temperature if air_temperature is not None else soil_temperature
+    chosen_temperature = soil_temperature
 
     if (
         row.get("soil_moisture") is None
