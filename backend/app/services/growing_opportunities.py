@@ -8,7 +8,6 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 from html import unescape
 from pathlib import Path
-from urllib.parse import quote
 from uuid import uuid4
 from email.utils import parsedate_to_datetime
 
@@ -154,22 +153,45 @@ class GrowingOpportunitiesService:
         "investment",
     )
     TOOLS_TERMS = (
-        "tool",
-        "tools",
-        "technology",
-        "platform",
-        "software",
-        "app",
-        "apps",
+        "farm technology",
+        "agtech",
+        "precision agriculture",
+        "precision farming",
+        "smart irrigation",
+        "irrigation technology",
+        "irrigation system",
+        "irrigation systems",
+        "soil moisture sensor",
+        "soil moisture sensors",
+        "remote sensing",
+        "decision support",
+        "decision-support",
+        "farm management software",
+        "grower platform",
+        "agricultural platform",
+        "farm app",
+        "grower app",
+        "crop monitoring",
         "sensor",
         "sensors",
         "drone",
         "drones",
-        "ai",
+        "satellite imaging",
+        "variable rate",
         "automation",
+        "robotics",
+        "sprayer technology",
+        "harvest technology",
+        "weather station",
+        "weather stations",
+        "traceability",
+        "digital agronomy",
         "equipment",
         "machinery",
-        "innovation",
+        "farm equipment",
+        "agricultural equipment",
+        "vineyard equipment",
+        "orchard equipment",
     )
     HELP_TERMS = (
         "guide",
@@ -186,8 +208,79 @@ class GrowingOpportunitiesService:
         "resources",
         "program",
         "programs",
-        "article",
-        "articles",
+        "best practice",
+        "fact sheet",
+        "factsheet",
+        "webinar",
+    )
+    MARKET_TERMS = (
+        "market",
+        "prices",
+        "pricing",
+        "farmgate",
+        "commodity",
+        "export",
+        "exports",
+        "demand",
+        "supply",
+        "sales",
+        "auction",
+        "trade",
+        "contract",
+        "processor",
+        "processors",
+        "crush",
+        "intake",
+        "tonne",
+        "tonnes",
+        "vintage",
+        "wine sales",
+        "grape prices",
+        "crop prices",
+    )
+    NEGATIVE_NEWS_TERMS = (
+        "accident",
+        "killed",
+        "dies",
+        "death",
+        "fatal",
+        "fatality",
+        "murder",
+        "police",
+        "crime",
+        "crash",
+        "traffic",
+        "ambulance",
+        "hospital",
+        "court",
+        "charged",
+        "arrested",
+        "firefighters",
+        "bushfire",
+        "storm damage",
+        "obituary",
+    )
+    FARM_OPERATION_TERMS = (
+        "irrigation",
+        "water use",
+        "water allocation",
+        "soil moisture",
+        "fertigation",
+        "spray",
+        "sprayer",
+        "pest",
+        "disease",
+        "mildew",
+        "yield",
+        "harvest",
+        "canopy",
+        "pruning",
+        "nutrition",
+        "fertiliser",
+        "fertilizer",
+        "crop monitoring",
+        "orchard management",
+        "vineyard management",
     )
     def __init__(self) -> None:
         self._news_cache: dict[str, tuple[datetime, list[GrowingOpportunityNewsItem], str | None]] = {}
@@ -242,8 +335,14 @@ class GrowingOpportunitiesService:
             recommendations=recommendations,
         )
 
-    def build_news_payload(self, db: Session, block: Block) -> GrowingOpportunityNewsResponse:
-        news_items, news_warning = self._load_news_items(db, block)
+    def build_news_payload(
+        self,
+        db: Session,
+        block: Block,
+        *,
+        force_refresh: bool = False,
+    ) -> GrowingOpportunityNewsResponse:
+        news_items, news_warning = self._load_news_items(db, block, force_refresh=force_refresh)
         return GrowingOpportunityNewsResponse(
             block_id=str(block.id),
             news_items=news_items,
@@ -431,15 +530,25 @@ class GrowingOpportunitiesService:
             return insights.error
         return None
 
-    def _load_news_items(self, db: Session, block: Block) -> tuple[list[GrowingOpportunityNewsItem], str | None]:
+    def _load_news_items(
+        self,
+        db: Session,
+        block: Block,
+        *,
+        force_refresh: bool = False,
+    ) -> tuple[list[GrowingOpportunityNewsItem], str | None]:
         cache_key = (block.crop or "default").strip().lower() or "default"
         cached_entry = self._news_cache.get(cache_key)
         current_time = datetime.now(timezone.utc)
         db_entry = self._get_db_cached_news(db, cache_key)
 
-        if cached_entry and (current_time - cached_entry[0]).total_seconds() < self.NEWS_CACHE_TTL_SECONDS:
+        if (
+            not force_refresh
+            and cached_entry
+            and (current_time - cached_entry[0]).total_seconds() < self.NEWS_CACHE_TTL_SECONDS
+        ):
             return cached_entry[1], cached_entry[2]
-        if db_entry and db_entry.expires_at >= current_time:
+        if not force_refresh and db_entry and db_entry.expires_at >= current_time:
             news_items = self._deserialize_news_items(db_entry.payload)
             self._news_cache[cache_key] = (current_time, news_items, db_entry.warning)
             return news_items, db_entry.warning
@@ -452,7 +561,7 @@ class GrowingOpportunitiesService:
             self._store_db_cached_news(
                 db,
                 cache_key=cache_key,
-                query=self._build_news_query(block),
+                query=" || ".join(self._build_news_queries(block)),
                 news_items=news_items,
                 warning=news_warning,
                 current_time=current_time,
@@ -473,17 +582,37 @@ class GrowingOpportunitiesService:
         return news_items, news_warning
 
     def _fetch_news_items(self, block: Block) -> list[GrowingOpportunityNewsItem]:
+        queries = self._build_news_queries(block)
+        aggregated_items: list[GrowingOpportunityNewsItem] = []
+        seen_signatures: set[str] = set()
+
         with httpx.Client(
             timeout=self.NEWS_REQUEST_TIMEOUT_SECONDS,
             follow_redirects=True,
             headers=self.NEWS_REQUEST_HEADERS,
         ) as client:
-            response = self._fetch_google_news_rss_with_retry(
-                client,
-                query=self._build_news_query(block),
-            )
+            for query in queries:
+                response = self._fetch_google_news_rss_with_retry(
+                    client,
+                    query=query,
+                )
+                aggregated_items.extend(
+                    self._parse_google_news_rss(
+                        response.text,
+                        block,
+                        seen_signatures=seen_signatures,
+                        limit_results=False,
+                    )
+                )
 
-        return self._parse_google_news_rss(response.text, block)
+        aggregated_items.sort(
+            key=lambda news_item: (
+                self._parse_news_datetime(news_item.published_at) or datetime.min.replace(tzinfo=timezone.utc),
+                self._score_news_item(news_item.title, news_item.summary, block),
+            ),
+            reverse=True,
+        )
+        return aggregated_items[: self.NEWS_LIMIT]
 
     def _fetch_google_news_rss_with_retry(self, client: httpx.Client, *, query: str) -> httpx.Response:
         last_error: Exception | None = None
@@ -524,19 +653,48 @@ class GrowingOpportunitiesService:
 
         raise RuntimeError(f"Google News RSS fetch failed for query '{query}': {last_error}")
 
-    def _build_news_query(self, block: Block) -> str:
+    def _build_news_queries(self, block: Block) -> list[str]:
         crop = (block.crop or "").strip()
         broad_terms = (
             "agriculture OR farming OR irrigation OR horticulture OR viticulture "
             "OR vineyard OR vineyards OR crops OR growers OR livestock OR dairy "
             "OR grain OR wine OR citrus OR almonds OR olives"
         )
-        if crop:
-            return f'("South Australia" OR Riverland) ({broad_terms} OR "{crop}")'
-        return f'("South Australia" OR Riverland) ({broad_terms})'
+        crop_clause = f' OR "{crop}"' if crop else ""
+        base_region = '("South Australia" OR Riverland)'
 
-    def _parse_google_news_rss(self, payload: str, block: Block) -> list[GrowingOpportunityNewsItem]:
+        return [
+            f'{base_region} ({broad_terms}{crop_clause})',
+            (
+                f'{base_region} ((market OR prices OR pricing OR farmgate OR commodity OR export OR trade '
+                f'OR contract OR sales OR auction OR demand OR supply OR "grape prices" OR vintage){crop_clause}) '
+                f'({broad_terms}))'
+            ),
+            (
+                f'{base_region} ((funding OR grant OR grants OR rebate OR rebates OR subsidy OR subsidies '
+                f'OR loan OR loans OR investment OR tender){crop_clause}) ({broad_terms}))'
+            ),
+            (
+                f'{base_region} (("farm technology" OR agtech OR "precision agriculture" OR "smart irrigation" '
+                f'OR "soil moisture sensor" OR "farm management software" OR "crop monitoring" OR drone '
+                f'OR robotics OR automation OR "weather station"){crop_clause}) ({broad_terms}))'
+            ),
+            (
+                f'{base_region} ((guide OR guides OR advice OR training OR workshop OR extension OR resource '
+                f'OR resources OR webinar OR "fact sheet" OR "best practice"){crop_clause}) ({broad_terms}))'
+            ),
+        ]
+
+    def _parse_google_news_rss(
+        self,
+        payload: str,
+        block: Block,
+        *,
+        seen_signatures: set[str] | None = None,
+        limit_results: bool = True,
+    ) -> list[GrowingOpportunityNewsItem]:
         parsed_items: list[GrowingOpportunityNewsItem] = []
+        local_seen_signatures = seen_signatures if seen_signatures is not None else set()
         current_year = datetime.now(timezone.utc).year
         try:
             root = ET.fromstring(payload)
@@ -557,6 +715,10 @@ class GrowingOpportunitiesService:
                 continue
             if not self._is_relevant_news_item(title, summary, block):
                 continue
+            signature = self._normalise_news_signature(title, link)
+            if signature in local_seen_signatures:
+                continue
+            local_seen_signatures.add(signature)
 
             parsed_items.append(
                 GrowingOpportunityNewsItem(
@@ -578,7 +740,9 @@ class GrowingOpportunitiesService:
             ),
             reverse=True,
         )
-        return parsed_items[: self.NEWS_LIMIT]
+        if limit_results:
+            return parsed_items[: self.NEWS_LIMIT]
+        return parsed_items
 
     def _get_db_cached_news(self, db: Session, cache_key: str) -> GrowingOpportunityNewsCache | None:
         return (
@@ -632,32 +796,73 @@ class GrowingOpportunitiesService:
         return items
 
     def _is_relevant_news_item(self, title: str, summary: str, block: Block) -> bool:
-        return self._score_news_item(title, summary, block) >= 6
+        haystack = f"{title} {summary}".lower()
+        south_australia_hits = self._count_term_matches(haystack, self.SOUTH_AUSTRALIA_TERMS)
+        agriculture_hits = self._count_term_matches(haystack, self.AGRICULTURE_TERMS)
+        priority_crop_hits = self._count_term_matches(haystack, self.PRIORITY_CROP_TERMS)
+        farm_operation_hits = self._count_term_matches(haystack, self.FARM_OPERATION_TERMS)
+        market_term_hits = self._count_term_matches(haystack, self.MARKET_TERMS)
+        crop = (block.crop or "").strip().lower()
+        crop_hit = bool(crop and self._contains_term(haystack, crop))
+
+        has_strong_ag_context = any(
+            (
+                agriculture_hits >= 2,
+                priority_crop_hits >= 1,
+                crop_hit,
+                farm_operation_hits >= 1,
+                market_term_hits >= 1,
+            )
+        )
+
+        if south_australia_hits == 0 or not has_strong_ag_context:
+            return False
+
+        if self._contains_negative_news_terms(haystack) and not (
+            priority_crop_hits >= 2 or crop_hit or farm_operation_hits >= 2
+        ):
+            return False
+
+        return self._score_news_item(title, summary, block) >= 8
 
     def _score_news_item(self, title: str, summary: str, block: Block) -> int:
         haystack = f"{title} {summary}".lower()
         score = 0
 
-        south_australia_hits = sum(1 for term in self.SOUTH_AUSTRALIA_TERMS if term in haystack)
-        agriculture_hits = sum(1 for term in self.AGRICULTURE_TERMS if term in haystack)
+        south_australia_hits = self._count_term_matches(haystack, self.SOUTH_AUSTRALIA_TERMS)
+        agriculture_hits = self._count_term_matches(haystack, self.AGRICULTURE_TERMS)
+        farm_operation_hits = self._count_term_matches(haystack, self.FARM_OPERATION_TERMS)
+        market_term_hits = self._count_term_matches(haystack, self.MARKET_TERMS)
 
         if south_australia_hits:
             score += 4 + min(south_australia_hits, 3)
         if agriculture_hits:
             score += 3 + min(agriculture_hits, 4)
+        if farm_operation_hits:
+            score += 2 + min(farm_operation_hits, 3)
+        if market_term_hits:
+            score += 2 + min(market_term_hits, 3)
 
         crop = (block.crop or "").strip().lower()
-        if crop and crop in haystack:
+        if crop and self._contains_term(haystack, crop):
             score += 4
 
-        priority_crop_hits = sum(1 for term in self.PRIORITY_CROP_TERMS if term in haystack)
+        priority_crop_hits = self._count_term_matches(haystack, self.PRIORITY_CROP_TERMS)
         if priority_crop_hits:
             score += 3 + min(priority_crop_hits, 4)
 
-        if "south australia" in haystack and ("grower" in haystack or "farm" in haystack):
+        if self._contains_term(haystack, "south australia") and (
+            self._contains_term(haystack, "grower") or self._contains_term(haystack, "farm")
+        ):
             score += 2
-        if "riverland" in haystack and ("grape" in haystack or "vineyard" in haystack or "irrigation" in haystack):
+        if self._contains_term(haystack, "riverland") and (
+            self._contains_term(haystack, "grape")
+            or self._contains_term(haystack, "vineyard")
+            or self._contains_term(haystack, "irrigation")
+        ):
             score += 2
+        if self._contains_negative_news_terms(haystack):
+            score -= 6
 
         return score
 
@@ -666,22 +871,23 @@ class GrowingOpportunitiesService:
         tags: list[str] = []
         category = self._classify_news_category(title, summary)
 
-        if "south australia" in haystack or any(term in haystack for term in self.SOUTH_AUSTRALIA_TERMS):
+        if self._contains_term(haystack, "south australia") or self._count_term_matches(haystack, self.SOUTH_AUSTRALIA_TERMS):
             tags.append("South Australia")
-        if "riverland" in haystack:
+        if self._contains_term(haystack, "riverland"):
             tags.append("Riverland")
 
         crop = (block.crop or "").strip()
-        if crop and crop.lower() in haystack:
+        if crop and self._contains_term(haystack, crop.lower()):
             tags.append(crop)
 
         for label, term_group in (
+            ("Market", ("market", "prices", "farmgate", "commodity", "trade", "export", "auction")),
             ("Irrigation", ("irrigation", "water allocation", "water")),
             ("Viticulture", ("vineyard", "viticulture", "wine grape", "grape")),
             ("Horticulture", ("horticulture", "orchard", "citrus", "olive", "almond")),
             ("Farming", ("agriculture", "agricultural", "farming", "farmers", "growers")),
         ):
-            if any(term in haystack for term in term_group) and label not in tags:
+            if self._count_term_matches(haystack, term_group) and label not in tags:
                 tags.append(label)
 
         category_label_map = {
@@ -698,13 +904,41 @@ class GrowingOpportunitiesService:
 
     def _classify_news_category(self, title: str, summary: str) -> str:
         haystack = f"{title} {summary}".lower()
-        if any(term in haystack for term in self.FUNDING_TERMS):
+        has_ag_context = self._has_agriculture_context(haystack)
+        has_funding_terms = self._count_term_matches(haystack, self.FUNDING_TERMS) > 0
+        has_help_terms = self._count_term_matches(haystack, self.HELP_TERMS) > 0
+        tool_term_hits = self._count_term_matches(haystack, self.TOOLS_TERMS)
+        operation_term_hits = self._count_term_matches(haystack, self.FARM_OPERATION_TERMS)
+
+        if has_ag_context and has_funding_terms:
             return "funding"
-        if any(term in haystack for term in self.TOOLS_TERMS):
+        if has_ag_context and tool_term_hits > 0 and operation_term_hits > 0:
             return "tools"
-        if any(term in haystack for term in self.HELP_TERMS):
+        if has_ag_context and has_help_terms:
             return "help"
         return "general"
+
+    def _has_agriculture_context(self, haystack: str) -> bool:
+        return (
+            self._count_term_matches(haystack, self.AGRICULTURE_TERMS) > 0
+            or self._count_term_matches(haystack, self.FARM_OPERATION_TERMS) > 0
+        )
+
+    def _contains_negative_news_terms(self, haystack: str) -> bool:
+        return self._count_term_matches(haystack, self.NEGATIVE_NEWS_TERMS) > 0
+
+    @staticmethod
+    def _contains_term(haystack: str, term: str) -> bool:
+        return re.search(rf"(?<![a-z0-9]){re.escape(term.lower())}(?![a-z0-9])", haystack) is not None
+
+    def _count_term_matches(self, haystack: str, terms: tuple[str, ...]) -> int:
+        return sum(1 for term in terms if self._contains_term(haystack, term))
+
+    @staticmethod
+    def _normalise_news_signature(title: str, link: str) -> str:
+        cleaned_title = re.sub(r"[^a-z0-9]+", " ", title.lower()).strip()
+        cleaned_link = re.sub(r"[?#].*$", "", link.lower()).strip()
+        return f"{cleaned_title}|{cleaned_link}"
 
     def _build_trend_summary(self, observed_series: list[SatelliteTimeseries]) -> str | None:
         if len(observed_series) < 2:

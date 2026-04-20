@@ -143,7 +143,9 @@ export class GrowingOpportunitiesService {
     }
 
     const request$ = this.http
-      .get<GrowingOpportunityNewsResponse>(`${this.baseUrl}/api/blocks/${blockId}/growing-opportunities/news`)
+      .get<GrowingOpportunityNewsResponse>(`${this.baseUrl}/api/blocks/${blockId}/growing-opportunities/news`, {
+        params: forceRefresh ? { force_refresh: 'true' } : {}
+      })
       .pipe(
         tap(response => this.storeCachedNews(blockId, response)),
         finalize(() => this.inflightNewsRequests.delete(cacheKey)),

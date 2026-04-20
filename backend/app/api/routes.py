@@ -1103,10 +1103,14 @@ def get_growing_opportunities(block_id: str, db: Session = Depends(get_db)):
     response_model=GrowingOpportunityNewsResponse,
     tags=["growing-opportunities"],
 )
-def get_growing_opportunities_news(block_id: str, db: Session = Depends(get_db)):
+def get_growing_opportunities_news(
+    block_id: str,
+    force_refresh: bool = False,
+    db: Session = Depends(get_db),
+):
     try:
         block = resolve_block(db, block_id)
-        return growing_opportunities_service.build_news_payload(db, block)
+        return growing_opportunities_service.build_news_payload(db, block, force_refresh=force_refresh)
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=500, detail=f"Database error while fetching growing opportunities: {exc}") from exc
 
