@@ -12,7 +12,9 @@ import {
   getAuctionNowPlusMinutes,
   zonedDateTimeToUtcIso
 } from '../../shared/utils/auction-time.util';
-import { environment } from '../../../environments/environment';
+
+const AUCTION_ONBOARDING_PREVIEW_IMAGE_URL =
+  'https://res.cloudinary.com/dnqiwb7xp/image/upload/v1774963836/grape-png.png';
 
 type AuctionTab = 'all' | 'active' | 'upcoming' | 'completed';
 type TimeField = 'start_time' | 'end_time';
@@ -80,7 +82,7 @@ export class AuctionsComponent implements OnInit, AfterViewInit, OnDestroy {
   protected readonly bidAmount = signal(1720);
   protected readonly bidDelta = signal(120);
   protected readonly bidFlash = signal(false);
-  protected readonly previewImageUrl = environment.auctionPreviewImageUrl ?? '';
+  protected readonly previewImageUrl = AUCTION_ONBOARDING_PREVIEW_IMAGE_URL;
   protected readonly previewImageReady = signal(!this.previewImageUrl);
   protected readonly previewImageFailed = signal(false);
   protected readonly uploadedImageUrl = signal<string | null>(null);
