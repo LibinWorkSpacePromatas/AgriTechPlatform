@@ -5,8 +5,8 @@ import { LucideAngularModule, Droplet, Waves, Calendar, Activity, AlertCircle, M
 import { WaterIrrigationService, IrrigationStatus } from '../../services/water-irrigation/water-irrigation.service';
 import { BlockService } from '../../shared/services/block.service';
 import { Block } from '../../shared/models';
-import { Subject, takeUntil, interval, of, Subscription } from 'rxjs';
-import { switchMap, takeWhile, take, finalize, filter } from 'rxjs/operators';
+import { Subject, takeUntil, interval, Subscription } from 'rxjs';
+import { switchMap, take, filter } from 'rxjs/operators';
 import * as L from 'leaflet';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
@@ -52,6 +52,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
   latitude = 0;
   longitude = 0;
   currentLan = '';
+  selectedBlockId = '';
   selectedBlockName = '';
   selectedBlockLan = '';
   selectedBlock: Block | null = null;
@@ -146,6 +147,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     this.latitude = block.lat;
     this.longitude = block.lon;
     this.currentLan = block.lan;
+    this.selectedBlockId = block.id;
     this.selectedBlockName = block.name;
     this.selectedBlockLan = block.lan;
     this.fetchUnifiedFarmState();
@@ -339,6 +341,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     const baseUrl = environment.apiBaseUrl.replace(/\/$/, '');
     this.http
       .post<any>(`${baseUrl}/api/blocks`, {
+        block_id: this.selectedBlock.id,
         user_id: selectedUser.userId,
         lanslu: this.selectedBlock.lan,
         crop: this.selectedBlock.crop,
@@ -355,7 +358,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
 
           const blocks = this.blockService.getBlocks();
           const nextBlocks = blocks.map((block) => {
-            if (block.lan !== updated.lanslu) {
+            if (block.id !== updated.id) {
               return block;
             }
 
@@ -437,6 +440,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     const baseUrl = environment.apiBaseUrl.replace(/\/$/, '');
     this.http
       .post<any>(`${baseUrl}/api/blocks/location`, {
+        block_id: this.selectedBlock.id,
         user_id: selectedUser.userId,
         lanslu: this.selectedBlock.lan,
         lat: this.pendingLat,
@@ -454,7 +458,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
 
           const blocks = this.blockService.getBlocks();
           const nextBlocks = blocks.map((block) => {
-            if (block.lan !== updated.lanslu) {
+            if (block.id !== updated.id) {
               return block;
             }
             return {
@@ -491,6 +495,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     this.http
       .delete<any>(`${baseUrl}/api/blocks/geometry`, {
         params: {
+          block_id: this.selectedBlock.id,
           user_id: selectedUser.userId,
           lanslu: this.selectedBlock.lan
         }
@@ -503,7 +508,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
           }
           const blocks = this.blockService.getBlocks();
           const nextBlocks = blocks.map((block) => {
-            if (block.lan !== updated.lanslu) {
+            if (block.id !== updated.id) {
               return block;
             }
             return {
@@ -541,6 +546,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     }
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('block_id', this.selectedBlock.id);
     formData.append('user_id', selectedUser.userId);
     formData.append('lanslu', this.selectedBlock.lan);
     formData.append('crop', this.selectedBlock.crop || '');
@@ -558,7 +564,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
         }
         const blocks = this.blockService.getBlocks();
         const nextBlocks = blocks.map((block) => {
-          if (block.lan !== updated.lanslu) {
+          if (block.id !== updated.id) {
             return block;
           }
           return {
@@ -604,13 +610,14 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     this.http
       .delete<any>(`${baseUrl}/api/blocks`, {
         params: {
+          block_id: this.selectedBlock.id,
           user_id: selectedUser.userId,
           lanslu: this.selectedBlock.lan
         }
       })
       .subscribe({
         next: () => {
-          const remainingBlocks = this.blockService.getBlocks().filter((block) => block.lan !== this.selectedBlock?.lan);
+          const remainingBlocks = this.blockService.getBlocks().filter((block) => block.id !== this.selectedBlock?.id);
           if (this.drawLayerGroup) {
             this.drawLayerGroup.clearLayers();
           }
@@ -648,8 +655,8 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     });
   }
 
-  onBlockChange(blockLan: string): void {
-    const block = this.blocks.find(b => b.lan === blockLan);
+  onBlockChange(blockId: string): void {
+    const block = this.blocks.find(b => b.id === blockId);
     if (block) {
       this.blockService.setBlock(block);
     }
@@ -659,9 +666,9 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     this.isBlockMenuOpen = !this.isBlockMenuOpen;
   }
 
-  selectBlock(blockLan: string): void {
+  selectBlock(blockId: string): void {
     this.isBlockMenuOpen = false;
-    this.onBlockChange(blockLan);
+    this.onBlockChange(blockId);
   }
 
   @HostListener('document:click')
@@ -762,8 +769,12 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     this.isLoading = true;
     this.error = null;
 
-    const blockUUID = this.selectedBlock?.id;
-    const blockId = blockUUID || this.currentLan;
+    const blockId = this.selectedBlock?.id;
+    if (!blockId) {
+      this.error = 'Selected block is missing a UUID.';
+      this.isLoading = false;
+      return;
+    }
 
     // 1. Get basic irrigation status (NDWI etc)
     this.waterIrrigationService.getIrrigationStatus(blockId).pipe(
@@ -772,10 +783,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
         this.currentDecision = null;
         
         // 2. Try to get smart decision from Decision Engine
-        if (blockUUID) {
-          return this.waterIrrigationService.getDecision(blockUUID);
-        }
-        return of(null);
+        return this.waterIrrigationService.getDecision(blockId);
       }),
       takeUntil(this.destroy$)
     ).subscribe({
@@ -810,48 +818,39 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
 
   private refreshAfterGeometryChange(): void {
     const blockUUID = this.selectedBlock?.id;
-    const blockId = blockUUID || this.currentLan;
+    if (!blockUUID) {
+      return;
+    }
 
     // 1. Trigger the refresh (minimal?refresh=true)
-    this.waterIrrigationService.getIrrigationStatus(blockId, true).subscribe({
+    this.waterIrrigationService.getIrrigationStatus(blockUUID, true).subscribe({
       next: (initial) => {
         this.irrigationStatus = initial;
         this.currentDecision = null;
         this.updateTileFromStatus();
 
         // 2. Wait for completion using SSE (Pro Level)
-        if (blockUUID) {
-          this.satelliteEventsService.watchBlock(blockUUID).pipe(
-            filter(event => event.event === 'completed' || event.event === 'failed'),
-            take(1),
-            takeUntil(this.destroy$)
-          ).subscribe(event => {
-            console.log(`Satellite refresh ${event.event} for block ${blockId}`);
-            
-            this.fetchUnifiedFarmState();
-            this.waterIrrigationService.getDecision(blockUUID).pipe(take(1)).subscribe((decision: any) => {
-              if (decision) {
-                this.currentDecision = decision;
-                this.updateTileFromStatus();
-              }
-            });
-            this.pollForDecision(blockUUID);
-            
-            this.waterIrrigationService.getIrrigationStatus(blockId, false).subscribe(status => {
-              this.irrigationStatus = status;
+        this.satelliteEventsService.watchBlock(blockUUID).pipe(
+          filter(event => event.event === 'completed' || event.event === 'failed'),
+          take(1),
+          takeUntil(this.destroy$)
+        ).subscribe(event => {
+          console.log(`Satellite refresh ${event.event} for block ${blockUUID}`);
+
+          this.fetchUnifiedFarmState();
+          this.waterIrrigationService.getDecision(blockUUID).pipe(take(1)).subscribe((decision: any) => {
+            if (decision) {
+              this.currentDecision = decision;
               this.updateTileFromStatus();
-            });
+            }
           });
-        } else {
-          // Fallback if no UUID: simple delay (Practical Fix)
-          setTimeout(() => {
-            this.fetchUnifiedFarmState();
-            this.waterIrrigationService.getIrrigationStatus(blockId, false).subscribe(status => {
-              this.irrigationStatus = status;
-              this.updateTileFromStatus();
-            });
-          }, 5000);
-        }
+          this.pollForDecision(blockUUID);
+
+          this.waterIrrigationService.getIrrigationStatus(blockUUID, false).subscribe(status => {
+            this.irrigationStatus = status;
+            this.updateTileFromStatus();
+          });
+        });
       },
       error: (error) => {
         console.error('Failed to trigger refresh after geometry change:', error);
