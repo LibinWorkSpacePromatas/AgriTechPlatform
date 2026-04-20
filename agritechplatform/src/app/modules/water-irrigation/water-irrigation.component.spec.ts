@@ -72,12 +72,13 @@ describe('WaterIrrigationComponent', () => {
 
   it('recalculates irrigation when the selected block changes', () => {
     expect(waterIrrigationService.getIrrigationStatus).toHaveBeenCalled();
-    expect(waterIrrigationService.getIrrigationStatus.calls.mostRecent().args[0]).toBe('LAN-001');
+    expect(waterIrrigationService.getIrrigationStatus.calls.mostRecent().args[0]).toBe('1');
 
     blockService.setBlock(blockTwo);
     fixture.detectChanges();
 
-    expect(waterIrrigationService.getIrrigationStatus.calls.mostRecent().args[0]).toBe('LAN-002');
+    expect(waterIrrigationService.getIrrigationStatus.calls.mostRecent().args[0]).toBe('2');
+    expect(component.selectedBlockId).toBe('2');
     expect(component.selectedBlockLan).toBe('LAN-002');
     expect(component.irrigationStatus?.status).toBe('Moderate stress');
   });
@@ -121,14 +122,14 @@ class MockBlockService {
   }
 }
 
-function buildIrrigationStatus(lan: string): IrrigationStatus {
+function buildIrrigationStatus(blockId: string): IrrigationStatus {
   return {
-    status: lan === 'LAN-002' ? 'Moderate stress' : 'Well-watered',
-    ndwi: lan === 'LAN-002' ? -0.2 : 0.25,
+    status: blockId === '2' ? 'Moderate stress' : 'Well-watered',
+    ndwi: blockId === '2' ? -0.2 : 0.25,
     recommendation: 'Test recommendation',
     date: '2026-03-20',
     dataQuality: 'good',
-    blockId: lan,
+    blockId,
     compositeDateFrom: '2026-03-15',
     compositeDateTo: '2026-03-20',
     mapTileUrl: null,

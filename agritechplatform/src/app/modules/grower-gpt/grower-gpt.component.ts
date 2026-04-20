@@ -115,7 +115,7 @@ export class GrowerGptComponent implements OnInit, AfterViewChecked, OnDestroy {
       .pipe(
         takeUntil(this.destroy$),
         filter((block): block is Block => !!block),
-        distinctUntilChanged((previous, current) => (previous.id || previous.lan) === (current.id || current.lan))
+        distinctUntilChanged((previous, current) => previous.id === current.id)
       )
       .subscribe(block => {
         this.loadBlockSummary(block);
@@ -191,7 +191,7 @@ export class GrowerGptComponent implements OnInit, AfterViewChecked, OnDestroy {
         if (mentionedBlock) {
           targetBlock = {
             ...currentBlock,
-            id: mentionedBlock.lanslu,
+            id: mentionedBlock.id || currentBlock.id,
             name: `Block ${selectedUser.blocks.indexOf(mentionedBlock) + 1}`,
             crop: mentionedBlock.crop || 'Unknown Crop',
             lat: mentionedBlock.latitude,
@@ -207,8 +207,8 @@ export class GrowerGptComponent implements OnInit, AfterViewChecked, OnDestroy {
       }
 
       let targetSummary = this.blockSummary;
-      if ((targetBlock.id || targetBlock.lan) !== (currentBlock.id || currentBlock.lan) || !targetSummary) {
-        targetSummary = await lastValueFrom(this.growerGptService.getRuleBasedInsights(targetBlock.lan || targetBlock.id));
+      if (targetBlock.id !== currentBlock.id || !targetSummary) {
+        targetSummary = await lastValueFrom(this.growerGptService.getRuleBasedInsights(targetBlock.id));
       }
 
       const reply = await this.growerGptService.askGrowerGPT(
@@ -244,7 +244,7 @@ export class GrowerGptComponent implements OnInit, AfterViewChecked, OnDestroy {
     this.chatHistory = [];
     this.lastRenderedMessageCount = 0;
 
-    this.growerGptService.getRuleBasedInsights(block.id || block.lan)
+    this.growerGptService.getRuleBasedInsights(block.id)
       .pipe(take(1))
       .subscribe({
         next: (backendData) => {

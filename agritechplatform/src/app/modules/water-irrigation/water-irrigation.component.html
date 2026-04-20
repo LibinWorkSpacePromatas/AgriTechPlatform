@@ -44,8 +44,8 @@
                       type="button"
                       class="block-option"
                       *ngFor="let block of blocks"
-                      [class.active]="block.lan === selectedBlockLan"
-                      (click)="selectBlock(block.lan)">
+                      [class.active]="block.id === selectedBlockId"
+                      (click)="selectBlock(block.id)">
                       {{ block.name }}
                     </button>
                   </div>
