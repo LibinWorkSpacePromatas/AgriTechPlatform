@@ -9,9 +9,10 @@ from pydantic import BaseModel, Field
 SensorType = Literal[
     "soil_moisture",
     "soil_temperature",
-    "air_temperature",
     "humidity",
     "ph_level",
+    "sunlight",
+    "fertility",
 ]
 SensorStatus = Literal["Normal", "High", "Low"]
 SensorGranularity = Literal["raw", "hourly", "daily", "weekly"]

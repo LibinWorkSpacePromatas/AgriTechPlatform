@@ -1,14 +1,27 @@
 <section class="section">
-  <h2>Requests</h2>
+  <div class="section-head">
+    <div>
+      <h2>Requests</h2>
+      <p class="section-copy">Review every booking request sent to your rental listings.</p>
+    </div>
+  </div>
   <p *ngIf="loading">Loading requests...</p>
   <p *ngIf="error" class="error">{{ error }}</p>
   <p *ngIf="info" class="ok">{{ info }}</p>
 
-  <div class="cards">
-    <article class="card" *ngFor="let booking of requests" (click)="openDetails(booking)">
-      <h3>{{ booking.equipment_name || booking.listing_id }}</h3>
-      <p>Renter: {{ booking.renter_name || booking.renter_id }}</p>
-      <p>{{ booking.start_datetime | date:'short' }} - {{ booking.end_datetime | date:'short' }}</p>
+  <div class="cards" *ngIf="sortedRequests.length; else noRequests">
+    <article class="card" *ngFor="let booking of sortedRequests" (click)="openDetails(booking)">
+      <div class="card-top">
+        <div class="booking-thumb" [class.booking-thumb-placeholder]="!booking.image_url">
+          <img *ngIf="booking.image_url" [src]="booking.image_url" [alt]="booking.equipment_name || booking.listing_id">
+          <span *ngIf="!booking.image_url">{{ (booking.equipment_name || 'EQ').slice(0, 2).toUpperCase() }}</span>
+        </div>
+        <div class="card-top-copy">
+          <h3>{{ booking.equipment_name || booking.listing_id }}</h3>
+          <p>Renter: {{ booking.renter_name || booking.renter_id }}</p>
+          <p>{{ booking.start_datetime | date:'short' }} - {{ booking.end_datetime | date:'short' }}</p>
+        </div>
+      </div>
       <p>Units: {{ booking.quantity_requested }}</p>
       <p>Total: {{ booking.total_price || 0 | currency:'USD':'symbol':'1.0-2' }}</p>
       <p>Status: <strong [ngClass]="getStatusClass(booking.status)">{{ booking.status }}</strong></p>
@@ -40,78 +53,47 @@
     </article>
   </div>
 
+  <ng-template #noRequests>
+    <section class="empty-state">
+      <h3>No requests yet</h3>
+      <p>Incoming booking requests from renters will appear here.</p>
+    </section>
+  </ng-template>
+
   <div class="details-modal-backdrop" *ngIf="selectedRequest" (click)="closeDetails()">
-    <div class="details-modal" *ngIf="selectedRequest as booking" (click)="$event.stopPropagation()">
-      <div class="details-header">
+    <section class="details-modal" *ngIf="selectedRequest as booking" (click)="$event.stopPropagation()">
+      <div class="details-modal-header">
         <div>
           <h3>{{ booking.equipment_name || booking.listing_id }}</h3>
-          <p>Renter: {{ booking.renter_name || booking.renter_id }}</p>
+          <p>{{ booking.renter_name || booking.renter_id }}</p>
+          <span class="details-person-chip">Renter</span>
         </div>
-        <button class="modal-close" type="button" (click)="closeDetails()" aria-label="Close request details"></button>
+        <button class="modal-close" type="button" (click)="closeDetails()" aria-label="Close request details">x</button>
       </div>
 
-      <div class="details-grid">
-        <div class="detail-item">
+      <div class="details-highlight-row">
+        <div class="details-highlight-card">
           <span>Status</span>
           <strong [ngClass]="getStatusClass(booking.status)">{{ booking.status }}</strong>
         </div>
-        <div class="detail-item">
-          <span>Request ID</span>
-          <strong>{{ booking.id }}</strong>
-        </div>
-        <div class="detail-item">
-          <span>Renter</span>
-          <strong>{{ booking.renter_name || booking.renter_id }}</strong>
-        </div>
-        <div class="detail-item">
-          <span>Listing ID</span>
-          <strong>{{ booking.listing_id }}</strong>
-        </div>
-        <div class="detail-item">
-          <span>Start</span>
-          <strong>{{ booking.start_datetime | date:'medium' }}</strong>
-        </div>
-        <div class="detail-item">
-          <span>End</span>
-          <strong>{{ booking.end_datetime | date:'medium' }}</strong>
-        </div>
-        <div class="detail-item">
-          <span>Units</span>
-          <strong>{{ booking.quantity_requested }}</strong>
-        </div>
-        <div class="detail-item">
-          <span>Total Price</span>
+        <div class="details-highlight-card">
+          <span>Total</span>
           <strong>{{ booking.total_price || 0 | currency:'USD':'symbol':'1.0-2' }}</strong>
-        </div>
-        <div class="detail-item">
-          <span>Submitted On</span>
-          <strong>{{ booking.created_at | date:'medium' }}</strong>
-        </div>
-        <div class="detail-item">
-          <span>Current State</span>
-          <strong>{{ booking.status | titlecase }}</strong>
         </div>
       </div>
 
-      <div class="actions modal-actions">
-        <button
-          *ngIf="booking.status === 'pending'"
-          class="btn btn-primary"
-          type="button"
-          (click)="approve(booking)"
-        >
-          Approve Request
-        </button>
-        <button
-          *ngIf="booking.status === 'pending'"
-          class="btn btn-outline"
-          type="button"
-          (click)="reject(booking)"
-        >
-          Reject Request
-        </button>
+      <div class="details-grid">
+        <div class="details-item" *ngFor="let row of getDetailRows(booking)">
+          <span>{{ row.label }}</span>
+          <strong [ngClass]="row.label === 'Status' ? getStatusClass(booking.status) : ''">{{ row.value }}</strong>
+        </div>
+      </div>
+
+      <div class="details-modal-actions">
+        <button *ngIf="booking.status === 'pending'" class="btn btn-primary" type="button" (click)="approve(booking); closeDetails()">Approve</button>
+        <button *ngIf="booking.status === 'pending'" class="btn btn-outline" type="button" (click)="reject(booking); closeDetails()">Reject</button>
         <button class="btn btn-ghost" type="button" (click)="closeDetails()">Close</button>
       </div>
-    </div>
+    </section>
   </div>
 </section>

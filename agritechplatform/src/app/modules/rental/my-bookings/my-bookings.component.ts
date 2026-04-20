@@ -1,12 +1,13 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
 import { RentalBooking, RentalService } from '../../../services/rental/rental.service';
 
 @Component({
   selector: 'app-my-bookings',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './my-bookings.component.html',
   styleUrl: './my-bookings.component.css'
 })
@@ -43,6 +44,7 @@ export class MyBookingsComponent implements OnInit {
   }
 
   openDetails(booking: RentalBooking): void {
+    this.info = null;
     this.selectedBooking = booking;
   }
 
@@ -57,15 +59,24 @@ export class MyBookingsComponent implements OnInit {
       return;
     }
 
+    this.error = null;
+    this.info = null;
     this.rentalService.payBooking(user.userId, booking.id).subscribe({
       next: updated => {
         booking.status = updated.status;
         this.info = 'Booking payment completed.';
+        if (this.selectedBooking?.id === booking.id) {
+          this.selectedBooking = { ...booking };
+        }
       },
       error: err => {
         this.error = err.message || 'Payment failed';
       },
     });
+  }
+
+  canCancel(booking: RentalBooking): boolean {
+    return booking.status === 'pending' || booking.status === 'approved';
   }
 
   cancel(booking: RentalBooking): void {
@@ -75,6 +86,8 @@ export class MyBookingsComponent implements OnInit {
       return;
     }
 
+    this.error = null;
+    this.info = null;
     this.rentalService.cancelBooking(user.userId, booking.id).subscribe({
       next: updated => {
         booking.status = updated.status;
@@ -89,25 +102,10 @@ export class MyBookingsComponent implements OnInit {
     });
   }
 
-  get calendarDays(): { date: Date; hasBooking: boolean; hasBuffer: boolean }[] {
-    const days: { date: Date; hasBooking: boolean; hasBuffer: boolean }[] = [];
-    const now = new Date();
-    for (let i = 0; i < 7; i += 1) {
-      const date = new Date(now);
-      date.setDate(now.getDate() + i);
-      const hasBooking = this.bookings.some(booking => {
-        const start = new Date(booking.start_datetime);
-        const end = new Date(booking.end_datetime);
-        return date >= start && date <= end && !['rejected', 'cancelled'].includes(booking.status);
-      });
-      const hasBuffer = this.bookings.some(booking => {
-        const end = new Date(booking.end_datetime);
-        const bufferEnd = new Date(end.getTime() + 60 * 60 * 1000);
-        return date >= end && date <= bufferEnd && !['rejected', 'cancelled'].includes(booking.status);
-      });
-      days.push({ date, hasBooking, hasBuffer });
-    }
-    return days;
+  get sortedBookings(): RentalBooking[] {
+    return [...this.bookings].sort((left, right) =>
+      new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
+    );
   }
 
   getStatusClass(status: string): string {
@@ -127,8 +125,15 @@ export class MyBookingsComponent implements OnInit {
     }
   }
 
-  canCancel(booking: RentalBooking): boolean {
-    return booking.status === 'pending' || booking.status === 'approved';
+  getDetailRows(booking: RentalBooking): Array<{ label: string; value: string }> {
+    return [
+      { label: 'Booking ID', value: booking.id },
+      { label: 'Start', value: new Date(booking.start_datetime).toLocaleString() },
+      { label: 'End', value: new Date(booking.end_datetime).toLocaleString() },
+      { label: 'Units', value: String(booking.quantity_requested) },
+      { label: 'Total', value: `${booking.total_price ?? 0}` },
+      { label: 'Status', value: booking.status },
+    ];
   }
 
 }

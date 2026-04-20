@@ -702,10 +702,15 @@ h2 {
   color: #64748b;
 }
 
-.details-modal-price {
-  margin: 0;
-  color: #0f172a;
-  font-size: 1.3rem;
+.details-owner-chip {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 0.7rem;
+  padding: 0.34rem 0.7rem;
+  border-radius: 999px;
+  background: #eef6ff;
+  color: #1d4ed8;
+  font-size: 0.8rem;
   font-weight: 700;
 }
 
@@ -713,6 +718,38 @@ h2 {
   margin: 0;
   color: #475569;
   line-height: 1.7;
+}
+
+.details-modal-highlights {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.details-highlight-card {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+}
+
+.details-highlight-card span {
+  color: #64748b;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.details-highlight-card strong {
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.details-highlight-price strong {
+  font-size: 1.25rem;
 }
 
 .details-modal-grid {
@@ -770,7 +807,7 @@ h2 {
 
 .spec-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.75rem;
 }
 
@@ -997,6 +1034,23 @@ select:focus {
   background: rgba(148, 163, 184, 0.85);
 }
 
+.booking-section {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.booking-section-head h4 {
+  margin: 0 0 0.2rem;
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.booking-section-head p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.92rem;
+}
+
 .booking-field-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1023,19 +1077,47 @@ select:focus {
   font-size: 1rem;
 }
 
-.booking-rate-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0 0.15rem;
-  color: #475569;
-  font-size: 1.05rem;
+.booking-topline {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  gap: 0.9rem;
 }
 
-.booking-rate-row strong {
+.booking-mini-card {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+}
+
+.booking-mini-card span {
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.booking-mini-card strong {
   color: #0f172a;
-  font-size: 1.85rem;
+  font-size: 1.15rem;
+}
+
+.booking-mini-card-input small {
+  color: #64748b;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.booking-field-inline {
+  gap: 0.4rem;
+}
+
+.booking-field-inline input {
+  min-height: 48px;
+  padding: 0.7rem 0.85rem;
 }
 
 .booking-helper-text {
@@ -1043,6 +1125,11 @@ select:focus {
   color: #64748b;
   font-size: 0.95rem;
   line-height: 1.5;
+}
+
+.booking-helper-inline {
+  margin-top: -0.05rem;
+  font-size: 0.9rem;
 }
 
 .selected-day-status-card {
@@ -1198,14 +1285,6 @@ select:focus {
   text-transform: uppercase;
 }
 
-.availability-day-legend {
-  width: 100%;
-  margin: -0.1rem 0 0.2rem;
-  color: #64748b;
-  font-size: 0.82rem;
-  line-height: 1.4;
-}
-
 .availability-day-pill {
   padding: 0.45rem 0.7rem;
   border-radius: 999px;
@@ -1245,11 +1324,27 @@ select:focus {
 }
 
 .booking-submit {
-  width: 100%;
   min-height: 56px;
   border-radius: 18px;
   font-size: 1.05rem;
   font-weight: 700;
+}
+
+.booking-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.6rem 1.35rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), #ffffff);
+}
+
+.booking-secondary-btn {
+  min-width: 120px;
+}
+
+.booking-modal-footer .booking-submit {
+  min-width: 190px;
 }
 
 @media (max-width: 1200px) {
@@ -1310,6 +1405,10 @@ select:focus {
     grid-template-columns: 1fr;
   }
 
+  .details-modal-highlights {
+    grid-template-columns: 1fr;
+  }
+
   .spec-grid {
     grid-template-columns: 1fr;
   }
@@ -1336,12 +1435,16 @@ select:focus {
     grid-template-columns: 1fr;
   }
 
-  .booking-rate-row {
-    align-items: flex-start;
-    flex-direction: column;
+  .booking-topline {
+    grid-template-columns: 1fr;
   }
 
-  .booking-rate-row strong {
-    font-size: 1.55rem;
+  .booking-modal-footer {
+    flex-direction: column-reverse;
+    padding: 1rem;
+  }
+
+  .booking-modal-footer .btn {
+    width: 100%;
   }
 }

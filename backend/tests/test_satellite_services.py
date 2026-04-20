@@ -697,6 +697,75 @@ class SatelliteRefreshEventBrokerTests(unittest.TestCase):
         self.assertEqual(refresh_events[0].reason, "refresh_failed")
         self.assertEqual(refresh_events[0].error, "boom")
 
+    def test_list_events_applies_after_id_before_limit(self) -> None:
+        operations: list[str] = []
+
+        class FakeQuery:
+            def filter(self, *_args, **_kwargs):
+                operations.append("filter")
+                return self
+
+            def order_by(self, *_args, **_kwargs):
+                operations.append("order_by")
+                return self
+
+            def limit(self, *_args, **_kwargs):
+                operations.append("limit")
+                return self
+
+            def all(self):
+                operations.append("all")
+                return []
+
+        class FakeSession:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def query(self, *_args, **_kwargs):
+                return FakeQuery()
+
+        broker = SatelliteEventBroker()
+
+        with patch("app.services.satellite_events.SessionLocal", return_value=FakeSession()):
+            refresh_events = broker.list_events(block_id="block-1", after_id=7, limit=10)
+
+        self.assertEqual(refresh_events, [])
+        self.assertEqual(operations, ["filter", "order_by", "limit", "all"])
+
+    def test_latest_event_id_returns_current_tail(self) -> None:
+        operations: list[str] = []
+
+        class FakeQuery:
+            def filter(self, *_args, **_kwargs):
+                operations.append("filter")
+                return self
+
+            def scalar(self):
+                operations.append("scalar")
+                return 42
+
+        class FakeSession:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def query(self, *_args, **_kwargs):
+                operations.append("query")
+                return FakeQuery()
+
+        broker = SatelliteEventBroker()
+
+        with patch("app.services.satellite_events.SessionLocal", return_value=FakeSession()):
+            latest_event_id = broker.latest_event_id(block_id="block-1")
+
+        self.assertEqual(latest_event_id, 42)
+        self.assertEqual(operations, ["query", "filter", "scalar"])
+
 
 class EarthEngineQualityTests(unittest.TestCase):
     def setUp(self) -> None:

@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
+from sqlalchemy import func
+
 from app.core.config import Settings, get_settings
 from app.db.models import SatelliteRefreshEventRecord
 from app.db.session import SessionLocal
@@ -60,6 +62,14 @@ class SatelliteEventBroker:
             )
             db.commit()
 
+    def latest_event_id(self, *, block_id: str) -> int | None:
+        with SessionLocal() as db:
+            return (
+                db.query(func.max(SatelliteRefreshEventRecord.id))
+                .filter(SatelliteRefreshEventRecord.block_id == block_id)
+                .scalar()
+            )
+
     def list_events(
         self,
         *,
@@ -68,14 +78,20 @@ class SatelliteEventBroker:
         limit: int = 50,
     ) -> list[SatelliteRefreshEvent]:
         with SessionLocal() as db:
-            query = (
-                db.query(SatelliteRefreshEventRecord)
-                .filter(SatelliteRefreshEventRecord.block_id == block_id)
-                .order_by(SatelliteRefreshEventRecord.id.asc())
-                .limit(max(1, limit))
-            )
             if after_id is not None:
-                query = query.filter(SatelliteRefreshEventRecord.id > after_id)
+                query = (
+                    db.query(SatelliteRefreshEventRecord)
+                    .filter(
+                        SatelliteRefreshEventRecord.block_id == block_id,
+                        SatelliteRefreshEventRecord.id > after_id,
+                    )
+                )
+            else:
+                query = db.query(SatelliteRefreshEventRecord).filter(
+                    SatelliteRefreshEventRecord.block_id == block_id
+                )
+
+            query = query.order_by(SatelliteRefreshEventRecord.id.asc()).limit(max(1, limit))
 
             records = query.all()
 

@@ -77,6 +77,7 @@ export interface RentalBooking {
   total_price: number | null;
   created_at: string;
   equipment_name?: string;
+  image_url?: string | null;
   listing_is_active?: boolean;
   owner_name?: string;
   renter_name?: string;

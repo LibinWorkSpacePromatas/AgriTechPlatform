@@ -38,6 +38,7 @@ from app.services.weather_ingest import (
     build_weather_summary,
     fetch_weather,
     get_block_centroid_lat_lon,
+    get_block_info,
     is_weather_fresh,
     query_weather_ranges,
     store_weather,
@@ -53,6 +54,7 @@ logger = logging.getLogger(__name__)
 class BlockUpsertRequest(BaseModel):
     user_id: str
     lanslu: str
+    block_id: str | None = None
     crop: str | None = None
     description: str | None = None
     geometry: dict[str, Any]
@@ -60,6 +62,7 @@ class BlockUpsertRequest(BaseModel):
 class BlockLocationRequest(BaseModel):
     user_id: str
     lanslu: str
+    block_id: str | None = None
     lat: float
     lon: float
 
@@ -78,6 +81,44 @@ def _validate_user_and_lanslu(user_id: str, lanslu: str, db: Session) -> UUID:
         raise HTTPException(status_code=404, detail=f"User {user_id} not found.")
 
     return user_uuid
+
+
+def _resolve_user_block(
+    db: Session,
+    *,
+    user_uuid: UUID,
+    block_id: str | None = None,
+    lanslu: str | None = None,
+) -> Block | None:
+    if block_id:
+        try:
+            block_uuid = UUID(block_id)
+        except (ValueError, AttributeError) as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid block_id format: {block_id}") from exc
+
+        block = (
+            db.query(Block)
+            .filter(Block.user_id == user_uuid, Block.id == block_uuid)
+            .first()
+        )
+        if block is not None:
+            return block
+
+    if lanslu is None or not lanslu.strip():
+        return None
+
+    matches = (
+        db.query(Block)
+        .filter(Block.user_id == user_uuid, Block.lanslu == lanslu)
+        .order_by(Block.id)
+        .all()
+    )
+    if len(matches) > 1:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Block identifier {lanslu} is ambiguous for this user. Use block_id instead.",
+        )
+    return matches[0] if matches else None
 
 
 def _analyze_block_geometry(db: Session, geojson_str: str) -> dict[str, Any]:
@@ -144,6 +185,7 @@ def _upsert_block_geometry(
     db: Session,
     user_uuid: UUID,
     lanslu: str,
+    block_id: str | None,
     geojson_obj: dict[str, Any],
     crop: str | None = None,
     description: str | None = None,
@@ -151,12 +193,7 @@ def _upsert_block_geometry(
     geojson_str = json.dumps(geojson_obj, sort_keys=True)
     analysis = _analyze_block_geometry(db, geojson_str)
 
-    existing = (
-        db.query(Block)
-        .filter(Block.user_id == user_uuid, Block.lanslu == lanslu)
-        .order_by(Block.id)
-        .first()
-    )
+    existing = _resolve_user_block(db, user_uuid=user_uuid, block_id=block_id, lanslu=lanslu)
 
     block_id = existing.id if existing else uuid4()
     area_ha = float(analysis["area_ha"] or 0.0)
@@ -497,6 +534,7 @@ def upsert_block(request: BlockUpsertRequest, db: Session = Depends(get_db)):
         db=db,
         user_uuid=user_uuid,
         lanslu=request.lanslu,
+        block_id=request.block_id,
         geojson_obj=request.geometry,
         crop=request.crop,
         description=request.description,
@@ -507,6 +545,7 @@ def upsert_block(request: BlockUpsertRequest, db: Session = Depends(get_db)):
 def delete_block(
     user_id: str = Query(...),
     lanslu: str = Query(...),
+    block_id: str | None = Query(default=None),
     db: Session = Depends(get_db),
 ):
     try:
@@ -517,12 +556,7 @@ def delete_block(
     if not lanslu.strip():
         raise HTTPException(status_code=400, detail="lanslu is required.")
 
-    block = (
-        db.query(Block)
-        .filter(Block.user_id == user_uuid, Block.lanslu == lanslu)
-        .order_by(Block.id)
-        .first()
-    )
+    block = _resolve_user_block(db, user_uuid=user_uuid, block_id=block_id, lanslu=lanslu)
     if not block:
         raise HTTPException(status_code=404, detail=f"Block {lanslu} not found for user {user_id}")
 
@@ -545,6 +579,7 @@ async def upload_shapefile(
     file: UploadFile = File(...),
     user_id: str = Form(...),
     lanslu: str = Form(...),
+    block_id: str | None = Form(default=None),
     crop: str | None = Form(default=None),
     description: str | None = Form(default=None),
     db: Session = Depends(get_db),
@@ -563,6 +598,7 @@ async def upload_shapefile(
         db=db,
         user_uuid=user_uuid,
         lanslu=lanslu,
+        block_id=block_id,
         geojson_obj=geojson_obj,
         crop=crop,
         description=description,
@@ -581,12 +617,7 @@ def set_block_location(request: BlockLocationRequest, db: Session = Depends(get_
     if not request.lanslu.strip():
         raise HTTPException(status_code=400, detail="lanslu is required.")
 
-    existing = (
-        db.query(Block)
-        .filter(Block.user_id == user_uuid, Block.lanslu == request.lanslu)
-        .order_by(Block.id)
-        .first()
-    )
+    existing = _resolve_user_block(db, user_uuid=user_uuid, block_id=request.block_id, lanslu=request.lanslu)
     if not existing:
         raise HTTPException(status_code=404, detail=f"Block {request.lanslu} not found for user {request.user_id}")
 
@@ -682,6 +713,7 @@ def set_block_location(request: BlockLocationRequest, db: Session = Depends(get_
 def clear_block_geometry(
     user_id: str = Query(...),
     lanslu: str = Query(...),
+    block_id: str | None = Query(default=None),
     db: Session = Depends(get_db),
 ):
     try:
@@ -692,12 +724,7 @@ def clear_block_geometry(
     if not lanslu.strip():
         raise HTTPException(status_code=400, detail="lanslu is required.")
 
-    block = (
-        db.query(Block)
-        .filter(Block.user_id == user_uuid, Block.lanslu == lanslu)
-        .order_by(Block.id)
-        .first()
-    )
+    block = _resolve_user_block(db, user_uuid=user_uuid, block_id=block_id, lanslu=lanslu)
     if not block:
         raise HTTPException(status_code=404, detail=f"Block {lanslu} not found for user {user_id}")
 
@@ -949,6 +976,8 @@ def get_block_unified_state(block_id: str, db: Session = Depends(get_db)):
             "air_temperature": _float(row.get("air_temperature")),
             "humidity": _float(row.get("humidity")),
             "ph": _float(row.get("ph_level")),
+            "sunlight": _float(row.get("sunlight")),
+            "fertility": _float(row.get("fertility")),
         },
         "satellite": {
             "ndvi": _float(row.get("ndvi")),
@@ -956,7 +985,7 @@ def get_block_unified_state(block_id: str, db: Session = Depends(get_db)):
             "evi": _float(row.get("evi")),
             "lai": _float(row.get("lai")),
         },
-        "weather": weather or {"last_24h": [], "last_7d": [], "next_7d": []},
+        "weather": weather or {"last_24h": [], "last_7d": [], "next_72h": [], "next_7d": []},
         "weather_summary": weather_summary,
         "meta": {
             "data_quality": row.get("data_quality"),
@@ -988,7 +1017,9 @@ async def stream_block_satellite_events(block_id: str):
         raise HTTPException(status_code=500, detail=f"Error resolving block: {exc}") from exc
 
     async def event_generator():
-        last_event_id = None
+        # Start from the current tail so a new subscriber only sees events
+        # produced after this SSE connection is established.
+        last_event_id = satellite_event_broker.latest_event_id(block_id=block_reference.block_id)
         
         # Send initial connection event
         yield _format_sse_payload({

@@ -175,7 +175,9 @@
   <div class="details-modal-backdrop" *ngIf="detailsModalListing" (click)="closeDetailsModal()">
     <div class="details-modal" *ngIf="detailsModalListing as listing" (click)="$event.stopPropagation()">
       <div class="details-modal-media">
-        <img *ngIf="listing.image_url" class="details-modal-image" [src]="listing.image_url" [alt]="listing.equipment_name">
+        <div class="details-modal-image-frame">
+          <img *ngIf="listing.image_url" class="details-modal-image" [src]="listing.image_url" [alt]="listing.equipment_name">
+        </div>
         <span class="details-modal-badge" [class.inactive]="!listing.is_active">{{ listing.is_active ? 'ACTIVE' : 'PAUSED' }}</span>
       </div>
 
@@ -196,27 +198,86 @@
 
         <div class="details-modal-grid">
           <div class="details-modal-item">
-            <span>Location</span>
-            <strong>{{ listing.location_label || 'Unknown' }}</strong>
-          </div>
-          <div class="details-modal-item">
-            <span>Bookings</span>
-            <strong>{{ listing.bookings_count || 0 }}</strong>
-          </div>
-          <div class="details-modal-item">
             <span>Pricing</span>
             <strong>{{ listing.price_type === 'daily' ? 'Per day' : 'Per hour' }}</strong>
+          </div>
+          <div class="details-modal-item">
+            <span>Rate</span>
+            <strong>{{ listing.price | currency:'USD':'symbol':'1.0-2' }}</strong>
           </div>
           <div class="details-modal-item">
             <span>Status</span>
             <strong>{{ listing.is_active ? 'Active' : 'Paused' }}</strong>
           </div>
+          <div class="details-modal-item">
+            <span>Units</span>
+            <strong>{{ listing.quantity_total || 1 }}</strong>
+          </div>
         </div>
 
+        <section class="details-modal-section">
+          <div class="details-modal-section-head">
+            <h4>Booked And Available Hours</h4>
+            <span>{{ getAvailabilitySummary(listing) }}</span>
+          </div>
+
+          <label class="calendar-date-field">
+            <span>Choose a day to check this listing</span>
+            <input type="date" [(ngModel)]="calendarDate" (change)="onCalendarDateChange(listing)">
+          </label>
+
+          <p class="calendar-loading" *ngIf="calendarLoading">Loading booking availability...</p>
+
+          <div class="calendar-summary" *ngIf="!calendarLoading && selectedCalendarListingId === listing.id">
+            <div class="calendar-summary-item">
+              <span>Booked</span>
+              <strong>{{ getBookedSlotCount() }}</strong>
+            </div>
+            <div class="calendar-summary-item">
+              <span>Buffer</span>
+              <strong>{{ getBufferSlotCount() }}</strong>
+            </div>
+            <div class="calendar-summary-item">
+              <span>Open</span>
+              <strong>{{ getAvailableSlotCount() }}</strong>
+            </div>
+          </div>
+
+          <p *ngIf="!calendarLoading && nextAvailableSlot" class="next-availability">
+            Next available slot: {{ nextAvailableSlot }}
+          </p>
+
+          <div class="calendar-box details-calendar" *ngIf="!calendarLoading && selectedCalendarListingId === listing.id && hasRelevantCalendarSlots; else noCalendarSlots">
+            <h3>Availability for {{ calendarDate | date:'mediumDate' }}</h3>
+            <div class="slot-scroll">
+              <div class="slot-grid">
+                <div
+                  class="slot-item"
+                  *ngFor="let slot of relevantCalendarSlots"
+                  [class.booked]="slot.status === 'booked'"
+                  [class.buffer]="slot.status === 'buffer'"
+                  [class.available]="slot.status === 'available'">
+                  <strong>{{ slot.start_datetime | date:'HH:mm' }}-{{ slot.end_datetime | date:'HH:mm' }}</strong>
+                  <span>
+                    {{ slot.status === 'booked' ? 'Booked'
+                      : slot.status === 'buffer' ? 'Buffer'
+                      : 'Open' }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <ng-template #noCalendarSlots>
+            <section class="calendar-empty" *ngIf="!calendarLoading && selectedCalendarListingId === listing.id">
+              <h3>No booked or open slots to show</h3>
+              <p>This day does not have any booking activity or open rental windows worth showing here.</p>
+            </section>
+          </ng-template>
+        </section>
+
         <div class="details-modal-actions">
-          <button class="btn btn-ghost" type="button" (click)="viewCalendar(listing); closeDetailsModal()">
-            View Booked Days
-          </button>
+          <button class="btn btn-ghost" type="button" (click)="closeDetailsModal()">Close</button>
           <button class="btn btn-outline listing-edit-btn" type="button" (click)="openEditForm(listing); closeDetailsModal()">Edit</button>
           <button class="btn" type="button" [class.listing-pause-btn]="listing.is_active" [class.listing-activate-btn]="!listing.is_active" (click)="toggleListing(listing); closeDetailsModal()">
             {{ listing.is_active ? 'Deactivate' : 'Activate' }}
@@ -230,31 +291,6 @@
     <section class="empty-state">
       <h3>No listings yet</h3>
       <p>Create your first rental listing to start getting booking requests from nearby growers.</p>
-      <button type="button" class="btn btn-primary" (click)="openCreateForm()">Create Listing</button>
     </section>
   </ng-template>
-
-  <div class="calendar-box" *ngIf="selectedCalendarListingId && calendarSlots.length">
-    <h3>Farmer Calendar View</h3>
-    <p class="calendar-caption">These are the upcoming booked and available days for your tool.</p>
-    <div class="calendar-day-strip" *ngIf="calendarDays.length">
-      <button
-        type="button"
-        class="calendar-day-pill"
-        *ngFor="let day of calendarDays"
-        [class.is-selected]="day.date === calendarDate"
-        [class.is-available]="day.status === 'available'"
-        [class.is-limited]="day.status === 'limited'"
-        [class.is-booked]="day.status === 'booked'"
-        (click)="selectCalendarDay(day.date)">
-        {{ day.label }} · {{ day.status }}
-      </button>
-    </div>
-    <p *ngIf="nextAvailableSlot">Next available: {{ nextAvailableSlot }}</p>
-    <div class="slot-grid">
-      <div class="slot-item" *ngFor="let slot of calendarSlots" [class.booked]="slot.status === 'booked'" [class.buffer]="slot.status === 'buffer'" [class.available]="slot.status === 'available'">
-        {{ slot.start_datetime | date:'HH:mm' }}-{{ slot.end_datetime | date:'HH:mm' }} {{ slot.status | uppercase }}
-      </div>
-    </div>
-  </div>
 </section>

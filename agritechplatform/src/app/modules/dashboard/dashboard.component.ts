@@ -923,6 +923,8 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (event.event === 'failed') {
       this.dashboardWarningMessage = event.error || 'Satellite refresh failed. Showing the latest successful result.';
+      this.isInsightsRefreshing = false;
+      return;
     }
 
     if (this.isInsightsLoading) {
@@ -1074,25 +1076,27 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private mapIotSensors(response: BlockIotSensorsResponse): IotDashboardSensor[] {
-    return response.sensors.map(sensor => ({
-      sensorId: sensor.sensor_id,
-      sensorType: sensor.sensor_type,
-      label: sensor.label,
-      value: sensor.value,
-      unit: sensor.unit,
-      displayUnit: sensor.unit === 'C' ? '\u00B0C' : sensor.unit,
-      status: sensor.status,
-      icon: this.getIotSensorIcon(sensor.sensor_type),
-      observedAt: sensor.observed_at,
-      historyHours: sensor.histories.hourly.map(point => point.value),
-      labelsHours: this.buildIotHistoryLabels(sensor.histories.hourly, 'recent'),
-      historyDays: sensor.histories.daily.map(point => point.value),
-      labelsDays: this.buildIotHistoryLabels(sensor.histories.daily, 'daily'),
-      historyWeeks: sensor.histories.weekly.map(point => point.value),
-      labelsWeeks: this.buildIotHistoryLabels(sensor.histories.weekly, 'weekly'),
-      suggestedMin: sensor.suggested_min ?? undefined,
-      suggestedMax: sensor.suggested_max ?? undefined
-    }));
+    return response.sensors
+      .filter(sensor => !['air_temperature', 'sunlight', 'fertility'].includes(sensor.sensor_type))
+      .map(sensor => ({
+        sensorId: sensor.sensor_id,
+        sensorType: sensor.sensor_type,
+        label: sensor.label,
+        value: sensor.value,
+        unit: sensor.unit,
+        displayUnit: sensor.unit === 'C' ? '\u00B0C' : sensor.unit,
+        status: sensor.status,
+        icon: this.getIotSensorIcon(sensor.sensor_type),
+        observedAt: sensor.observed_at,
+        historyHours: sensor.histories.hourly.map(point => point.value),
+        labelsHours: this.buildIotHistoryLabels(sensor.histories.hourly, 'recent'),
+        historyDays: sensor.histories.daily.map(point => point.value),
+        labelsDays: this.buildIotHistoryLabels(sensor.histories.daily, 'daily'),
+        historyWeeks: sensor.histories.weekly.map(point => point.value),
+        labelsWeeks: this.buildIotHistoryLabels(sensor.histories.weekly, 'weekly'),
+        suggestedMin: sensor.suggested_min ?? undefined,
+        suggestedMax: sensor.suggested_max ?? undefined
+      }));
   }
 
   private buildIotHistoryLabels(

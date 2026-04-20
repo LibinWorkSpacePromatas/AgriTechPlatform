@@ -20,7 +20,13 @@ def resolve_block(db: Session, block_identifier: str) -> Block:
         block = db.query(Block).filter(Block.id == block_uuid).first()
 
     if block is None:
-        block = db.query(Block).filter(Block.lanslu == block_identifier).first()
+        matches = db.query(Block).filter(Block.lanslu == block_identifier).all()
+        if len(matches) > 1:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Block identifier {block_identifier} is ambiguous. Use the block UUID instead.",
+            )
+        block = matches[0] if matches else None
 
     if block is None:
         raise HTTPException(status_code=404, detail=f"Block {block_identifier} was not found.")

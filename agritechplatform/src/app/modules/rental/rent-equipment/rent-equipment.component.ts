@@ -388,12 +388,7 @@ export class RentEquipmentComponent implements OnInit {
 
   onTimeChange(listing: RentalListing): void {
     this.selectedListingId = listing.id;
-    if (!this.bookingQuantity || this.bookingQuantity < 1) {
-      this.bookingQuantity = 1;
-    }
-    if (this.bookingQuantity > (listing.quantity_total || 1)) {
-      this.bookingQuantity = listing.quantity_total || 1;
-    }
+    this.enforceBookingBounds(listing);
     this.availability = null;
     this.info = null;
     this.error = this.getBookingValidationMessage(listing);
@@ -418,7 +413,10 @@ export class RentEquipmentComponent implements OnInit {
     };
 
     this.rentalService.checkAvailability(payload).subscribe({
-      next: res => this.availability = res,
+      next: res => {
+        this.availability = res;
+        this.enforceBookingBounds(listing);
+      },
       error: err => this.error = err.message || 'Availability check failed',
     });
   }
@@ -494,6 +492,30 @@ export class RentEquipmentComponent implements OnInit {
 
   getMinimumEndDate(): string {
     return this.bookingStartDate || this.minBookingDate;
+  }
+
+  getMaximumBookableUnits(listing: RentalListing): number {
+    const providerLimit = listing.quantity_total || 1;
+    const availabilityLimit = this.selectedListingId === listing.id && this.availability?.available_quantity != null
+      ? this.availability.available_quantity
+      : null;
+
+    if (availabilityLimit == null) {
+      return providerLimit;
+    }
+
+    return Math.max(1, Math.min(providerLimit, availabilityLimit));
+  }
+
+  getAvailableUnitsLabel(listing: RentalListing): string {
+    const providerLimit = listing.quantity_total || 1;
+    const availableQuantity = this.selectedListingId === listing.id ? this.availability?.available_quantity : null;
+
+    if (availableQuantity == null) {
+      return `${providerLimit} unit${providerLimit === 1 ? '' : 's'} total available`;
+    }
+
+    return `${availableQuantity} of ${providerLimit} unit${providerLimit === 1 ? '' : 's'} available for this selection`;
   }
 
   getMinimumStartTime(): string | null {
@@ -758,6 +780,55 @@ export class RentEquipmentComponent implements OnInit {
     const minimum = new Date(Date.now() + this.bookingLeadMinutes * 60 * 1000);
     minimum.setSeconds(0, 0);
     return minimum;
+  }
+
+  private enforceBookingBounds(listing: RentalListing): void {
+    const minimumDate = this.minBookingDate;
+
+    if (this.bookingStartDate && this.bookingStartDate < minimumDate) {
+      this.bookingStartDate = minimumDate;
+    }
+    if (this.bookingEndDate && this.bookingEndDate < minimumDate) {
+      this.bookingEndDate = minimumDate;
+    }
+
+    if (listing.price_type === 'daily') {
+      if (this.bookingEndDate && this.bookingStartDate && this.bookingEndDate < this.bookingStartDate) {
+        this.bookingEndDate = this.bookingStartDate;
+      }
+    } else {
+      const minimumStart = this.getMinimumHourlyStart();
+      const minimumStartDate = this.toLocalDateString(minimumStart);
+      const minimumStartTime = this.toTimeInputValue(minimumStart);
+
+      if (this.bookingStartDate && this.bookingStartDate < minimumStartDate) {
+        this.bookingStartDate = minimumStartDate;
+      }
+      if (this.bookingEndDate && this.bookingEndDate < (this.bookingStartDate || minimumStartDate)) {
+        this.bookingEndDate = this.bookingStartDate || minimumStartDate;
+      }
+      if (this.bookingStartDate === minimumStartDate && this.bookingStartTime && this.bookingStartTime < minimumStartTime) {
+        this.bookingStartTime = minimumStartTime;
+      }
+      if (this.bookingEndDate === minimumStartDate && this.bookingEndTime && this.bookingEndTime < minimumStartTime) {
+        this.bookingEndTime = minimumStartTime;
+      }
+      if (this.bookingStartDate && this.bookingEndDate && this.bookingEndDate < this.bookingStartDate) {
+        this.bookingEndDate = this.bookingStartDate;
+      }
+      if (this.bookingStartDate && this.bookingEndDate && this.bookingStartDate === this.bookingEndDate
+        && this.bookingStartTime && this.bookingEndTime && this.bookingEndTime <= this.bookingStartTime) {
+        this.bookingEndTime = this.bookingStartTime;
+      }
+    }
+
+    const maximumUnits = this.getMaximumBookableUnits(listing);
+    if (!this.bookingQuantity || this.bookingQuantity < 1) {
+      this.bookingQuantity = 1;
+    }
+    if (this.bookingQuantity > maximumUnits) {
+      this.bookingQuantity = maximumUnits;
+    }
   }
 
   private getBookingValidationMessage(listing: RentalListing): string | null {

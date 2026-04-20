@@ -1,12 +1,13 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
 import { RentalBooking, RentalService } from '../../../services/rental/rental.service';
 
 @Component({
   selector: 'app-requests',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './requests.component.html',
   styleUrl: './requests.component.css'
 })
@@ -43,6 +44,7 @@ export class RequestsComponent implements OnInit {
   }
 
   openDetails(booking: RentalBooking): void {
+    this.info = null;
     this.selectedRequest = booking;
   }
 
@@ -57,6 +59,8 @@ export class RequestsComponent implements OnInit {
       return;
     }
 
+    this.error = null;
+    this.info = null;
     this.rentalService.approveBooking(user.userId, booking.id).subscribe({
       next: updated => {
         booking.status = updated.status;
@@ -76,6 +80,8 @@ export class RequestsComponent implements OnInit {
       return;
     }
 
+    this.error = null;
+    this.info = null;
     this.rentalService.rejectBooking(user.userId, booking.id).subscribe({
       next: updated => {
         booking.status = updated.status;
@@ -86,6 +92,12 @@ export class RequestsComponent implements OnInit {
       },
       error: err => this.error = err.message || 'Reject failed',
     });
+  }
+
+  get sortedRequests(): RentalBooking[] {
+    return [...this.requests].sort((left, right) =>
+      new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
+    );
   }
 
   getStatusClass(status: string): string {
@@ -103,6 +115,17 @@ export class RequestsComponent implements OnInit {
       default:
         return '';
     }
+  }
+
+  getDetailRows(booking: RentalBooking): Array<{ label: string; value: string }> {
+    return [
+      { label: 'Request ID', value: booking.id },
+      { label: 'Renter', value: booking.renter_name || booking.renter_id },
+      { label: 'Start', value: new Date(booking.start_datetime).toLocaleString() },
+      { label: 'End', value: new Date(booking.end_datetime).toLocaleString() },
+      { label: 'Units', value: String(booking.quantity_requested) },
+      { label: 'Status', value: booking.status },
+    ];
   }
 
 }

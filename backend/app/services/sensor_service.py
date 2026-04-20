@@ -27,9 +27,10 @@ LIVE_TICK_INTERVAL_SECONDS = 30
 SENSOR_ORDER: tuple[SensorType, ...] = (
     "soil_moisture",
     "soil_temperature",
-    "air_temperature",
     "humidity",
     "ph_level",
+    "sunlight",
+    "fertility",
 )
 
 
@@ -85,23 +86,6 @@ SENSOR_TEMPLATES: dict[SensorType, SensorTemplate] = {
         weekly=(22.0, 20.0, 18.0, 23.4),
         variation_scale=2.0,
     ),
-    "air_temperature": SensorTemplate(
-        sensor_type="air_temperature",
-        label="Air Temperature",
-        unit="C",
-        threshold_low=15,
-        threshold_high=35,
-        suggested_min=0,
-        suggested_max=50,
-        current=29.8,
-        hourly=(
-            20.0, 21.0, 23.0, 25.0, 28.0, 30.0, 32.0, 33.0, 34.0, 33.0, 32.0, 31.0,
-            30.0, 29.0, 28.0, 27.0, 26.0, 27.0, 28.0, 29.0, 30.0, 31.0, 31.4, 29.8,
-        ),
-        daily=(25.0, 28.0, 30.0, 32.0, 34.0, 33.0, 29.8),
-        weekly=(28.0, 30.0, 32.0, 29.8),
-        variation_scale=2.5,
-    ),
     "humidity": SensorTemplate(
         sensor_type="humidity",
         label="Humidity",
@@ -122,7 +106,7 @@ SENSOR_TEMPLATES: dict[SensorType, SensorTemplate] = {
     "ph_level": SensorTemplate(
         sensor_type="ph_level",
         label="pH Level",
-        unit="",
+        unit="pH",
         threshold_low=5,
         threshold_high=8,
         suggested_min=0,
@@ -135,6 +119,42 @@ SENSOR_TEMPLATES: dict[SensorType, SensorTemplate] = {
         daily=(7.2, 7.1, 7.0, 6.9, 6.9, 6.8, 6.7),
         weekly=(7.2, 7.0, 6.9, 6.7),
         variation_scale=0.35,
+    ),
+    "sunlight": SensorTemplate(
+        sensor_type="sunlight",
+        label="Sunlight",
+        unit="W/m2",
+        threshold_low=150,
+        threshold_high=1100,
+        suggested_min=0,
+        suggested_max=1400,
+        current=640.0,
+        hourly=(
+            0.0, 0.0, 0.0, 30.0, 120.0, 260.0, 420.0, 580.0, 760.0, 890.0, 960.0, 1010.0,
+            1040.0, 1020.0, 930.0, 790.0, 610.0, 420.0, 220.0, 80.0, 10.0, 0.0, 0.0, 640.0,
+        ),
+        daily=(520.0, 560.0, 610.0, 640.0, 680.0, 620.0, 640.0),
+        weekly=(500.0, 560.0, 610.0, 640.0),
+        variation_scale=120.0,
+        rounding=1,
+    ),
+    "fertility": SensorTemplate(
+        sensor_type="fertility",
+        label="Fertility",
+        unit="EC",
+        threshold_low=0.8,
+        threshold_high=2.4,
+        suggested_min=0,
+        suggested_max=5,
+        current=1.6,
+        hourly=(
+            1.5, 1.5, 1.4, 1.4, 1.4, 1.5, 1.5, 1.6, 1.6, 1.7, 1.7, 1.7,
+            1.8, 1.8, 1.7, 1.7, 1.6, 1.6, 1.6, 1.5, 1.5, 1.5, 1.5, 1.6,
+        ),
+        daily=(1.4, 1.5, 1.5, 1.6, 1.7, 1.6, 1.6),
+        weekly=(1.3, 1.5, 1.6, 1.6),
+        variation_scale=0.25,
+        rounding=2,
     ),
 }
 
@@ -150,23 +170,19 @@ def calculate_sensor_status(value: float, threshold_low: float | None, threshold
 class SensorService:
     def get_block_sensor_dashboard(self, db: Session, block_identifier: str) -> BlockSensorsResponse:
         block = resolve_block(db, block_identifier)
-        definitions = self._ensure_sensor_state(db, block)
-        self._refresh_live_readings_if_needed(db, block, definitions)
+        self._ensure_sensor_state(db, block)
         db.commit()
 
-        # Update decision state for sensors
-        try:
-            from app.services.decision_engine import trigger_block_decision
-            decision = db.get(BlockDecision, block.id)
-            if not decision:
-                decision = BlockDecision(block_id=block.id)
-                db.add(decision)
-            decision.sensors_ready = True
-            db.commit()
-            trigger_block_decision(db, block.id)
-        except Exception:
-            pass
+        self._update_sensor_decision_state(db, block.id, sensor_data_changed=False)
 
+        return self._build_block_response(db, block)
+
+    def get_block_sensor_snapshot(self, db: Session, block_identifier: str) -> BlockSensorsResponse:
+        block = resolve_block(db, block_identifier)
+        self._ensure_sensor_state(db, block)
+        db.commit()
+
+        self._update_sensor_decision_state(db, block.id, sensor_data_changed=False)
         return self._build_block_response(db, block)
 
     def get_sensor_history(
@@ -209,27 +225,35 @@ class SensorService:
     def simulate_block_readings(self, db: Session, block_identifier: str) -> SensorSimulationResponse:
         block = resolve_block(db, block_identifier)
         definitions = self._ensure_sensor_state(db, block)
-        tick_time = self._refresh_live_readings_if_needed(db, block, definitions, force=True)
+        tick_time, readings_refreshed = self._refresh_live_readings_if_needed(db, block, definitions, force=True)
         db.commit()
 
-        # Update decision state for sensors
-        try:
-            from app.services.decision_engine import trigger_block_decision
-            decision = db.get(BlockDecision, block.id)
-            if not decision:
-                decision = BlockDecision(block_id=block.id)
-                db.add(decision)
-            decision.sensors_ready = True
-            db.commit()
-            trigger_block_decision(db, block.id)
-        except Exception:
-            pass
+        self._update_sensor_decision_state(db, block.id, sensor_data_changed=readings_refreshed)
 
         return SensorSimulationResponse(
             block_id=str(block.id),
             updated_at=tick_time,
             sensor_count=len(definitions),
         )
+
+    def _update_sensor_decision_state(self, db: Session, block_id: object, *, sensor_data_changed: bool) -> None:
+        try:
+            from app.services.decision_engine import is_decision_stale, trigger_block_decision
+
+            decision = db.get(BlockDecision, block_id)
+            if not decision:
+                decision = BlockDecision(block_id=block_id)
+                db.add(decision)
+                db.flush()
+
+            decision.sensors_ready = True
+            should_trigger = sensor_data_changed or is_decision_stale(db, block_id)
+            db.commit()
+
+            if should_trigger:
+                trigger_block_decision(db, block_id)
+        except Exception:
+            pass
 
     def _ensure_sensor_state(self, db: Session, block: Block) -> list[SensorDefinition]:
         definitions = self._ensure_sensor_definitions(db, block)
@@ -238,6 +262,7 @@ class SensorService:
         return definitions
 
     def _ensure_sensor_definitions(self, db: Session, block: Block) -> list[SensorDefinition]:
+        self._remove_legacy_sensor_definitions(db, block.id)
         definitions = self._get_block_sensor_definitions(db, block.id)
         existing_types = {definition.sensor_type for definition in definitions}
 
@@ -263,6 +288,17 @@ class SensorService:
 
         db.flush()
         return self._get_block_sensor_definitions(db, block.id)
+
+    def _remove_legacy_sensor_definitions(self, db: Session, block_id: object) -> None:
+        (
+            db.query(SensorDefinition)
+            .filter(
+                SensorDefinition.block_id == block_id,
+                SensorDefinition.sensor_type == "air_temperature",
+            )
+            .delete(synchronize_session=False)
+        )
+        db.flush()
 
     def _ensure_seed_history(self, db: Session, block: Block, definitions: list[SensorDefinition]) -> None:
         sensor_ids = [definition.id for definition in definitions]
@@ -331,8 +367,10 @@ class SensorService:
         definitions: list[SensorDefinition],
         *,
         force: bool = False,
-    ) -> datetime:
+    ) -> tuple[datetime, bool]:
         tick_time = datetime.now(timezone.utc)
+        tick_boundary = tick_time - timedelta(seconds=LIVE_TICK_INTERVAL_SECONDS)
+
         latest_rows = {
             row.sensor_id: row
             for row in db.query(SensorLatest)
@@ -340,33 +378,48 @@ class SensorService:
             .all()
         }
 
-        should_refresh = force or any(
-            definition.id not in latest_rows
-            or (tick_time - latest_rows[definition.id].observed_at).total_seconds() >= LIVE_TICK_INTERVAL_SECONDS
-            for definition in definitions
-            if definition.is_active
-        )
-        if not should_refresh:
-            return tick_time
+        # Only simulate sensors whose SensorLatest is missing or older than the tick interval.
+        # If the mobile app saved a real value within the current tick window (observed_at > tick_boundary),
+        # skip simulation for that sensor so the real reading is preserved.
+        sensors_needing_sim = [
+            definition for definition in definitions
+            if definition.is_active and (
+                force
+                or definition.id not in latest_rows
+                or latest_rows[definition.id].observed_at <= tick_boundary
+            )
+        ]
 
-        for definition in definitions:
-            if not definition.is_active:
-                continue
+        if not sensors_needing_sim:
+            return tick_time, False
 
+        for definition in sensors_needing_sim:
             latest_row = latest_rows.get(definition.id)
             next_value = self._next_live_value(block, definition, latest_row.value if latest_row else None, tick_time)
+            status = calculate_sensor_status(next_value, definition.threshold_low, definition.threshold_high)
+
             db.add(
                 SensorReading(
                     sensor_id=definition.id,
                     value=next_value,
-                    status=calculate_sensor_status(next_value, definition.threshold_low, definition.threshold_high),
+                    status=status,
                     granularity="raw",
                     observed_at=tick_time,
                 )
             )
 
+            # Only overwrite SensorLatest for sensors that were actually simulated
+            db.merge(
+                SensorLatest(
+                    sensor_id=definition.id,
+                    value=next_value,
+                    status=status,
+                    observed_at=tick_time,
+                )
+            )
+
         db.flush()
-        return tick_time
+        return tick_time, True
 
     def _build_block_response(self, db: Session, block: Block) -> BlockSensorsResponse:
         definitions = self._get_block_sensor_definitions(db, block.id)
@@ -411,10 +464,16 @@ class SensorService:
                 )
             )
 
+        # Find the latest observation timestamp among the sensors
+        max_observed_at = max(
+            (sensor.observed_at for sensor in sensors if sensor.observed_at),
+            default=datetime.now(timezone.utc)
+        )
+
         return BlockSensorsResponse(
             block_id=str(block.id),
             block_name=f"{block.lanslu} - {block.crop or 'Block'}",
-            generated_at=datetime.now(timezone.utc),
+            generated_at=max_observed_at,
             sensors=sensors,
         )
 
@@ -532,9 +591,10 @@ class SensorService:
         scale = {
             "soil_moisture": 5.5,
             "soil_temperature": 2.5,
-            "air_temperature": 3.0,
             "humidity": 8.0,
             "ph_level": 0.45,
+            "sunlight": 140.0,
+            "fertility": 0.3,
         }[template.sensor_type]
         return centered_fraction * scale
 

@@ -293,12 +293,22 @@
           <div>
             <h3>{{ getListingDisplayName(listing) }}</h3>
             <p *ngIf="getListingDisplayDetail(listing)">{{ getListingDisplayDetail(listing) }}</p>
-            <p>{{ listing.owner_name || 'Farmer' }}</p>
+            <span class="details-owner-chip">{{ listing.owner_name || 'Farmer' }}</span>
           </div>
           <button class="modal-close" type="button" (click)="closeDetailsModal()" aria-label="Close details"></button>
         </div>
 
-        <p class="details-modal-price">{{ listing.price | currency:'USD':'symbol':'1.0-2' }} / {{ listing.price_type }}</p>
+        <div class="details-modal-highlights">
+          <div class="details-highlight-card details-highlight-price">
+            <span>Rate</span>
+            <strong>{{ listing.price | currency:'USD':'symbol':'1.0-2' }} / {{ listing.price_type }}</strong>
+          </div>
+          <div class="details-highlight-card">
+            <span>Availability</span>
+            <strong>{{ getAvailabilityLabel(listing.id) }}</strong>
+          </div>
+        </div>
+
         <p class="details-modal-description">
           {{ listing.description || 'No description available for this equipment yet.' }}
         </p>
@@ -319,8 +329,8 @@
             </div>
           </ng-template>
           <div class="details-modal-item">
-            <span>Availability</span>
-            <strong>{{ getAvailabilityLabel(listing.id) }}</strong>
+            <span>Owner</span>
+            <strong>{{ listing.owner_name || 'Farmer' }}</strong>
           </div>
         </div>
 
@@ -357,6 +367,11 @@
       </div>
 
       <div class="booking-modal-body">
+        <section class="booking-section">
+          <div class="booking-section-head">
+            <h4>Schedule</h4>
+            <p>{{ listing.price_type === 'daily' ? 'Choose your rental dates.' : 'Choose date and time, then check availability.' }}</p>
+          </div>
         <div class="booking-field-grid" *ngIf="listing.price_type === 'hourly'; else dailyBookingModal">
           <label class="booking-field">
             <span>Start Date</span>
@@ -388,27 +403,27 @@
             </label>
           </div>
         </ng-template>
+        </section>
 
-        <div class="booking-rate-row">
-          <span>Rate per {{ listing.price_type === 'daily' ? 'day' : 'hour' }}</span>
-          <strong>{{ listing.price | currency:'USD':'symbol':'1.0-2' }}</strong>
-        </div>
+        <section class="booking-section booking-topline">
+          <div class="booking-mini-card">
+            <span>Rate</span>
+            <strong>{{ listing.price | currency:'USD':'symbol':'1.0-2' }} / {{ listing.price_type === 'daily' ? 'day' : 'hour' }}</strong>
+          </div>
 
-        <label class="booking-field">
-          <span>Units to Book</span>
-          <input
-            type="number"
-            min="1"
-            [max]="listing.quantity_total || 1"
-            [(ngModel)]="bookingQuantity"
-            (change)="onTimeChange(listing)">
-        </label>
-
-        <p class="booking-helper-text">
-          {{ listing.price_type === 'daily'
-            ? 'Choose any current or future date range to check availability for those days.'
-            : 'Choose any current or future date, then pick times to check availability for that day.' }}
-        </p>
+          <div class="booking-mini-card booking-mini-card-input">
+            <label class="booking-field booking-field-inline">
+              <span>Units</span>
+              <input
+                type="number"
+                min="1"
+                [max]="getMaximumBookableUnits(listing)"
+                [(ngModel)]="bookingQuantity"
+                (change)="onTimeChange(listing)">
+            </label>
+            <small>{{ getAvailableUnitsLabel(listing) }}</small>
+          </div>
+        </section>
 
         <div class="selected-day-status-card" [ngClass]="getSelectedDayStatusClass()">
           <div class="selected-day-status-head">
@@ -427,7 +442,6 @@
 
         <div class="availability-day-strip" *ngIf="availableDays.length">
           <p class="availability-day-title">Upcoming day availability</p>
-          <p class="availability-day-legend">Green = free, amber = partly free, red = occupied, gray = not offered</p>
           <button
             type="button"
             class="availability-day-pill"
@@ -442,18 +456,14 @@
           </button>
         </div>
 
-        <p class="booking-helper-text" *ngIf="listing.price_type === 'hourly' && !calendarDate">
-          Select either date field to see that specific day&apos;s booked and available time slots.
+        <p class="booking-helper-text booking-helper-inline" *ngIf="listing.price_type === 'hourly' && !calendarDate">
+          Select either date field to see that day's booked and available time slots.
         </p>
 
         <p *ngIf="selectedListingId === listing.id && availability?.available" class="ok booking-status">Available for booking</p>
         <p *ngIf="selectedListingId === listing.id && availability && !availability.available" class="error booking-status">
           Not Available ({{ availability.reason || 'Overlapping / Buffer' }})
         </p>
-        <p *ngIf="selectedListingId === listing.id && availability?.available_quantity != null" class="booking-helper-text">
-          Remaining units for this slot: {{ availability?.available_quantity }}
-        </p>
-
         <div class="booking-summary" *ngIf="selectedListingId === listing.id && getBookingSummary(listing) as summary">
           <h4>Booking Summary</h4>
           <p>Start: {{ summary.start | date:'medium' }}</p>
@@ -472,6 +482,10 @@
           </div>
         </div>
 
+      </div>
+
+      <div class="booking-modal-footer">
+        <button class="btn btn-outline booking-secondary-btn" type="button" (click)="closeBookingModal()">Cancel</button>
         <button class="btn btn-primary booking-submit" type="button" (click)="bookNow(listing)">
           Confirm Booking
         </button>

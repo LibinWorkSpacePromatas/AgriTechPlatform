@@ -53,6 +53,7 @@ export class MyListingsComponent implements OnInit, OnDestroy {
   calendarSlots: RentalCalendarSlot[] = [];
   calendarDays: ListingCalendarDaySummary[] = [];
   nextAvailableSlot: string | null = null;
+  calendarLoading = false;
   selectedImageName: string | null = null;
   imagePreviewUrl: string | null = null;
   specValues: Record<string, string> = {};
@@ -369,15 +370,20 @@ export class MyListingsComponent implements OnInit, OnDestroy {
 
   openDetails(listing: RentalListing): void {
     this.detailsModalListing = listing;
+    this.viewCalendar(listing);
   }
 
   closeDetailsModal(): void {
     this.detailsModalListing = null;
+    this.selectedCalendarListingId = null;
+    this.calendarSlots = [];
+    this.nextAvailableSlot = null;
+    this.calendarLoading = false;
   }
 
   viewCalendar(listing: RentalListing): void {
     this.selectedCalendarListingId = listing.id;
-    this.loadCalendarDays(listing.id);
+    this.calendarLoading = true;
     this.rentalService.getListingCalendar(listing.id, this.calendarDate).subscribe({
       next: response => {
         this.calendarSlots = response.slots;
@@ -385,26 +391,18 @@ export class MyListingsComponent implements OnInit, OnDestroy {
         this.nextAvailableSlot = nextSlot
           ? `${new Date(nextSlot.start_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
           : null;
+        this.calendarLoading = false;
       },
       error: err => {
         this.error = err.message || 'Unable to load calendar';
         this.calendarSlots = [];
         this.nextAvailableSlot = null;
+        this.calendarLoading = false;
       },
     });
   }
 
-  selectCalendarDay(date: string): void {
-    if (!this.selectedCalendarListingId) {
-      return;
-    }
-
-    const listing = this.listings.find(item => item.id === this.selectedCalendarListingId);
-    if (!listing) {
-      return;
-    }
-
-    this.calendarDate = date;
+  onCalendarDateChange(listing: RentalListing): void {
     this.viewCalendar(listing);
   }
 
@@ -484,6 +482,39 @@ export class MyListingsComponent implements OnInit, OnDestroy {
 
   isAvailableDaySelected(day: AvailabilityWeekday): boolean {
     return this.availabilitySettings.available_days.includes(day);
+  }
+
+  getAvailabilitySummary(listing: RentalListing): string {
+    const settings = listing.availability_settings;
+    if (!settings || settings.available_all_days || !settings.available_days?.length) {
+      return 'Available all days';
+    }
+
+    const weekdayLabels = this.weekdayOptions
+      .filter(option => settings.available_days.includes(option.value))
+      .map(option => option.label);
+
+    return weekdayLabels.length ? `Available on ${weekdayLabels.join(', ')}` : 'Availability days not set';
+  }
+
+  getBookedSlotCount(): number {
+    return this.calendarSlots.filter(slot => slot.status === 'booked').length;
+  }
+
+  getBufferSlotCount(): number {
+    return this.calendarSlots.filter(slot => slot.status === 'buffer').length;
+  }
+
+  getAvailableSlotCount(): number {
+    return this.calendarSlots.filter(slot => slot.status === 'available').length;
+  }
+
+  get relevantCalendarSlots(): RentalCalendarSlot[] {
+    return this.calendarSlots.filter(slot => slot.status === 'booked' || slot.status === 'buffer' || slot.status === 'available');
+  }
+
+  get hasRelevantCalendarSlots(): boolean {
+    return this.relevantCalendarSlots.length > 0;
   }
 
   private buildSpecificationsPayload(): Record<string, string> | null {
