@@ -81,6 +81,8 @@ export class AuctionsComponent implements OnInit, AfterViewInit, OnDestroy {
   protected readonly bidDelta = signal(120);
   protected readonly bidFlash = signal(false);
   protected readonly previewImageUrl = environment.auctionPreviewImageUrl ?? '';
+  protected readonly previewImageReady = signal(!this.previewImageUrl);
+  protected readonly previewImageFailed = signal(false);
   protected readonly uploadedImageUrl = signal<string | null>(null);
   protected readonly isUploading = signal(false);
   protected readonly createAuctionModalOpen = signal(false);
@@ -166,6 +168,7 @@ export class AuctionsComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnInit(): void {
     localStorage.setItem('auctionTabSeen', 'true');
     this.newBadgeVisible.set(false);
+    this.preloadPreviewImage();
     this.loadState();
     setTimeout(() => this.pageAnimated.set(true), 20);
     this.tickTimer = setInterval(() => this.nowTick.set(Date.now()), 1000);
@@ -203,6 +206,9 @@ export class AuctionsComponent implements OnInit, AfterViewInit, OnDestroy {
           this.isRegisteredSeller.set(registered);
           this.isLoading.set(false);
           if (registered) {
+            this.previewImageReady.set(true);
+          }
+          if (registered) {
             this.loadDashboard();
           }
         },
@@ -210,6 +216,33 @@ export class AuctionsComponent implements OnInit, AfterViewInit, OnDestroy {
           this.isLoading.set(false);
         }
       });
+  }
+
+  protected showInitialsPreview(): boolean {
+    return !this.previewImageUrl || this.previewImageFailed();
+  }
+
+  protected showPageLoader(): boolean {
+    return this.isLoading() || (!this.isRegisteredSeller() && !this.previewImageReady());
+  }
+
+  private preloadPreviewImage(): void {
+    if (!this.previewImageUrl) {
+      this.previewImageReady.set(true);
+      return;
+    }
+
+    const image = new Image();
+    image.decoding = 'async';
+    image.onload = () => {
+      this.previewImageReady.set(true);
+      this.previewImageFailed.set(false);
+    };
+    image.onerror = () => {
+      this.previewImageFailed.set(true);
+      this.previewImageReady.set(true);
+    };
+    image.src = this.previewImageUrl;
   }
 
   protected loadDashboard(): void {
