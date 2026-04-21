@@ -70,6 +70,7 @@ def insert_mobile_sensor_snapshot(
             if definition is None:
                 raise HTTPException(status_code=404, detail=f"Sensor definition not found for {sensor_type}")
 
+            definition.is_manual = True
             status = calculate_sensor_status(value, definition.threshold_low, definition.threshold_high)
 
             db.add(
