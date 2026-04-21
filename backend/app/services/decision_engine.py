@@ -7,11 +7,12 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import func, text
 
 from app.core.config import get_settings
-from app.db.models import BlockDecision
+from app.db.models import BlockDecision, SensorDefinition, SensorLatest
 from app.services.weather_ingest import is_weather_fresh, fetch_weather, store_weather, get_block_info
+from app.services.sensor_service import sensor_service
 
 
 logger = logging.getLogger(__name__)
@@ -200,6 +201,19 @@ def is_decision_stale(db: Session, block_id: UUID, *, max_age_minutes: int | Non
     if created_at.tzinfo is None:
         created_at = created_at.replace(tzinfo=timezone.utc)
 
+    latest_sensor_updated_at = (
+        db.query(func.max(SensorLatest.updated_at))
+        .join(SensorDefinition, SensorDefinition.id == SensorLatest.sensor_id)
+        .filter(SensorDefinition.block_id == block_id)
+        .scalar()
+    )
+
+    if latest_sensor_updated_at is not None:
+        if latest_sensor_updated_at.tzinfo is None:
+            latest_sensor_updated_at = latest_sensor_updated_at.replace(tzinfo=timezone.utc)
+        if latest_sensor_updated_at > created_at:
+            return True
+
     return created_at <= datetime.now(timezone.utc) - timedelta(minutes=max(1, ttl_minutes))
 
 
@@ -247,6 +261,11 @@ def _get_decision_data(db: Session, block_id: UUID) -> dict[str, Any] | None:
     if not row:
         return None
 
+    # Use the same sensor-service path as the dashboard so both views calculate
+    # from the same freshest sensor values.
+    latest_sensor_values = sensor_service.get_latest_sensor_values(db, str(block_id))
+    soil_moisture = latest_sensor_values.get("soil_moisture", row["soil_moisture"])
+
     # Fetch 24h past rain and avg temperature
     weather_stats = db.execute(
         text("""
@@ -282,7 +301,7 @@ def _get_decision_data(db: Session, block_id: UUID) -> dict[str, Any] | None:
 
     return {
         "block_id": str(block_id),
-        "soil_moisture": row["soil_moisture"],
+        "soil_moisture": soil_moisture,
         "ndvi": row["ndvi"],
         "ndwi": row["ndwi"],
         "crop": row["crop"],

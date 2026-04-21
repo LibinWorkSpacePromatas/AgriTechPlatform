@@ -1,6 +1,7 @@
 import json
 import tempfile
 import zipfile
+from datetime import timezone
 from pathlib import Path
 from time import sleep
 from uuid import UUID, uuid4
@@ -901,17 +902,66 @@ def get_block_decision(block_id: str, db: Session = Depends(get_db)):
 
     row = db.execute(
         text("""
-            SELECT decision_payload 
+            SELECT decision_payload, created_at
             FROM block_decisions 
             WHERE block_id = :block_id
         """),
         {"block_id": str(block.id)}
-    ).first()
+    ).mappings().first()
 
     if not row:
         return None
 
-    return row[0]  # JSON payload from decision_payload column
+    payload = dict(row["decision_payload"] or {})
+    decision_created_at = row.get("created_at")
+    if decision_created_at is not None and getattr(decision_created_at, "tzinfo", None) is None:
+        decision_created_at = decision_created_at.replace(tzinfo=timezone.utc)
+
+    sensor_debug = db.execute(
+        text(
+            """
+            SELECT
+                MAX(sl.updated_at) AS latest_sensor_updated_at,
+                MAX(sl.observed_at) AS latest_sensor_observed_at,
+                MAX(CASE WHEN sd.sensor_type = 'soil_moisture' THEN sl.value END) AS latest_soil_moisture,
+                MAX(CASE WHEN sd.sensor_type = 'soil_moisture' THEN sl.updated_at END) AS latest_soil_moisture_updated_at,
+                MAX(CASE WHEN sd.sensor_type = 'soil_moisture' THEN sl.observed_at END) AS latest_soil_moisture_observed_at
+            FROM sensor_definitions sd
+            LEFT JOIN sensor_latest sl ON sl.sensor_id = sd.id
+            WHERE sd.block_id = :block_id
+            """
+        ),
+        {"block_id": str(block.id)},
+    ).mappings().first() or {}
+
+    payload["debug"] = {
+        "decision_created_at": decision_created_at.isoformat() if decision_created_at else None,
+        "latest_sensor_updated_at": (
+            sensor_debug["latest_sensor_updated_at"].isoformat()
+            if sensor_debug.get("latest_sensor_updated_at") is not None
+            else None
+        ),
+        "latest_sensor_observed_at": (
+            sensor_debug["latest_sensor_observed_at"].isoformat()
+            if sensor_debug.get("latest_sensor_observed_at") is not None
+            else None
+        ),
+        "latest_soil_moisture": float(sensor_debug["latest_soil_moisture"])
+        if sensor_debug.get("latest_soil_moisture") is not None
+        else None,
+        "latest_soil_moisture_updated_at": (
+            sensor_debug["latest_soil_moisture_updated_at"].isoformat()
+            if sensor_debug.get("latest_soil_moisture_updated_at") is not None
+            else None
+        ),
+        "latest_soil_moisture_observed_at": (
+            sensor_debug["latest_soil_moisture_observed_at"].isoformat()
+            if sensor_debug.get("latest_soil_moisture_observed_at") is not None
+            else None
+        ),
+    }
+
+    return payload
 
 
 @router.get("/api/blocks/{block_id}/unified-state", tags=["blocks"])
@@ -1069,6 +1119,79 @@ async def stream_block_satellite_events(block_id: str):
             "Cache-Control": "no-cache, no-transform",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no", # Prevent Nginx from buffering the stream
+        },
+    )
+
+
+@router.get("/api/blocks/{block_id}/decision-events", tags=["decision-events"])
+async def stream_block_decision_events(block_id: str):
+    import asyncio
+    from datetime import datetime, timezone
+
+    with SessionLocal() as db:
+        try:
+            block = resolve_block(db, block_id)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Error resolving block: {exc}") from exc
+
+    async def event_generator():
+        last_created_at = None
+
+        yield _format_sse_payload({
+            "block_id": str(block.id),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "decision": None,
+        })
+
+        try:
+            while True:
+                with SessionLocal() as stream_db:
+                    row = stream_db.execute(
+                        text(
+                            """
+                            SELECT decision_payload, created_at
+                            FROM block_decisions
+                            WHERE block_id = :block_id
+                            """
+                        ),
+                        {"block_id": str(block.id)},
+                    ).mappings().first()
+
+                if not row:
+                    yield ": keep-alive\n\n"
+                    await asyncio.sleep(2)
+                    continue
+
+                created_at = row.get("created_at")
+                if created_at is not None and getattr(created_at, "tzinfo", None) is None:
+                    created_at = created_at.replace(tzinfo=timezone.utc)
+
+                if created_at is not None and created_at != last_created_at:
+                    last_created_at = created_at
+                    yield _format_sse_payload({
+                        "block_id": str(block.id),
+                        "timestamp": created_at.isoformat(),
+                        "decision": row.get("decision_payload"),
+                    })
+                else:
+                    yield ": keep-alive\n\n"
+
+                await asyncio.sleep(2)
+        except asyncio.CancelledError:
+            logger.info("event=decision_sse_stream_cancelled block_id=%s", block.id)
+        except Exception as exc:
+            logger.error("event=decision_sse_stream_error block_id=%s error=%s", block.id, exc)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
         },
     )
 

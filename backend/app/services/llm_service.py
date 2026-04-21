@@ -14,6 +14,23 @@ except ModuleNotFoundError:
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
+
+class LLMServiceError(Exception):
+    """Base error for upstream LLM failures."""
+
+
+class LLMRateLimitError(LLMServiceError):
+    """Raised when the upstream model provider is rate limited."""
+
+
+class LLMAuthenticationError(LLMServiceError):
+    """Raised when the upstream API credentials are invalid."""
+
+
+class LLMUpstreamError(LLMServiceError):
+    """Raised for non-auth, non-rate-limit upstream failures."""
+
+
 class LLMService:
     def __init__(self) -> None:
         self.api_key = settings.openrouter_api_key
@@ -66,8 +83,12 @@ class LLMService:
         except Exception as e:
             if httpx is not None and isinstance(e, httpx.HTTPStatusError):
                 logger.error(f"OpenRouter HTTP error: {e.response.status_code} - {e.response.text}")
-                return f"Error generating AI response: HTTP {e.response.status_code}."
+                if e.response.status_code == 429:
+                    raise LLMRateLimitError("OpenRouter rate limit reached.") from e
+                if e.response.status_code in {401, 403}:
+                    raise LLMAuthenticationError("OpenRouter authentication failed.") from e
+                raise LLMUpstreamError(f"OpenRouter HTTP error: {e.response.status_code}") from e
             logger.error(f"Error calling OpenRouter: {str(e)}")
-            return "Error connecting to AI engine."
+            raise LLMUpstreamError("Error connecting to AI engine.") from e
 
 llm_service = LLMService()

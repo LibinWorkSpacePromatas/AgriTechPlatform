@@ -49,6 +49,7 @@ def insert_mobile_sensor_snapshot(
     db: Session = Depends(get_db),
 ):
     observed_at = payload.observed_at or datetime.now(timezone.utc)
+    received_at = datetime.now(timezone.utc)
 
     try:
         block = resolve_block(db, block_id)
@@ -88,11 +89,13 @@ def insert_mobile_sensor_snapshot(
                     value=value,
                     status=status,
                     observed_at=observed_at,
+                    updated_at=received_at,
                 )
             )
 
         db.flush()
         db.commit()
+        sensor_service.notify_sensor_data_changed(db, block.id)
     except HTTPException:
         db.rollback()
         raise

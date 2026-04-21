@@ -7,7 +7,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from app.services.utils import build_satellite_contract_payload, calculate_data_age, calculate_confidence
-from app.services.llm_service import llm_service
+from app.services.llm_service import (
+    LLMAuthenticationError,
+    LLMRateLimitError,
+    LLMUpstreamError,
+    llm_service,
+)
 from app.services.satellite_access import satellite_access_service
 from app.services.satellite_insights import SatelliteInsightsUnavailableError
 from app.services.weather_ingest import build_weather_summary, query_weather_ranges
@@ -72,8 +77,24 @@ async def chat_with_grower_gpt(request: ChatRequest):
     if request.context:
         full_prompt = f"{request.context}\n\nUser Question:\n{request.message}"
     
-    response = await llm_service.generate_response(full_prompt, request.system_prompt or "")
-    return {"response": response}
+    try:
+        response = await llm_service.generate_response(full_prompt, request.system_prompt or "")
+        return {"response": response}
+    except LLMRateLimitError as exc:
+        raise HTTPException(
+            status_code=429,
+            detail="Grower GPT is temporarily busy because the upstream AI provider is rate limited.",
+        ) from exc
+    except LLMAuthenticationError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Grower GPT could not authenticate with the upstream AI provider.",
+        ) from exc
+    except LLMUpstreamError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Grower GPT could not reach the upstream AI provider.",
+        ) from exc
 
 
 @router.get("/gpt/{block_id}", response_model=GrowerGPTResponse)
@@ -119,7 +140,22 @@ async def get_gpt(block_id: str, db: Session = Depends(get_db)):
             Provide a professional, brief summary of the field status and 1-2 key recommendations for the grower.
             Keep it under 100 words.
             """
-            ai_message = await llm_service.generate_response(prompt, system_prompt)
+            try:
+                ai_message = await llm_service.generate_response(prompt, system_prompt)
+            except LLMRateLimitError:
+                ai_message = (
+                    "Grower GPT could not add AI wording right now because the upstream AI provider is busy. "
+                    "The rule-based agronomic insights below are still current."
+                )
+            except LLMAuthenticationError:
+                ai_message = (
+                    "Grower GPT could not add AI wording right now because the upstream AI credentials are not valid."
+                )
+            except LLMUpstreamError:
+                ai_message = (
+                    "Grower GPT could not reach the upstream AI provider right now. "
+                    "The rule-based agronomic insights below are still available."
+                )
 
         payload = build_satellite_contract_payload(satellite_response)
         payload["data_age_days"] = calculate_data_age(satellite_response)

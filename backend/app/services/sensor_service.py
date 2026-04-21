@@ -185,6 +185,26 @@ class SensorService:
         self._update_sensor_decision_state(db, block.id, sensor_data_changed=False)
         return self._build_block_response(db, block)
 
+    def get_latest_sensor_values(self, db: Session, block_identifier: str | Block) -> dict[SensorType, float]:
+        block = block_identifier if isinstance(block_identifier, Block) else resolve_block(db, block_identifier)
+        definitions = self._ensure_sensor_state(db, block)
+        db.commit()
+
+        latest_rows = {
+            row.sensor_id: row
+            for row in db.query(SensorLatest)
+            .filter(SensorLatest.sensor_id.in_([definition.id for definition in definitions]))
+            .all()
+        }
+
+        values: dict[SensorType, float] = {}
+        for definition in definitions:
+            latest_row = latest_rows.get(definition.id)
+            if latest_row is None or not definition.is_active:
+                continue
+            values[definition.sensor_type] = latest_row.value
+        return values
+
     def get_sensor_history(
         self,
         db: Session,
@@ -235,6 +255,9 @@ class SensorService:
             updated_at=tick_time,
             sensor_count=len(definitions),
         )
+
+    def notify_sensor_data_changed(self, db: Session, block_id: object) -> None:
+        self._update_sensor_decision_state(db, block_id, sensor_data_changed=True)
 
     def _update_sensor_decision_state(self, db: Session, block_id: object, *, sensor_data_changed: bool) -> None:
         try:
@@ -355,6 +378,7 @@ class SensorService:
                     value=latest_reading.value,
                     status=latest_reading.status,
                     observed_at=latest_reading.observed_at,
+                    updated_at=datetime.now(timezone.utc),
                 )
             )
 
@@ -415,6 +439,7 @@ class SensorService:
                     value=next_value,
                     status=status,
                     observed_at=tick_time,
+                    updated_at=tick_time,
                 )
             )
 

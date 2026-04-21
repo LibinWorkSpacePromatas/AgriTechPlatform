@@ -13,6 +13,7 @@ import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/services/auth.service';
 import { UserDataService } from '../../core/services/user-data.service';
 import { SatelliteRefreshEventsService } from '../../core/services/satellite-refresh-events.service';
+import { DecisionEventsService } from '../../core/services/decision-events.service';
 
 type BaseMapMode = 'road' | 'terrain' | 'satellite';
 
@@ -82,6 +83,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
   pumpDemoMessage = '';
   private pumpStopTimer?: ReturnType<typeof setTimeout>;
   private decisionPollSub?: Subscription;
+  private decisionEventsSub?: Subscription;
 
   private destroy$ = new Subject<void>();
 
@@ -93,6 +95,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     private authService: AuthService,
     private cdr: ChangeDetectorRef,
     private satelliteEventsService: SatelliteRefreshEventsService,
+    private decisionEventsService: DecisionEventsService,
     @Inject(PLATFORM_ID) platformId: Object
   ) {
     this.isBrowser = isPlatformBrowser(platformId);
@@ -120,6 +123,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
         console.log('Block received:', block);
 
         this.applyBlockSelection(block);
+        this.subscribeToDecisionEvents(block.id);
         this.cdr.detectChanges();
 
         if (this.map) {
@@ -681,6 +685,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
     this.destroy$.next();
     this.destroy$.complete();
     this.decisionPollSub?.unsubscribe();
+    this.decisionEventsSub?.unsubscribe();
     this.resetPumpDemoState();
     if (this.map) {
       this.map.remove();
@@ -794,6 +799,8 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
           this.currentDecision = decision;
         }
 
+        this.fetchUnifiedFarmState();
+
         this.isLoading = false;
         this.error = null;
 
@@ -871,6 +878,22 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
         this.updateTileFromStatus();
       }
     });
+  }
+
+  private subscribeToDecisionEvents(blockUuid: string): void {
+    this.decisionEventsSub?.unsubscribe();
+    this.decisionEventsSub = this.decisionEventsService.watchBlock(blockUuid)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(event => {
+        if (!this.selectedBlock || this.selectedBlock.id !== blockUuid) {
+          return;
+        }
+
+        if (event.decision) {
+          this.currentDecision = event.decision;
+          this.fetchUnifiedFarmState();
+        }
+      });
   }
 
   private updateTileFromStatus(): void {
