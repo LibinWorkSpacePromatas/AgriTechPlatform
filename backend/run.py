@@ -12,7 +12,7 @@ def _env_flag(name: str, default: bool = False) -> bool:
 if __name__ == "__main__":
     uvicorn.run(
         "app.main:app",
-        host="0.0.0.0",
+        host="192.168.1.71",
         port=8000,
         reload=_env_flag("UVICORN_RELOAD", default=True),
     )

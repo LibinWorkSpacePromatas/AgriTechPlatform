@@ -9,6 +9,7 @@ from time import perf_counter
 from typing import Any
 
 from sqlalchemy import text
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
@@ -531,24 +532,43 @@ class SatelliteInsightsService:
     ) -> tuple[datetime, datetime]:
         now = self._utcnow()
         expires_at = now + timedelta(days=self._settings.satellite_cache_ttl_days)
-        cache = db.get(SatelliteCache, block_id)
-        if cache is None:
-            cache = SatelliteCache(block_id=block_id)
-
         payload = self._serialize_cache_payload(response)
-        cache.geometry_hash = geometry_hash
-        cache.payload = payload
-        cache.data_quality = response.data_quality
-        cache.composite_date_from = response.composite_date_from
-        cache.composite_date_to = response.composite_date_to
-        cache.pixel_count = response.pixel_count
-        cache.gee_execution_ms = gee_execution_ms
-        cache.map_tile_url = None
-        cache.last_updated = now
-        cache.refreshed_at = now
-        cache.expires_at = expires_at
+        cache_table = SatelliteCache.__table__
+        upsert_stmt = (
+            insert(cache_table)
+            .values(
+                block_id=block_id,
+                geometry_hash=geometry_hash,
+                payload=payload,
+                data_quality=response.data_quality,
+                composite_date_from=response.composite_date_from,
+                composite_date_to=response.composite_date_to,
+                pixel_count=response.pixel_count,
+                gee_execution_ms=gee_execution_ms,
+                map_tile_url=None,
+                last_updated=now,
+                refreshed_at=now,
+                expires_at=expires_at,
+            )
+            .on_conflict_do_update(
+                index_elements=[cache_table.c.block_id],
+                set_={
+                    "geometry_hash": geometry_hash,
+                    "payload": payload,
+                    "data_quality": response.data_quality,
+                    "composite_date_from": response.composite_date_from,
+                    "composite_date_to": response.composite_date_to,
+                    "pixel_count": response.pixel_count,
+                    "gee_execution_ms": gee_execution_ms,
+                    "map_tile_url": None,
+                    "last_updated": now,
+                    "refreshed_at": now,
+                    "expires_at": expires_at,
+                },
+            )
+        )
 
-        db.add(cache)
+        db.execute(upsert_stmt)
         self._append_timeseries(db, block_id, geometry_hash, response, recorded_at=now)
         db.commit()
         return now, expires_at
