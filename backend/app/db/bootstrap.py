@@ -883,6 +883,7 @@ def ensure_auction_tables() -> None:
 
     _ensure_user_role_column()
     _seed_bidder_user()
+    _seed_farmer_user()
 
 
 def _ensure_user_role_column() -> None:
@@ -946,6 +947,41 @@ def _seed_bidder_user() -> None:
                     'N/A',
                     'N/A',
                     'bidder'
+                )
+                """
+            )
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()
+
+
+def _seed_farmer_user() -> None:
+    from app.db.session import SessionLocal
+
+    db = SessionLocal()
+    try:
+        result = db.execute(
+            text("SELECT id FROM users WHERE id = '77777777-3333-3333-3333-333333333333' LIMIT 1")
+        ).fetchone()
+        if result:
+            return
+        db.execute(
+            text(
+                """
+                INSERT INTO users (id, name, region, council, farm_name, farm_location, primary_crop, primary_soil, role)
+                VALUES (
+                    '77777777-3333-3333-3333-333333333333',
+                    'John',
+                    'Riverland',
+                    'BERRI BARMERA COUNCIL',
+                    'Green Acres Farm',
+                    'Berri, SA',
+                    'Shiraz',
+                    'Loam',
+                    'farmer'
                 )
                 """
             )
