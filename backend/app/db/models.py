@@ -159,6 +159,7 @@ class SensorDefinition(Base):
     threshold_high = Column(Float, nullable=True)
     suggested_min = Column(Float, nullable=True)
     suggested_max = Column(Float, nullable=True)
+    is_manual = Column(Boolean, nullable=False, default=False, server_default=text("false"))
     is_active = Column(Boolean, nullable=False, default=True, server_default=text("true"))
     created_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), server_default=func.now())
     updated_at = Column(
