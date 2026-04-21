@@ -170,10 +170,11 @@ def calculate_sensor_status(value: float, threshold_low: float | None, threshold
 class SensorService:
     def get_block_sensor_dashboard(self, db: Session, block_identifier: str) -> BlockSensorsResponse:
         block = resolve_block(db, block_identifier)
-        self._ensure_sensor_state(db, block)
+        definitions = self._ensure_sensor_state(db, block)
+        _, readings_refreshed = self._refresh_live_readings_if_needed(db, block, definitions, force=False)
         db.commit()
 
-        self._update_sensor_decision_state(db, block.id, sensor_data_changed=False)
+        self._update_sensor_decision_state(db, block.id, sensor_data_changed=readings_refreshed)
 
         return self._build_block_response(db, block)
 
@@ -383,7 +384,7 @@ class SensorService:
         # skip simulation for that sensor so the real reading is preserved.
         sensors_needing_sim = [
             definition for definition in definitions
-            if definition.is_active and (
+            if definition.is_active and not getattr(definition, "is_manual", False) and (
                 force
                 or definition.id not in latest_rows
                 or latest_rows[definition.id].observed_at <= tick_boundary
