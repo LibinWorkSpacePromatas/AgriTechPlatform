@@ -38,6 +38,7 @@ export class UserSelectionComponent implements OnInit {
     selectUser(user: User): void {
         const success = this.authService.login(user.userId);
         if (success) {
+            // Route users to the dashboard that matches their role.
             if (user.role === 'bidder') {
                 this.router.navigate(['/bidder/dashboard']);
             } else {
