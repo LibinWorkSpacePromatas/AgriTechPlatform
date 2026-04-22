@@ -45,6 +45,18 @@
           </div>
           <div class="lot-info">
             <h1 class="lot-title">{{ a.produce_name }}</h1>
+            <div class="seller-summary" *ngIf="a.seller_location">
+              <div class="seller-summary-label">Location</div>
+              <div class="seller-summary-body">
+                <div class="seller-summary-location">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 10c0 6-9 12-9 12S3 16 3 10a9 9 0 1 1 18 0z"/>
+                    <circle cx="12" cy="10" r="3"/>
+                  </svg>
+                  <span>{{ a.seller_location }}</span>
+                </div>
+              </div>
+            </div>
             <div class="lot-meta-row">
               <div class="lot-meta-item">
                 <span class="lot-meta-label">Quantity</span>

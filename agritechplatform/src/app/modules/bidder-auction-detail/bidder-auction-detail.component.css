@@ -136,6 +136,40 @@
 }
 .lot-info { padding: 14px 16px 16px; }
 .lot-title { font-size: 18px; font-weight: 800; color: var(--ink); margin: 0 0 12px; letter-spacing: -.2px; }
+.seller-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: linear-gradient(180deg, #fcfdfc 0%, #f7faf8 100%);
+}
+.seller-summary-label {
+  font-size: 9px;
+  color: var(--ink-4);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.seller-summary-body {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.seller-summary-location {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--ink-4);
+}
+.seller-summary-location svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
 .lot-meta-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
 .lot-meta-item { display: flex; flex-direction: column; gap: 2px; }
 .lot-meta-label { font-size: 9px; color: var(--ink-4); font-weight: 600; text-transform: uppercase; letter-spacing: .07em; }
@@ -500,6 +534,9 @@
     grid-template-columns: 1fr;
     gap: 8px;
   }
+  .seller-summary {
+    padding: 9px 10px;
+  }
 
   .timer-card,
   .graph-card,
@@ -575,6 +612,9 @@
 
   .lot-title {
     font-size: 16px;
+  }
+  .seller-summary-location {
+    font-size: 10px;
   }
 
   .timer-card {

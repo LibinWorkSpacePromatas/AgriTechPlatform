@@ -40,6 +40,8 @@ export interface AuctionItem {
   highest_bid: number | null;
   bid_count?: number | null;
   image_url: string | null;
+  seller_name?: string | null;
+  seller_location?: string | null;
 }
 
 export interface AuctionDashboardSummary {
