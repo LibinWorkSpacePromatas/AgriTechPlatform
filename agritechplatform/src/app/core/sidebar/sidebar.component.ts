@@ -231,6 +231,7 @@ type NavGroup = {
     }
   `]
 })
+// sidebar components
 export class SidebarComponent {
   @Input() isOpen = false;
   @Output() closeSidebar = new EventEmitter<void>();
