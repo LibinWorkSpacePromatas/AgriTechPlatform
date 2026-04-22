@@ -60,7 +60,41 @@ def _build_initials(name: str | None) -> str:
     return "".join(parts[:2]) or "AN"
 
 
-def _serialize_auction(auction: Auction, highest_bid: Decimal | None = None) -> dict:
+def _seller_meta_rows(db: Session, seller_ids: list[UUID]) -> dict[UUID, dict[str, str | None]]:
+    if not seller_ids:
+        return {}
+
+    rows = (
+        db.query(AuctionProfile, User)
+        .outerjoin(User, AuctionProfile.user_id == User.id)
+        .filter(AuctionProfile.id.in_(seller_ids))
+        .all()
+    )
+
+    result: dict[UUID, dict[str, str | None]] = {}
+    for profile, user in rows:
+        seller_name = (
+            profile.business_name
+            or (user.farm_name if user else None)
+            or (user.name if user else None)
+            or "Seller"
+        )
+        seller_location = (
+            (user.farm_location if user else None)
+            or (user.region if user else None)
+        )
+        result[profile.id] = {
+            "seller_name": seller_name,
+            "seller_location": seller_location,
+        }
+    return result
+
+
+def _serialize_auction(
+    auction: Auction,
+    highest_bid: Decimal | None = None,
+    seller_meta: dict[str, str | None] | None = None,
+) -> dict:
     return {
         "id": str(auction.id),
         "produce_name": auction.produce_name,
@@ -74,6 +108,8 @@ def _serialize_auction(auction: Auction, highest_bid: Decimal | None = None) -> 
         "final_price": float(auction.final_price) if auction.final_price is not None else None,
         "highest_bid": float(highest_bid) if highest_bid is not None else None,
         "image_url": auction.image_url,
+        "seller_name": seller_meta.get("seller_name") if seller_meta else None,
+        "seller_location": seller_meta.get("seller_location") if seller_meta else None,
         "created_at": _utc_iso(auction.created_at),
         "updated_at": _utc_iso(auction.updated_at),
     }
@@ -430,7 +466,11 @@ def get_my_auctions(
     auctions = query.order_by(Auction.created_at.desc()).all()
 
     highest_rows = _highest_bid_rows(db, [auction.id for auction in auctions])
-    return [_serialize_auction(auction, highest_rows.get(auction.id)) for auction in auctions]
+    seller_rows = _seller_meta_rows(db, [auction.seller_id for auction in auctions])
+    return [
+        _serialize_auction(auction, highest_rows.get(auction.id), seller_rows.get(auction.seller_id))
+        for auction in auctions
+    ]
 
 
 @router.get("/auctions/dashboard/{user_id}")
@@ -490,7 +530,11 @@ def get_all_auctions(
     auctions = query.order_by(Auction.created_at.desc()).all()
 
     highest_rows = _highest_bid_rows(db, [auction.id for auction in auctions])
-    return [_serialize_auction(auction, highest_rows.get(auction.id)) for auction in auctions]
+    seller_rows = _seller_meta_rows(db, [auction.seller_id for auction in auctions])
+    return [
+        _serialize_auction(auction, highest_rows.get(auction.id), seller_rows.get(auction.seller_id))
+        for auction in auctions
+    ]
 
 
 @router.get("/auctions/{auction_id}")
@@ -505,7 +549,8 @@ def get_auction_by_id(auction_id: UUID, db: Session = Depends(get_db)):
         .filter(AuctionBid.auction_id == auction_id)
         .scalar()
     )
-    return _serialize_auction(auction, highest)
+    seller_rows = _seller_meta_rows(db, [auction.seller_id])
+    return _serialize_auction(auction, highest, seller_rows.get(auction.seller_id))
 
 
 @router.get("/auctions/{auction_id}/bids")

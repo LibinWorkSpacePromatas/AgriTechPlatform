@@ -91,6 +91,9 @@
               <div class="card-body-top">
                 <div>
                   <h3 class="card-title">{{ row.produce_name }}</h3>
+                  <div class="card-seller-meta" *ngIf="row.seller_location">
+                    <span class="card-seller-location">{{ row.seller_location }}</span>
+                  </div>
                   <span class="card-qty">{{ row.quantity | number }} {{ row.unit }}</span>
                 </div>
                 <div class="card-meta-right">
