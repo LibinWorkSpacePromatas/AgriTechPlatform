@@ -6,6 +6,7 @@ import { take } from 'rxjs';
 import { User } from '../../core/models/user.model';
 import { UserDataService } from '../../core/services/user-data.service';
 import { AuthService } from '../../core/services/auth.service';
+import { APP_CONSTANTS } from '../../shared/constants';
 
 @Component({
     selector: 'app-user-selection',
@@ -15,6 +16,9 @@ import { AuthService } from '../../core/services/auth.service';
     styleUrls: ['./user-selection.component.css']
 })
 export class UserSelectionComponent implements OnInit {
+    readonly APP_CONSTANTS = APP_CONSTANTS;
+    readonly promatasLogoSrc = 'assets/branding/promatas-logo.png';
+    readonly promasecureLogoSrc = 'assets/branding/promasecure-logo.png';
     users: User[] = [];
     isLoading = false;
     errorMessage: string | null = null;

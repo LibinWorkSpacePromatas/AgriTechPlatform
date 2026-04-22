@@ -1932,7 +1932,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(20);
     doc.setFont('helvetica', 'bold');
-    doc.text('PromaSecure Crop Advice Report', 105, 14, { align: 'center' });
+    doc.text('AgriOne Crop Advice Report', 105, 14, { align: 'center' });
 
     doc.setFontSize(13);
     doc.text(`${this.currentBlock.name} - ${this.currentBlock.crop}`, 105, 23, { align: 'center' });
@@ -2114,9 +2114,9 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     doc.setTextColor(150);
     doc.text(`Data used: ${sourceSummary}`, 105, 285, { align: 'center' });
     doc.setTextColor(primaryGreen);
-    doc.text('PromaSecure live farmer advisory', 105, 290, { align: 'center' });
+    doc.text('AgriOne live farmer advisory', 105, 290, { align: 'center' });
 
-    doc.save(`PromaSecure_Farmer_Advisory_${this.currentBlock.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`AgriOne_Farmer_Advisory_${this.currentBlock.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
   }
 
   private getSensorDisplay(id: DashboardMetricKey): string {
