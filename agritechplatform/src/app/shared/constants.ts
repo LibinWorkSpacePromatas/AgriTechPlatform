@@ -1,8 +1,9 @@
 // Application-wide constants
 
 export const APP_CONSTANTS = {
-    APP_NAME: 'AgriTech',
-    APP_SUBTITLE: 'Riverland AgriTech',
+    APP_NAME: 'AgriOne',
+    APP_SUBTITLE: 'For Everyone',
+    APP_TAGLINE: 'AgriOne for Everyone',
     APP_VERSION: '1.0.0',
 
     TIMEZONE: 'Australia/Adelaide',
