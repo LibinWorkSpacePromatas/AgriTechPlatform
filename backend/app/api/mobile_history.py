@@ -67,6 +67,7 @@ def get_mobile_sensor_snapshot_history(
             .join(SensorDefinition, SensorDefinition.id == SensorReading.sensor_id)
             .filter(
                 SensorDefinition.block_id == block.id,
+                SensorDefinition.is_manual.is_(True),
                 SensorReading.granularity == "raw",
             )
             .order_by(SensorReading.observed_at.desc(), SensorReading.id.desc())
