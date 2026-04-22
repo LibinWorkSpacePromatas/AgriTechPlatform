@@ -269,7 +269,7 @@ export class WaterIrrigationComponent implements OnInit, OnDestroy, AfterViewIni
       edit: {
         featureGroup: this.drawLayerGroup,
         edit: false,
-        remove: true
+        remove: false
       }
     });
 

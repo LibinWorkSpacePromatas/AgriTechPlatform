@@ -1932,8 +1932,8 @@
   }
 
   .map-wrapper {
-    min-height: 280px;
-    height: 300px;
+    min-height: 320px;
+    height: 340px;
   }
 
   .map-controls {
@@ -2376,7 +2376,7 @@
   bottom: 78px;
   left: 14px;
   right: auto;
-  z-index: 1100;
+  z-index: 650;
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
@@ -2481,6 +2481,8 @@
   background: linear-gradient(180deg, #f8fafc 0%, #eff6ff 100%);
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.1);
   min-height: 440px;
+  isolation: isolate;
+  z-index: 0;
 }
 
 .map-glow {
@@ -2509,6 +2511,12 @@
   border: 1px solid rgba(191, 219, 254, 0.9);
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
   backdrop-filter: blur(10px);
+}
+
+/* Keep Leaflet controls below app-level headers/menus but above map tiles */
+:host ::ng-deep .leaflet-control-container .leaflet-top,
+:host ::ng-deep .leaflet-control-container .leaflet-bottom {
+  z-index: 600;
 }
 
 .control-row {
@@ -2655,15 +2663,16 @@
   }
 
   .map-floating-controls {
+    /* Keep it bottom-left inside map on phones */
     top: auto;
-    bottom: 66px;
+    bottom: 70px;
     left: 10px;
     right: auto;
   }
 
   .layer-menu {
-    top: calc(100% + 10px);
-    left: 0;
+    top: 0;
+    left: calc(100% + 8px);
     right: auto;
     flex-direction: column;
     align-items: stretch;
@@ -2686,6 +2695,19 @@
 
   .mode-card {
     min-width: 0;
+  }
+
+  /* Keep native Leaflet controls inside visible map area on small screens */
+  :host ::ng-deep .leaflet-top {
+    top: 8px;
+  }
+
+  :host ::ng-deep .leaflet-left {
+    left: 8px;
+  }
+
+  :host ::ng-deep .leaflet-right {
+    right: 8px;
   }
 }
 
