@@ -63,11 +63,13 @@ import { SidebarComponent } from '../sidebar/sidebar.component';
     }
     
     .main-content {
+      flex: 1;
       padding-top: var(--header-height);
-      min-height: 100vh;
+      min-height: 0;
     }
 
     .content-wrapper {
+      min-height: 100%;
       padding: var(--content-padding);
       max-width: var(--content-max-width);
       margin: 0 auto;

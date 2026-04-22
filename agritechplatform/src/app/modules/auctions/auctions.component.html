@@ -285,7 +285,7 @@
                       <span class="card-price">{{ formatMoney(row.highest_bid ?? row.base_price) }}</span>
                     </div>
                     <div class="card-meta-right">
-                      <span class="card-bids" *ngIf="row.status === 'active'">{{ row.highest_bid ? '—' : '0' }} Bids</span>
+                      <span class="card-bids" *ngIf="row.status === 'active' && (row.bid_count ?? 0) > 0">{{ row.bid_count }} Bids</span>
                       <div class="card-timer" *ngIf="isAuctionActive(row)">
                         <span class="card-countdown">{{ countdownLabel(row) }}</span>
                         <span class="card-ends-label">Ends soon</span>

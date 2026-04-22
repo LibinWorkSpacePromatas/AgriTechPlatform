@@ -313,6 +313,16 @@
   color: var(--ink);
   margin: 0 0 3px;
 }
+.card-seller-meta {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+.card-seller-location {
+  font-size: 11px;
+  color: var(--ink-4);
+}
 .card-qty { font-size: 12px; color: var(--ink-4); font-weight: 500; }
 
 .card-meta-right { text-align: right; }
@@ -396,11 +406,100 @@
 @media (max-width: 1200px) {
   .stats-grid { grid-template-columns: repeat(3, 1fr); }
 }
+@media (max-width: 1024px) {
+  .bidder-main { gap: 14px; }
+  .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .auction-list {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px;
+    padding: 14px;
+  }
+}
 @media (max-width: 768px) {
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .auction-list { grid-template-columns: 1fr; }
   .dash-header { flex-direction: column; align-items: flex-start; }
+  .tab-bar {
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 0 12px;
+  }
+  .tab-bar::-webkit-scrollbar { display: none; }
+  .tab-item {
+    flex: 0 0 auto;
+    padding: 12px 14px;
+  }
+}
+@media (max-width: 640px) {
+  .bidder-main { gap: 12px; }
+  .dash-greeting { gap: 12px; }
+  .dash-header-left h1 { font-size: 20px; }
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .stat-card { padding: 14px; }
+  .stat-value { font-size: 24px; }
+  .auction-list {
+    padding: 12px;
+    gap: 12px;
+  }
+  .card-body { padding: 12px 14px 14px; }
+  .card-body-top {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .card-seller-meta { margin-bottom: 6px; }
+  .card-meta-right,
+  .card-timer {
+    align-items: flex-start;
+    text-align: left;
+  }
+  .card-price-row { gap: 10px; }
+  .card-bid-btn { padding: 0 16px; }
 }
 @media (max-width: 480px) {
-  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .dash-greeting { align-items: flex-start; }
+  .dash-avatar {
+    width: 42px;
+    height: 42px;
+    font-size: 18px;
+  }
+  .dash-header-left h1 { font-size: 18px; }
+  .dash-header-left p { font-size: 12px; }
+  .verified-badge {
+    width: 100%;
+    justify-content: center;
+  }
+  .tab-bar { padding: 0 10px; }
+  .tab-item {
+    padding: 11px 12px;
+    font-size: 12px;
+  }
+  .auction-list {
+    padding: 10px;
+    gap: 10px;
+  }
+  .card-status-badge {
+    top: 8px;
+    right: 8px;
+    font-size: 9px;
+    padding: 4px 8px;
+  }
+  .card-live-ring {
+    top: 8px;
+    left: 8px;
+  }
+  .card-title { font-size: 14px; }
+  .card-seller-location { font-size: 10px; }
+  .card-countdown { font-size: 15px; }
+  .card-price-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .card-bid-btn {
+    width: 100%;
+    justify-content: center;
+  }
 }
