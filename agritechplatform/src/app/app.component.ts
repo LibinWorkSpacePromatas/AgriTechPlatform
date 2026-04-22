@@ -12,5 +12,5 @@ import { CommonModule } from '@angular/common';
     styles: []
 })
 export class AppComponent {
-    title = 'AgriTech Digital Twin';
+    title = 'AgriOne for Everyone';
 }

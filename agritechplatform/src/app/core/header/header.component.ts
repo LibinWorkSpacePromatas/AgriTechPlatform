@@ -85,7 +85,7 @@ import { Subscription } from 'rxjs';
     .welcome-section {
       display: flex;
       flex-direction: column;
-      gap: 0.125rem;
+      gap: 0.1rem;
     }
     
     .welcome-title {
@@ -100,7 +100,7 @@ import { Subscription } from 'rxjs';
       color: var(--gray-500);
       margin: 0;
     }
-    
+
     .header-right {
       display: flex;
       align-items: center;

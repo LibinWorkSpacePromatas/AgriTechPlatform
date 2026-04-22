@@ -2,10 +2,17 @@
     <!-- Header Section -->
     <div class="header-section">
         <div class="logo-container">
-            <i-lucide [img]="LeafIcon" size="36" class="logo-icon" style="color: #2e7d32;"></i-lucide>
-            <div class="logo-text">
-                <h1>Promasecure</h1>
-                <p>AgriTech Platform</p>
+            <div class="logo-badge">
+                <i-lucide [img]="LeafIcon" size="24" class="logo-icon" style="color: #2e7d32;"></i-lucide>
+            </div>
+            <div class="logo-copy">
+                <div class="logo-heading-row">
+                    <div class="logo-text">
+                        <h1>{{ APP_CONSTANTS.APP_NAME }}</h1>
+                        <p>{{ APP_CONSTANTS.APP_SUBTITLE }}</p>
+                    </div>
+                    <img class="promatas-logo" [src]="promatasLogoSrc" alt="Promatas logo" />
+                </div>
             </div>
         </div>
     </div>
@@ -51,6 +58,13 @@
         <!-- Empty State -->
         <div *ngIf="!isLoading && users.length === 0 && !errorMessage" class="empty-state">
             <p>No user profiles found in the database.</p>
+        </div>
+
+        <div class="security-footer">
+            <span>Secured By</span>
+            <span class="security-logo-wrap">
+                <img class="security-logo" [src]="promasecureLogoSrc" alt="PromaSecure logo" />
+            </span>
         </div>
     </div>
 </div>

@@ -681,6 +681,13 @@
     flex: 1;
 }
 
+.advisor-breadcrumb-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+}
+
 .refresh-indicator {
     display: inline-flex;
     align-items: center;
@@ -711,11 +718,13 @@
     }
 }
 
-.advisor-breadcrumbs span {
-    margin: 0 0.25rem;
-}
-
-.advisor-breadcrumbs .brand {
+.advisor-security {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.28rem 0.55rem;
+    border-radius: 999px;
+    background: #ecfdf5;
     color: #1e4d3b;
     font-weight: 700;
 }
@@ -724,6 +733,28 @@
     color: #10b981;
     font-weight: 700;
     text-transform: uppercase;
+}
+
+.advisor-security-label {
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+}
+
+.advisor-security-logo-wrap {
+    padding: 0.3rem 0.45rem;
+    border-radius: 999px;
+    background: #ffffff;
+    box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.advisor-security-logo {
+    width: 72px;
+    height: auto;
+    object-fit: contain;
 }
 
 .advisor-breadcrumbs .sub-text {
@@ -1044,8 +1075,9 @@
         gap: 0.25rem;
     }
 
-    .advisor-breadcrumbs span {
-        margin: 0;
+    .advisor-breadcrumb-row {
+        flex-direction: column;
+        align-items: flex-start;
     }
 
     .risk-score-container {

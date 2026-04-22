@@ -594,10 +594,17 @@
 
         <div class="advisor-header-row">
             <div class="advisor-breadcrumbs">
-                <span class="brand">PromaSecure</span> |
-                <span class="block-ref">{{ currentBlock?.name }}</span> |
-                <span class="page-title">LIVE CROP ADVICE</span> |
-                <span class="date">{{ dashboardFreshnessLabel }}</span>
+                <div class="advisor-breadcrumb-row">
+                    <span class="advisor-security">
+                        <span class="advisor-security-label">Secured By</span>
+                        <span class="advisor-security-logo-wrap">
+                            <img class="advisor-security-logo" src="assets/branding/promasecure-logo.png" alt="PromaSecure logo" />
+                        </span>
+                    </span>
+                    <span class="block-ref">{{ currentBlock?.name }}</span>
+                    <span class="page-title">LIVE CROP ADVICE</span>
+                    <span class="date">{{ dashboardFreshnessLabel }}</span>
+                </div>
             </div>
             <div class="advisor-toolbar" *ngIf="farmerAdvisory as advisory">
                 <button type="button" class="advisor-download-btn" (click)="downloadPdf()">
