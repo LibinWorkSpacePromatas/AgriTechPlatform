@@ -575,3 +575,102 @@
   }
   .timer-num { font-size: 38px; }
 }
+@media (max-width: 640px) {
+  .detail-topbar {
+    padding: 14px 16px 0;
+  }
+
+  .detail-grid {
+    padding: 10px 12px 0;
+  }
+
+  .lot-meta-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .timer-card,
+  .graph-card,
+  .bid-display-card,
+  .recent-bids-card {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .timer-num {
+    font-size: 32px;
+    letter-spacing: -1px;
+  }
+
+  .timer-colon {
+    font-size: 30px;
+    padding-bottom: 6px;
+  }
+
+  .graph-header,
+  .rb-header {
+    gap: 8px;
+  }
+}
+@media (max-width: 480px) {
+  .detail-shell {
+    margin: -0.75rem;
+    padding-bottom: 20px;
+  }
+
+  .detail-topbar {
+    padding: 12px 12px 0;
+  }
+
+  .detail-grid {
+    padding: 8px 10px 0;
+    gap: 10px;
+  }
+
+  .lot-info {
+    padding: 12px;
+  }
+
+  .lot-title {
+    font-size: 16px;
+  }
+
+  .timer-card {
+    padding: 18px 12px 14px;
+  }
+
+  .timer-num {
+    font-size: 26px;
+  }
+
+  .timer-colon {
+    font-size: 24px;
+    padding-bottom: 4px;
+  }
+
+  .timer-unit-label,
+  .lot-meta-label,
+  .lsm-label {
+    letter-spacing: 0.06em;
+  }
+
+  .graph-card,
+  .bid-display-card,
+  .recent-bids-card {
+    padding: 12px;
+  }
+
+  .graph-header,
+  .rb-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .bid-display-amount {
+    font-size: 24px;
+  }
+
+  .rb-item {
+    padding: 8px 0;
+  }
+}

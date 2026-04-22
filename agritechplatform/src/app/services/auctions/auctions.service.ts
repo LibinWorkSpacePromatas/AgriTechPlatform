@@ -38,6 +38,7 @@ export interface AuctionItem {
   winner_id: string | null;
   final_price: number | null;
   highest_bid: number | null;
+  bid_count?: number | null;
   image_url: string | null;
 }
 

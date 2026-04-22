@@ -475,3 +475,151 @@
   .panel-left, .panel-right { position: static; max-height: none; }
   .timer-num { font-size: 38px; }
 }
+@media (max-width: 640px) {
+  .detail-topbar {
+    padding: 14px 16px 0;
+  }
+
+  .topbar-right {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .my-bid-badge {
+    max-width: 100%;
+    white-space: normal;
+    text-align: center;
+  }
+
+  .detail-grid {
+    padding: 10px 12px 0;
+    gap: 10px;
+  }
+
+  .lot-meta-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .timer-card,
+  .graph-card,
+  .bid-display-card,
+  .bid-input-card,
+  .ended-card,
+  .upcoming-card,
+  .recent-bids-card {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .timer-num {
+    font-size: 32px;
+    letter-spacing: -1px;
+  }
+
+  .timer-colon {
+    font-size: 30px;
+    padding-bottom: 6px;
+  }
+
+  .graph-header,
+  .rb-header {
+    gap: 8px;
+  }
+
+  .bid-amount-row,
+  .bid-quick-row {
+    flex-wrap: wrap;
+  }
+
+  .bid-adj-btn {
+    flex: 1 1 calc(50% - 4px);
+  }
+
+  .bid-amount-wrap {
+    flex: 1 1 100%;
+  }
+
+  .bid-quick-btn {
+    flex: 1 1 calc(50% - 3px);
+  }
+}
+@media (max-width: 480px) {
+  .detail-shell {
+    margin: -0.75rem;
+    padding-bottom: 20px;
+  }
+
+  .detail-topbar {
+    padding: 12px 12px 0;
+  }
+
+  .topbar-right {
+    justify-content: stretch;
+  }
+
+  .my-bid-badge {
+    width: 100%;
+    justify-content: center;
+    padding: 6px 10px;
+  }
+
+  .detail-grid {
+    padding: 8px 10px 0;
+    gap: 10px;
+  }
+
+  .lot-info {
+    padding: 12px;
+  }
+
+  .lot-title {
+    font-size: 16px;
+  }
+
+  .timer-card {
+    padding: 18px 12px 14px;
+  }
+
+  .timer-num {
+    font-size: 26px;
+  }
+
+  .timer-colon {
+    font-size: 24px;
+    padding-bottom: 4px;
+  }
+
+  .graph-card,
+  .bid-display-card,
+  .bid-input-card,
+  .ended-card,
+  .upcoming-card,
+  .recent-bids-card {
+    padding: 12px;
+  }
+
+  .graph-header,
+  .rb-header,
+  .bid-input-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .voice-icon-btn {
+    align-self: flex-end;
+  }
+
+  .bid-display-amount {
+    font-size: 24px;
+  }
+
+  .bid-adj-btn,
+  .bid-quick-btn {
+    flex-basis: 100%;
+  }
+
+  .rb-item {
+    padding: 8px 0;
+  }
+}
