@@ -77,8 +77,8 @@ class Settings(BaseSettings):
     decision_weather_temp_delta_c: float = Field(default=2.0, alias="DECISION_WEATHER_TEMP_DELTA_C")
     decision_weather_rain_forecast_trigger_mm: float = Field(default=5.0, alias="DECISION_WEATHER_RAIN_FORECAST_TRIGGER_MM")
 
-    openrouter_api_key: str | None = Field(default=None, alias="OPENROUTER_API_KEY")
-    openrouter_model: str = Field(default="google/gemini-2.0-flash-001", alias="OPENROUTER_MODEL")
+    openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
+    openai_model: str = Field(default="gpt-4o-mini", alias="OPENAI_MODEL")
     auction_account_encryption_key: str = Field(default="agritech-auction-local-key", alias="AUCTION_ACCOUNT_ENCRYPTION_KEY")
     cloudinary_cloud_name: str | None = Field(default=None, alias="CLOUDINARY_CLOUD_NAME")
     cloudinary_api_key: str | None = Field(default=None, alias="CLOUDINARY_API_KEY")

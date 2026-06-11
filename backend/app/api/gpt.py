@@ -71,7 +71,7 @@ def get_db():
 async def chat_with_grower_gpt(request: ChatRequest):
     """
     General chat endpoint for Grower GPT.
-    Proxies requests to OpenRouter LLM using the backend API key.
+    Proxies requests to OpenAI using the backend API key.
     """
     full_prompt = request.message
     if request.context:
@@ -102,7 +102,7 @@ async def get_gpt(block_id: str, db: Session = Depends(get_db)):
     """
     Main GPT endpoint for a single block.
     Matches PDF requirements for insights, data age, and confidence.
-    Now enhanced with natural language advice from OpenRouter LLM.
+    Now enhanced with natural language advice from OpenAI.
     """
     try:
         snapshot = satellite_access_service.get_block_snapshot(block_id)

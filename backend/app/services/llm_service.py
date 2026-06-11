@@ -33,26 +33,24 @@ class LLMUpstreamError(LLMServiceError):
 
 class LLMService:
     def __init__(self) -> None:
-        self.api_key = settings.openrouter_api_key
-        self.model = settings.openrouter_model
-        self.base_url = "https://openrouter.ai/api/v1/chat/completions"
+        self.api_key = settings.openai_api_key
+        self.model = settings.openai_model
+        self.base_url = "https://api.openai.com/v1/chat/completions"
 
     async def generate_response(self, prompt: str, system_prompt: str = "") -> str:
         """
-        Generates a response from OpenRouter LLM.
+        Generates a response from OpenAI Chat Completions API.
         """
         if httpx is None:
-            logger.warning("httpx is not installed. OpenRouter requests are disabled.")
+            logger.warning("httpx is not installed. OpenAI requests are disabled.")
             return "I'm sorry, but the AI insights client dependency is not installed on this backend yet."
 
         if not self.api_key:
-            logger.warning("OpenRouter API key not configured. Returning fallback message.")
+            logger.warning("OpenAI API key not configured. Returning fallback message.")
             return "I'm sorry, but my AI insights engine is currently not configured with an API key."
 
         headers = {
             "Authorization": f"Bearer {self.api_key}",
-            "HTTP-Referer": "http://localhost:4200", # Required by OpenRouter
-            "X-Title": "AgriTech Platform", # Optional by OpenRouter
             "Content-Type": "application/json"
         }
 
@@ -77,18 +75,18 @@ class LLMService:
                 if "choices" in data and len(data["choices"]) > 0:
                     return data["choices"][0]["message"]["content"]
                 else:
-                    logger.error(f"Unexpected OpenRouter response format: {data}")
+                    logger.error(f"Unexpected OpenAI response format: {data}")
                     return "Error generating AI response: Unexpected format."
 
         except Exception as e:
             if httpx is not None and isinstance(e, httpx.HTTPStatusError):
-                logger.error(f"OpenRouter HTTP error: {e.response.status_code} - {e.response.text}")
+                logger.error(f"OpenAI HTTP error: {e.response.status_code} - {e.response.text}")
                 if e.response.status_code == 429:
-                    raise LLMRateLimitError("OpenRouter rate limit reached.") from e
+                    raise LLMRateLimitError("OpenAI rate limit reached.") from e
                 if e.response.status_code in {401, 403}:
-                    raise LLMAuthenticationError("OpenRouter authentication failed.") from e
-                raise LLMUpstreamError(f"OpenRouter HTTP error: {e.response.status_code}") from e
-            logger.error(f"Error calling OpenRouter: {str(e)}")
+                    raise LLMAuthenticationError("OpenAI authentication failed.") from e
+                raise LLMUpstreamError(f"OpenAI HTTP error: {e.response.status_code}") from e
+            logger.error(f"Error calling OpenAI: {str(e)}")
             raise LLMUpstreamError("Error connecting to AI engine.") from e
 
 llm_service = LLMService()
